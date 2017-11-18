@@ -1,0 +1,55 @@
+{
+    "app-id": "com.endlessm.CompanionAppService",
+    "runtime": "com.endlessm.apps.Platform",
+    "runtime-version": "@RUNTIME_VERSION@",
+    "sdk": "com.endlessm.apps.Sdk",
+    "command": "eos-companion-app-service",
+    "finish-args": [
+        "--share=ipc",
+        "--system-talk-name=org.freedesktop.Avahi",
+        "--filesystem=xdg-run/dconf", "--filesystem=~/.config/dconf:ro",
+        "--talk-name=ca.desrt.dconf", "--env=DCONF_USER_CONFIG_DIR=.config/dconf",
+        "--share=network",
+        "--command=eos-companion-app-service"
+    ],
+    "build-options" : {
+        "cflags": "-O2 -g",
+        "cxxflags": "-O2 -g",
+        "env": {
+            "V": "1"
+        }
+    },
+    "modules": [
+        {
+            "name": "avahi",
+            "config-opts": [
+                "--with-distro=debian",
+                "--disable-qt3",
+                "--disable-qt4",
+                "--disable-gtk",
+                "--disable-mono",
+                "--disable-monodoc",
+                "--disable-doxygen-doc",
+                "--disable-doxygen-dot",
+                "--disable-doxygen-html",
+                "--disable-libdaemon",
+                "--disable-python-dbus"
+            ],
+            "sources": [
+                {
+                    "type": "archive",
+                    "url": "http://avahi.org/download/avahi-0.7.tar.gz",
+                    "sha256": "57a99b5dfe7fdae794e3d1ee7a62973a368e91e414bd0dfa5d84434de5b14804"
+                }
+            ]
+        },
+        {
+            "name": "eos-companion-app-service",
+            "sources": {
+                "type": "git",
+                "url": "@GIT_REPO_URL@",
+                "branch": "@BRANCH@"
+            }
+        }
+    ]
+}

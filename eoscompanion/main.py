@@ -20,7 +20,12 @@
 
 import sys
 
-from gi.repository import GLib, Gio
+import gi
+
+gi.require_version('Avahi', '0.6')
+gi.require_version('EosCompanionAppService', '1.0')
+
+from gi.repository import Avahi, EosCompanionAppService, GLib, Gio
 
 
 class CompanionAppApplication(Gio.Application):
@@ -51,6 +56,7 @@ class CompanionAppApplication(Gio.Application):
     def do_activate(self):
         '''Invoked when the application is activated.'''
         print('Activated')
+        return Gio.Application.do_activate(self)
 
 
 def main(args=None):

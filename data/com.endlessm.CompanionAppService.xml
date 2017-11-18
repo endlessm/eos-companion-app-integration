@@ -1,0 +1,4 @@
+<node>
+  <interface name="com.endlessm.CompanionApp.Service">
+  </interface>
+<node>
