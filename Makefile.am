@@ -43,6 +43,7 @@ bin_SCRIPTS += \
 # GDBus wrapper
 lib_LTLIBRARIES += \
 	libeoscompanion-dbus-1.la \
+	libeoscompanion-1.la \
 	$(NULL)
 
 # DBus-activation
@@ -63,6 +64,19 @@ libeoscompanion_dbus_1_la_CPPFLAGS = \
 	$(NULL)
 
 libeoscompanion_dbus_1_la_LIBADD = \
+	$(EOS_COMPANION_APP_LIBS) \
+	$(NULL)
+
+nodist_libeoscompanion_1_la_SOURCES = \
+	src/eos-companion-app-integration-helper.c \
+	src/eos-companion-app-integration-helper.h \
+	$(NULL)
+
+libeoscompanion_1_la_CPPFLAGS = \
+	$(EOS_COMPANION_APP_CFLAGS) \
+	$(NULL)
+
+libeoscompanion_1_la_LIBADD = \
 	$(EOS_COMPANION_APP_LIBS) \
 	$(NULL)
 
@@ -96,12 +110,15 @@ INTROSPECTION_SCANNER_ARGS = --add-include-path=$(srcdir) --warn-all
 INTROSPECTION_COMPILER_ARGS = --includedir=$(srcdir)
 
 if HAVE_INTROSPECTION
-introspection_sources = $(gdbus_generated)
+introspection_sources = \
+	$(gdbus_generated) \
+	$(nodist_libeoscompanion_1_la_SOURCES) \
+	$(NULL)
 
-EosCompanionAppService-1.0.gir: libeoscompanion-dbus-1.la
-EosCompanionAppService_1_0_gir_INCLUDES = GObject-2.0 Gio-2.0 GLib-2.0
+EosCompanionAppService-1.0.gir: libeoscompanion-dbus-1.la libeoscompanion-1.la
+EosCompanionAppService_1_0_gir_INCLUDES = Avahi-0.6 GObject-2.0 Gio-2.0 GLib-2.0
 EosCompanionAppService_1_0_gir_CFLAGS = $(INCLUDES)
-EosCompanionAppService_1_0_gir_LIBS = libeoscompanion-dbus-1.la
+EosCompanionAppService_1_0_gir_LIBS = libeoscompanion-dbus-1.la libeoscompanion-1.la
 EosCompanionAppService_1_0_gir_FILES = $(introspection_sources)
 INTROSPECTION_GIRS += EosCompanionAppService-1.0.gir
 

@@ -35,6 +35,7 @@ AC_SUBST([pythonminorversion])
 GLIB_GSETTINGS
 PKG_CHECK_MODULES([EOS_COMPANION_APP], [
   avahi-glib
+  avahi-gobject
   glib-2.0
   gio-2.0
   gio-unix-2.0
