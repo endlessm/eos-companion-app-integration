@@ -18,6 +18,8 @@
 # All rights reserved.
 '''Main executable entry point for eos-companion-app-service.'''
 
+import re
+
 import sys
 
 import gi
@@ -26,6 +28,18 @@ gi.require_version('Avahi', '0.6')
 gi.require_version('EosCompanionAppService', '1.0')
 
 from gi.repository import Avahi, EosCompanionAppService, GLib, Gio
+
+
+def revise_name(service_name):
+    '''Revise the service name into something that won't collide.'''
+    match = re.match('.*\((\d+)\)\s*$', service_name)
+
+    if match:
+        span = match.span(1)
+        num = int(service_name[span[0]:span[1]])
+        return service_name[:span[0]] + (num + 1) + service_name[span[1]:]
+
+    return '{name} (1)'.format(name=service_name)
 
 
 class AvahiEntryGroupWrapper(Avahi.EntryGroup):
@@ -48,6 +62,44 @@ class AvahiEntryGroupWrapper(Avahi.EntryGroup):
             self._attached = True
 
 
+# Avahi-GObject does not define this constant anywhere, so we have to
+# define ourselves
+AVAHI_ERROR_LOCAL_SERVICE_NAME_COLLISION = -8
+
+
+def register_services(group, service_name):
+    '''Attempt to register services under the :service_name:.
+
+    If that fails, revise the name and keep trying until it works, returning
+    the final service name in use.
+    '''
+    group.reset()
+    # See the documentation of this function, we cannot use
+    # group.add_service_full since that is not introspectable
+    #
+    # https://github.com/lathiat/avahi/issues/156
+    while True:
+        try:
+            EosCompanionAppService.add_avahi_service_to_entry_group(group,
+                                                                    service_name,
+                                                                    '_eoscompanion._tcp',
+                                                                    None,
+                                                                    None,
+                                                                    1110,
+                                                                    'sam=australia')
+            break
+        except Exception as error:
+            if error.matches(Avahi.error_quark(), AVAHI_ERROR_LOCAL_SERVICE_NAME_COLLISION):
+                service_name = revise_name(service_name)
+                print('Local name collision, changing name to "{}"'.format(service_name))
+                continue
+
+            raise error
+
+    group.commit()
+    return service_name
+
+
 class CompanionAppApplication(Gio.Application):
     '''Subclass of GApplication for controlling the companion app.'''
 
@@ -64,15 +116,23 @@ class CompanionAppApplication(Gio.Application):
         '''Handle group state changes.'''
         if state == Avahi.EntryGroupState.GA_ENTRY_GROUP_STATE_ESTABLISHED:
             print('Services established')
+        # This is a typo in the avahi-glib API, looks like we are stuck
+        # with it :(
+        #
+        # https://github.com/lathiat/avahi/issues/157
+        elif state == Avahi.EntryGroupState.GA_ENTRY_GROUP_STATE_COLLISTION:
+            self._service_name = register_services(self.group,
+                                                   revise_name(self._service_name))
+            print('Remote name collision, will try with name "{}"'.format(self._service_name))
         elif state == Avahi.EntryGroupState.GA_ENTRY_GROUP_STATE_FAILURE:
             print('Services failed to established')
 
     def on_server_state_changed(self, service, state):
         '''Handle state changes on the server side.'''
-        print('Server state changed to '.format(state))
         if state == Avahi.ClientState.GA_CLIENT_STATE_S_COLLISION:
-            print('Server collision, pick a different name')
-            self.group.reset()
+            self._service_name = register_services(self.group,
+                                                   revise_name(self._service_name))
+            print('Remote name collision, will try with name "{}"'.format(self._service_name))
         elif state == Avahi.ClientState.GA_CLIENT_STATE_S_RUNNING:
             print('Server running, registering services')
 
@@ -81,26 +141,12 @@ class CompanionAppApplication(Gio.Application):
             # multiple times so the wrapper class will silently prevent
             # attaching multiple times (which is an error)
             self.group.attach(self.client)
-
-            # See the documentation of this function, we cannot use
-            # group.add_service_full since that is not introspectable
-            #
-            # https://github.com/lathiat/avahi/issues/156
-            EosCompanionAppService.add_avahi_service_to_entry_group(self.group,
-                                                                    'EOSCompanionApp',
-                                                                    '_eoscompanion._tcp',
-                                                                    None,
-                                                                    None,
-                                                                    1110,
-                                                                    'sam=australia')
-            self.group.commit()
+            self._service_name = register_services(self.group,
+                                                   self._service_name)
 
     def do_startup(self):
         '''Just print a message.'''
         Gio.Application.do_startup(self)
-
-        # Stay in memory for a little while
-        self.hold()
 
         self.client = Avahi.Client()
         self.group = AvahiEntryGroupWrapper()
