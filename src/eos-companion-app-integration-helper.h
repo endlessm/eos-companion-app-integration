@@ -22,7 +22,28 @@
 #include <avahi-gobject/ga-client.h>
 #include <avahi-gobject/ga-entry-group.h>
 
+#include <libsoup/soup.h>
+
 G_BEGIN_DECLS
+
+/**
+ * EOS_COMPANION_APP_SERVICE_ERROR:
+ *
+ * Error doamin for EosCompanionAppService.
+ */
+#define EOS_COMPANION_APP_SERVICE_ERROR (eos_companion_app_service_error ())
+
+/**
+ * EosCompanionAppServiceError:
+ * @EOS_COMPANION_APP_SERVICE_ERROR_INVALID_REQUEST: Invalid request made to service
+ *
+ * Error codes for the %EOS_COMPANION_APP_SERVICE_ERROR error domain
+ */
+typedef enum {
+  EOS_COMPANION_APP_SERVICE_ERROR_INVALID_REQUEST
+} EosCompanionAppServiceError;
+
+GQuark eos_companion_app_service_error_quark (void);
 
 gboolean eos_companion_app_service_add_avahi_service_to_entry_group (GaEntryGroup  *group,
                                                                      const gchar   *name,
@@ -32,6 +53,14 @@ gboolean eos_companion_app_service_add_avahi_service_to_entry_group (GaEntryGrou
                                                                      guint          port,
                                                                      const gchar   *text,
                                                                      GError       **error);
+
+void eos_companion_app_service_set_soup_message_response (SoupMessage *message,
+                                                          const gchar *content_type,
+                                                          const gchar *response);
+
+void eos_companion_app_service_set_soup_message_request (SoupMessage *message,
+                                                         const gchar *content_type,
+                                                         const gchar *response);
 
 G_END_DECLS
 

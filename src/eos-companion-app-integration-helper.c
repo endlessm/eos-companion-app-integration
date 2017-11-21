@@ -17,6 +17,8 @@
 
 #include "eos-companion-app-integration-helper.h"
 
+#include <string.h>
+
 /**
  * eos_companion_app_service_add_avahi_service_to_entry_group:
  * @group: An #GaEntryGroup
@@ -69,4 +71,48 @@ eos_companion_app_service_add_avahi_service_to_entry_group (GaEntryGroup  *group
 
   return service != NULL;
 }
+
+/**
+ * eos_companion_app_service_set_soup_message_response:
+ * @message: An #SoupMessage.
+ * @content_type: The MIME content type.
+ * @response: The response body.
+ *
+ * We need this wrapper method because soup_message_set_response only
+ * takes a byte buffer
+ */
+void
+eos_companion_app_service_set_soup_message_response (SoupMessage  *message,
+                                                     const gchar  *content_type,
+                                                     const gchar  *response)
+{
+  soup_message_set_response (message,
+                             content_type,
+                             SOUP_MEMORY_COPY,
+                             response,
+                             strlen (response));
+}
+
+/**
+ * eos_companion_app_service_set_soup_message_request:
+ * @message: An #SoupMessage.
+ * @content_type: The MIME content type.
+ * @request: The request body.
+ *
+ * We need this wrapper method because soup_message_set_request only
+ * takes a byte buffer
+ */
+void
+eos_companion_app_service_set_soup_message_request (SoupMessage  *message,
+                                                    const gchar  *content_type,
+                                                    const gchar  *request)
+{
+  soup_message_set_response (message,
+                             content_type,
+                             SOUP_MEMORY_COPY,
+                             request,
+                             strlen (request));
+}
+
+G_DEFINE_QUARK (eos-companion-app-service-error-quark, eos_companion_app_service_error)
 

@@ -18,6 +18,8 @@
 # All rights reserved.
 '''Main executable entry point for eos-companion-app-service.'''
 
+import json
+
 import re
 
 import sys
@@ -27,7 +29,80 @@ import gi
 gi.require_version('Avahi', '0.6')
 gi.require_version('EosCompanionAppService', '1.0')
 
-from gi.repository import Avahi, EosCompanionAppService, GLib, Gio
+from gi.repository import Avahi, EosCompanionAppService, GLib, Gio, Soup
+
+
+
+def json_response(msg, obj):
+    '''Respond with a JSON object'''
+    msg.set_status(Soup.Status.OK)
+    EosCompanionAppService.set_soup_message_response(msg,
+                                                     'application/json',
+                                                     json.dumps(obj))
+
+
+def html_response(msg, html):
+    '''Respond with an HTML body.'''
+    msg.set_status(Soup.Status.OK)
+    EosCompanionAppService.set_soup_message_response(msg,
+                                                     'text/html',
+                                                     html)
+
+def require_header(header):
+    '''Require a header to be defined on the incoming message or raise.'''
+    def decorator(handler):
+        def middleware(server, msg, path, query, client):
+            if not msg.request_headers.get_one(header):
+                return json_response(msg, {
+                    'status': 'error',
+                    'error': {
+                        'domain': GLib.quark_to_string(EosCompanionAppService.error_quark()),
+                        'code': EosCompanionAppService.Error.ERROR_INVALID_REQUEST,
+                        'detail': {
+                            'missing_header': header
+                        }
+                    }
+                })
+
+            return handler(server, msg, path, query, client)
+        return middleware
+    return decorator
+
+
+def companion_app_server_root_route(_, msg, *args):
+    '''Not a documented route, just show the user somewhere more useful.'''
+    del args
+
+    html = '''
+    <html>
+        <body>
+            <h1>Endless OS Companion App</h1>
+            <p>This is the web-server for the Endless OS Companion App - connect
+               to this computer on your Android device</p>
+        </body>
+    </html>
+    '''
+    html_response(msg, html)
+
+
+@require_header('X-Endless-CompanionApp-UUID')
+def companion_app_server_device_authenticate_route(_, msg, *args):
+    '''Authorize the client.'''
+    print('Would authorize client with id {id}'.format(
+        id=msg.request_headers.get_one('X-Endless-CompanionApp-UUID'))
+    )
+    json_response(msg, {
+        'status': 'ok',
+        'error': None
+    })
+
+
+def create_companion_app_webserver(port):
+    '''Create a HTTP server running on port.'''
+    server = Soup.Server()
+    server.add_handler('/', companion_app_server_root_route)
+    server.add_handler('/device_authenticate', companion_app_server_device_authenticate_route)
+    return server
 
 
 def revise_name(service_name):
@@ -116,6 +191,8 @@ class CompanionAppApplication(Gio.Application):
         '''Handle group state changes.'''
         if state == Avahi.EntryGroupState.GA_ENTRY_GROUP_STATE_ESTABLISHED:
             print('Services established')
+            self.server = create_companion_app_webserver(1110)
+            self.server.listen_local(1110, 0)
         # This is a typo in the avahi-glib API, looks like we are stuck
         # with it :(
         #

@@ -39,6 +39,7 @@ PKG_CHECK_MODULES([EOS_COMPANION_APP], [
   glib-2.0
   gio-2.0
   gio-unix-2.0
+  libsoup-2.4
 ])
 
 AC_CONFIG_FILES([
