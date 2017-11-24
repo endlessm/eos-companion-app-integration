@@ -45,11 +45,13 @@
         },
         {
             "name": "eos-companion-app-service",
-            "sources": {
-                "type": "git",
-                "url": "@GIT_REPO_URL@",
-                "branch": "@BRANCH@"
-            }
+            "sources": [
+                {
+                    "type": "git",
+                    "url": "@GIT_REPO_URL@",
+                    "branch": "@BRANCH@"
+                }
+            ]
         }
     ]
 }
