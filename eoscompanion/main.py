@@ -19,11 +19,8 @@
 '''Main executable entry point for eos-companion-app-service.'''
 
 import json
-
 import re
-
 import sys
-
 import gi
 
 gi.require_version('Avahi', '0.6')
