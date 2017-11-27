@@ -26,7 +26,7 @@ import gi
 gi.require_version('Avahi', '0.6')
 gi.require_version('EosCompanionAppService', '1.0')
 
-from gi.repository import Avahi, EosCompanionAppService, GLib, Gio, Soup
+from gi.repository import Avahi, EosCompanionAppService, Gio, GLib, GObject, Soup
 
 
 
@@ -94,8 +94,8 @@ def companion_app_server_device_authenticate_route(_, msg, *args):
     })
 
 
-def create_companion_app_webserver(port):
-    '''Create a HTTP server running on port.'''
+def create_companion_app_webserver():
+    '''Create a HTTP server with companion app routes.'''
     server = Soup.Server()
     server.add_handler('/', companion_app_server_root_route)
     server.add_handler('/device_authenticate', companion_app_server_device_authenticate_route)
@@ -109,7 +109,7 @@ def revise_name(service_name):
     if match:
         span = match.span(1)
         num = int(service_name[span[0]:span[1]])
-        return service_name[:span[0]] + (num + 1) + service_name[span[1]:]
+        return service_name[:span[0]] + str(num + 1) + service_name[span[1]:]
 
     return '{name} (1)'.format(name=service_name)
 
@@ -139,7 +139,7 @@ class AvahiEntryGroupWrapper(Avahi.EntryGroup):
 AVAHI_ERROR_LOCAL_SERVICE_NAME_COLLISION = -8
 
 
-def register_services(group, service_name):
+def register_services(group, service_name, port):
     '''Attempt to register services under the :service_name:.
 
     If that fails, revise the name and keep trying until it works, returning
@@ -157,7 +157,7 @@ def register_services(group, service_name):
                                                                     '_eoscompanion._tcp',
                                                                     None,
                                                                     None,
-                                                                    1110,
+                                                                    port,
                                                                     'sam=australia')
             break
         except Exception as error:
@@ -172,41 +172,77 @@ def register_services(group, service_name):
     return service_name
 
 
-class CompanionAppApplication(Gio.Application):
-    '''Subclass of GApplication for controlling the companion app.'''
+class CompanionAppService(GObject.Object):
+    '''A container object for the services.'''
 
-    def __init__(self, *args, **kwargs):
-        '''Initialize the application class.'''
-        self._service_name = 'EOSCompanionAppService'
-        kwargs.update({
-            'application_id': 'com.endlessm.CompanionAppService',
-            'flags': Gio.Application.IS_SERVICE
-        })
-        super(CompanionAppApplication, self).__init__(*args, **kwargs)
+    def __init__(self, service_name, port, *args, **kwargs):
+        '''Initialize the service, attach to Avahi.'''
+        super().__init__(*args, **kwargs)
+
+        self._service_name = service_name
+        self._port = port
+        self._client = Avahi.Client()
+        self._group = AvahiEntryGroupWrapper()
+
+        # Tricky - the state-changed signal only gets fired once, and only
+        # once we call client.start(). However, we can only initialise
+        # self._group once the client has actually started, so we need to
+        # do that there are not here
+        self._client.connect('state-changed', self.on_server_state_changed)
+        self._client.start()
+
+        self._group.connect('state-changed', self.on_entry_group_state_changed)
+
+        # Create the server now, even if we don't start listening yet
+        self._server = create_companion_app_webserver()
+
+    def stop(self):
+        '''Close all connections and de-initialise.
+
+        The object is useless after this point.
+        '''
+        self._server.disconnect()
+
+    @GObject.Signal(name='services-established')
+    def signal_services_established(self):
+        '''Default handler for services-established.'''
+        print('Services established under name "{}"'.format(self._service_name), file=sys.stderr)
+
+    @GObject.Signal(name='remote-name-collision')
+    def signal_remote_name_collision(self):
+        '''Default handler for services-established.'''
+        print('Remote name collision, will try with name "{}"'.format(self._service_name), file=sys.stderr)
+
+    @GObject.Signal(name='services-establish-fail')
+    def signal_remote_name_collision(self):
+        '''Default handler for remote-name-collision.'''
+        print('Services failed to established', file=sys.stderr)
 
     def on_entry_group_state_changed(self, entry_group, state):
         '''Handle group state changes.'''
         if state == Avahi.EntryGroupState.GA_ENTRY_GROUP_STATE_ESTABLISHED:
-            print('Services established')
-            self.server = create_companion_app_webserver(1110)
-            self.server.listen_local(1110, 0)
+            self._server.listen_local(self._port, 0)
+
+            self.emit('services-established')
         # This is a typo in the avahi-glib API, looks like we are stuck
         # with it :(
         #
         # https://github.com/lathiat/avahi/issues/157
         elif state == Avahi.EntryGroupState.GA_ENTRY_GROUP_STATE_COLLISTION:
-            self._service_name = register_services(self.group,
-                                                   revise_name(self._service_name))
-            print('Remote name collision, will try with name "{}"'.format(self._service_name))
+            self._service_name = register_services(self._group,
+                                                   revise_name(self._service_name),
+                                                   self._port)
+            self.emit('remote-name-collision')
         elif state == Avahi.EntryGroupState.GA_ENTRY_GROUP_STATE_FAILURE:
-            print('Services failed to established')
+            self.emit('services-establish-fail')
 
     def on_server_state_changed(self, service, state):
         '''Handle state changes on the server side.'''
         if state == Avahi.ClientState.GA_CLIENT_STATE_S_COLLISION:
-            self._service_name = register_services(self.group,
-                                                   revise_name(self._service_name))
-            print('Remote name collision, will try with name "{}"'.format(self._service_name))
+            self._service_name = register_services(self._group,
+                                                   revise_name(self._service_name),
+                                                   self._port)
+            self.emit('remote-name-collision')
         elif state == Avahi.ClientState.GA_CLIENT_STATE_S_RUNNING:
             print('Server running, registering services')
 
@@ -214,25 +250,28 @@ class CompanionAppApplication(Gio.Application):
             # has actualy been set up. However, we can get to this point
             # multiple times so the wrapper class will silently prevent
             # attaching multiple times (which is an error)
-            self.group.attach(self.client)
-            self._service_name = register_services(self.group,
-                                                   self._service_name)
+            self._group.attach(self._client)
+
+            self._service_name = register_services(self._group,
+                                                   self._service_name,
+                                                   self._port)
+
+class CompanionAppApplication(Gio.Application):
+    '''Subclass of GApplication for controlling the companion app.'''
+
+    def __init__(self, *args, **kwargs):
+        '''Initialize the application class.'''
+        kwargs.update({
+            'application_id': 'com.endlessm.CompanionAppService',
+            'flags': Gio.ApplicationFlags.IS_SERVICE
+        })
+        super(CompanionAppApplication, self).__init__(*args, **kwargs)
 
     def do_startup(self):
         '''Just print a message.'''
         Gio.Application.do_startup(self)
 
-        self.client = Avahi.Client()
-        self.group = AvahiEntryGroupWrapper()
-
-        # Tricky - the state-changed signal only gets fired once, and only
-        # once we call client.start(). However, we can only initialise
-        # self.group once the client has actually started, so we need to
-        # do that there are not here
-        self.client.connect('state-changed', self.on_server_state_changed)
-        self.client.start()
-
-        self.group.connect('state-changed', self.on_entry_group_state_changed)
+        self._service = CompanionAppService('EOSCompanionAppService', 1110)
 
     def do_dbus_register(self, connection, path):
         '''Invoked when we get a D-Bus connection.'''
