@@ -107,11 +107,11 @@ eos_companion_app_service_set_soup_message_request (SoupMessage  *message,
                                                     const gchar  *content_type,
                                                     const gchar  *request)
 {
-  soup_message_set_response (message,
-                             content_type,
-                             SOUP_MEMORY_COPY,
-                             request,
-                             strlen (request));
+  soup_message_set_request (message,
+                            content_type,
+                            SOUP_MEMORY_COPY,
+                            request,
+                            strlen (request));
 }
 
 G_DEFINE_QUARK (eos-companion-app-service-error-quark, eos_companion_app_service_error)

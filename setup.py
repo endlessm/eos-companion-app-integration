@@ -43,6 +43,7 @@ setup(name='eoscompanion',
       keywords='development',
       packages=find_packages(exclude=['test']),
       install_requires=['setuptools'],
+      test_suite='test',
       entry_points={
           'console_scripts': [
               'eos-companion-app-service=eoscompanion.main:main',
