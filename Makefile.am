@@ -26,6 +26,10 @@ girdir = $(datadir)/gir-1.0
 gir_DATA = 
 typelibdir = $(libdir)/girepository-1.0
 typelib_DATA =
+systemdsystemunitdir = $(libdir)/systemd/system
+systemdsystemunit_DATA = 
+systemdsystemsocketdir = $(libdir)/systemd/system
+systemdsystemsocket_DATA = 
 
 CLEANFILES = 
 
@@ -49,6 +53,14 @@ lib_LTLIBRARIES += \
 # DBus-activation
 dbusservice_DATA += \
 	data/com.endlessm.CompanionAppService.service
+
+# systemd service
+systemdsystemunit_DATA += \
+	data/eos-companion-app.service
+
+# systemd socket activation
+systemdsystemsocket_DATA += \
+	data/eos-companion-app.socket
 
 gdbus_generated = \
 	eos-companion-app-service-dbus.c \

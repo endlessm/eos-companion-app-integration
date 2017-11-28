@@ -60,7 +60,12 @@ void eos_companion_app_service_set_soup_message_response (SoupMessage *message,
 
 void eos_companion_app_service_set_soup_message_request (SoupMessage *message,
                                                          const gchar *content_type,
-                                                         const gchar *response);
+                                                         const gchar *request);
+
+gboolean eos_companion_app_service_soup_server_listen_on_sd_fd_or_port (SoupServer               *server,
+                                                                        guint                     port,
+                                                                        SoupServerListenOptions   options,
+                                                                        GError                  **error);
 
 G_END_DECLS
 

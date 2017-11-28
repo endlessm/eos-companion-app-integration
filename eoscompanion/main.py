@@ -221,7 +221,9 @@ class CompanionAppService(GObject.Object):
     def on_entry_group_state_changed(self, entry_group, state):
         '''Handle group state changes.'''
         if state == Avahi.EntryGroupState.GA_ENTRY_GROUP_STATE_ESTABLISHED:
-            self._server.listen_local(self._port, 0)
+            EosCompanionAppService.soup_server_listen_on_sd_fd_or_port(self._server,
+                                                                       self._port,
+                                                                       0)
 
             self.emit('services-established')
         # This is a typo in the avahi-glib API, looks like we are stuck

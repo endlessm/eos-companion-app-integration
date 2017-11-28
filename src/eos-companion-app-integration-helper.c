@@ -19,6 +19,11 @@
 
 #include <string.h>
 
+/* To avoid having to include systemd in the runtime, we can just
+ * listen for socket activation file descriptors starting from
+ * what systemed wants to pass to us, which is fd 3 */
+#define SYSTEMD_SOCKET_ACTIVATION_LISTEN_FDS_START 3
+
 /**
  * eos_companion_app_service_add_avahi_service_to_entry_group:
  * @group: An #GaEntryGroup
@@ -112,6 +117,45 @@ eos_companion_app_service_set_soup_message_request (SoupMessage  *message,
                             SOUP_MEMORY_COPY,
                             request,
                             strlen (request));
+}
+
+/**
+ * eos_companion_app_service_soup_server_listen_on_sd_fd_or_port:
+ * @server: A #SoupServer.
+ * @port: A port to listen on if an fd is not passed.
+ * @options: #SoupServerListenOptions
+ * @error: A #GError
+ *
+ * Start listening on either the file descriptor passed to us by systemd
+ * or on a pre-defined port number.
+ *
+ * Returns: TRUE if the operation succeeded, FALSE with @error set on failure.
+ */
+gboolean
+eos_companion_app_service_soup_server_listen_on_sd_fd_or_port (SoupServer               *server,
+                                                               guint                     port,
+                                                               SoupServerListenOptions   options,
+                                                               GError                  **error)
+{
+  g_autoptr(GError) local_error = NULL;
+
+  if (!soup_server_listen_fd (server,
+                              SYSTEMD_SOCKET_ACTIVATION_LISTEN_FDS_START,
+                              options,
+                              &local_error))
+    {
+      /* We just get a generic failure if we try and listen on a bad socket,
+       * so try to listen on the port instead if this happens */
+      if (!g_error_matches (local_error, G_IO_ERROR, G_IO_ERROR_FAILED))
+        {
+          g_propagate_error (error, g_steal_pointer (&local_error));
+          return FALSE;
+        }
+
+      return soup_server_listen_all (server, port, options, error);
+    }
+
+  return TRUE;
 }
 
 G_DEFINE_QUARK (eos-companion-app-service-error-quark, eos_companion_app_service_error)
