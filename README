@@ -1,0 +1,25 @@
+# eos-companion-app-integration
+
+This repository hosts the OS integration side of the Endless OS Companion App.
+
+If you're looking for the Android App itself, you can find it at
+https://github.com/endlessm/android-companion-app
+
+## Building
+
+`eos-companion-app-integration` requires Avahi 0.7 (for GObject-Introspection
+bindings to avahi-glib) which is not available in Endless OS. You can get
+Avahi 0.7 from http://avahi.org/download/avahi-0.7.tar.gz and configure it
+with `./autogen.sh --disable-qt3 --disable-qt4 --disable-pygobject --disable-mono`.
+
+Afterwards, this project is setup in such a way that you should just be able
+to use the standard autotools process of
+`./autogen.sh --prefix=YOURPREFIX; make; sudo make install`.
+
+## Running
+
+You can start the services with `eos-companion-app-service` which will
+automatically register an Avahi service under the name `EOSCompanionAppService`
+(or a variant if that name would collide with another local or remote name). It
+will also register the `com.endlessm.CompanionAppService` name on the
+D-Bus session bus which exports `com.endlessm.CompanionAppService.Service`.

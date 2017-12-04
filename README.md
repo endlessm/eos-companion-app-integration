@@ -1,1 +1,0 @@
-# eos-companion-app-integration
