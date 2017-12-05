@@ -1,7 +1,7 @@
 {
     "app-id": "com.endlessm.CompanionAppService",
     "runtime": "com.endlessm.apps.Platform",
-    "runtime-version": "@RUNTIME_VERSION@",
+    "runtime-version": "master",
     "sdk": "com.endlessm.apps.Sdk",
     "command": "eos-companion-app-service",
     "finish-args": [
