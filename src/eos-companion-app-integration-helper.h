@@ -24,6 +24,8 @@
 
 #include <libsoup/soup.h>
 
+#include "eos-companion-app-integration-app-info.h"
+
 G_BEGIN_DECLS
 
 /**
@@ -72,6 +74,38 @@ gboolean eos_companion_app_service_soup_server_listen_on_sd_fd_or_port (SoupServ
                                                                         guint                     port,
                                                                         SoupServerListenOptions   options,
                                                                         GError                  **error);
+
+/**
+ * eos_companion_app_service_list_application_infos:
+ * @cancellable: A #GCancellable
+ * @callback: A #GAsyncReadyCallback
+ *
+ * Asynchronously query for all available content applications installed
+ * on the system, by examining all search providers and pulling information
+ * out of desktop files.
+ */
+void eos_companion_app_service_list_application_infos (GCancellable        *cancellable,
+                                                       GAsyncReadyCallback  callback,
+                                                       gpointer             user_data);
+
+/**
+ * eos_companion_app_service_finish_list_application_infos:
+ * @result: A #GAsyncResult
+ * @error: A #GErrror
+ *
+ * Complete the call to eos_companion_app_service_list_application_infos by returning
+ * a pointer array of #EosCompanionAppServiceAppInfo.
+ *
+ * XXX: For some very strange reason, transferring the container to PyGI causes
+ * it to immediately crash since it tries to unref the container straight away,
+ * even though g_task_propagate_pointer is meant to be transfer full. Leak it
+ * for now.
+ *
+ * Returns: (transfer none) (element-type GDesktopAppInfo): a #GPtrArray
+            of #GDesktopAppInfo
+ */
+GPtrArray * eos_companion_app_service_finish_list_application_infos (GAsyncResult  *result,
+                                                                     GError       **error);
 
 G_END_DECLS
 
