@@ -23,3 +23,8 @@ automatically register an Avahi service under the name `EOSCompanionAppService`
 (or a variant if that name would collide with another local or remote name). It
 will also register the `com.endlessm.CompanionAppService` name on the
 D-Bus session bus which exports `com.endlessm.CompanionAppService.Service`.
+
+## WARNING
+
+This repo contains a GitHub API key in com.endlessm.CompanionAppService.json.in,
+it should be removed before the repository is made public!!

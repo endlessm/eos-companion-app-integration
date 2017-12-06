@@ -48,7 +48,7 @@
             "sources": [
                 {
                     "type": "git",
-                    "url": "@GIT_REPO_URL@",
+                    "url": "https://c5a7fd3e12c1d7b20bbff48a541d36f92d1e5a2d@github.com/endlessm/eos-companion-app-integration",
                     "branch": "@BRANCH@"
                 }
             ]
