@@ -1,13 +1,16 @@
 #!/bin/bash
+set -e
 set -x
 rm -rf files var metadata export build
 
 BRANCH=${BRANCH:-master}
-GIT_REPO_URL=${GIT_REPO_URL:-${PWD}}
+GIT_BRANCH=${GIT_BRANCH:-HEAD}
 
 sed \
+  -e "s|@BRANCH@|${BRANCH}|g" \
+  -e "s|@GIT_BRANCH@|${GIT_BRANCH}|g" \
   com.endlessm.CompanionAppService.json.in \
-  -e "s|@BRANCH@|${BRANCH}|g;s|@GIT_REPO_URL@|${GIT_REPO_URL}|g" > com.endlessm.CompanionAppService.json
+  > com.endlessm.CompanionAppService.json
 
 flatpak-builder build com.endlessm.CompanionAppService.json
 flatpak build-export repo build ${BRANCH}
