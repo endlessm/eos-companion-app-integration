@@ -56,18 +56,19 @@ def html_response(msg, html):
                                                      'text/html',
                                                      html)
 
-def require_header(header):
+def require_query_string_param(param):
     '''Require a header to be defined on the incoming message or raise.'''
     def decorator(handler):
         def middleware(server, msg, path, query, client):
-            if not msg.request_headers.get_one(header):
+            rectified_query = query or {}
+            if not rectified_query.get(param, None):
                 return json_response(msg, {
                     'status': 'error',
                     'error': serialize_error_as_json_object(
                         EosCompanionAppService.error_quark(),
                         EosCompanionAppService.Error.INVALID_REQUEST,
                         detail={
-                            'missing_header': header
+                            'missing_querystring_param': param
                         }
                     )
                 })
@@ -93,7 +94,7 @@ def companion_app_server_root_route(_, msg, *args):
     html_response(msg, html)
 
 
-@require_header('X-Endless-CompanionApp-UUID')
+@require_query_string_param('deviceUUID')
 def companion_app_server_device_authenticate_route(_, msg, *args):
     '''Authorize the client.'''
     print('Would authorize client with id {id}'.format(
