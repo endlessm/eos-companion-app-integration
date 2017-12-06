@@ -115,11 +115,36 @@ def companion_app_server_device_authenticate_route(_, msg, *args):
     })
 
 
+@require_query_string_param('deviceUUID')
+def companion_app_server_list_applications_route(server, msg, path, query, *args):
+    '''List all applications that are available on the system.'''
+    def _callback(src, result):
+        '''Callback function that gets called when we are done.'''
+        infos = EosCompanionAppService.finish_list_application_infos(result)
+        json_response(msg, {
+            'status': 'ok',
+            'payload': [
+                {
+                    'applicationId': a.get_property('app-id'),
+                    'displayName': a.get_property('display-name'),
+                    'icon': None,
+                    'language': a.get_property('app-id').split('.')[-1]
+                }
+                for a in infos
+            ]
+        })
+        server.unpause_message(msg)
+
+    EosCompanionAppService.list_application_infos(None, _callback)
+    server.pause_message(msg)
+
+
 def create_companion_app_webserver():
     '''Create a HTTP server with companion app routes.'''
     server = Soup.Server()
     server.add_handler('/', companion_app_server_root_route)
     server.add_handler('/device_authenticate', companion_app_server_device_authenticate_route)
+    server.add_handler('/list_applications', companion_app_server_list_applications_route)
     return server
 
 
