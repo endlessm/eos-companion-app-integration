@@ -29,6 +29,14 @@ gi.require_version('EosCompanionAppService', '1.0')
 from gi.repository import Avahi, EosCompanionAppService, Gio, GLib, GObject, Soup
 
 
+def serialize_error_as_json_object(domain, code, detail={}):
+    '''Serialize a GLib.Error as a JSON object.'''
+    return {
+        'domain': GLib.quark_to_string(domain),
+        'code': code.value_name,
+        'detail': detail
+    }
+
 
 def json_response(msg, obj):
     '''Respond with a JSON object'''
@@ -52,13 +60,13 @@ def require_header(header):
             if not msg.request_headers.get_one(header):
                 return json_response(msg, {
                     'status': 'error',
-                    'error': {
-                        'domain': GLib.quark_to_string(EosCompanionAppService.error_quark()),
-                        'code': EosCompanionAppService.Error.INVALID_REQUEST,
-                        'detail': {
+                    'error': serialize_error_as_json_object(
+                        EosCompanionAppService.error_quark(),
+                        EosCompanionAppService.Error.INVALID_REQUEST,
+                        detail={
                             'missing_header': header
                         }
-                    }
+                    )
                 })
 
             return handler(server, msg, path, query, client)
