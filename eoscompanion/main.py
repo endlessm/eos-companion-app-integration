@@ -168,13 +168,13 @@ def companion_app_server_application_icon_route(server, msg, path, query, *args)
        except GLib.Error as error:
            json_response(msg, {
                'status': 'error',
-               'error': {
-                   'domain': GLib.quark_to_string(EosCompanionAppService.error_quark()),
-                   'code': EosCompanionAppService.Error.FAILED,
-                   'detail': {
+               'error': serialize_error_as_json_object(
+                   EosCompanionAppService.error_quark(),
+                   EosCompanionAppService.Error.FAILED,
+                   detail={
                        'server_error': str(error)
                    }
-               }
+               )
            })
        server.unpause_message(msg)
 
@@ -187,6 +187,49 @@ def companion_app_server_application_icon_route(server, msg, path, query, *args)
     server.pause_message(msg)
 
 
+@require_query_string_param('deviceUUID')
+@require_query_string_param('applicationId')
+def companion_app_server_list_application_content_route(server, msg, path, query, *args):
+    '''Return json listing of all application content that is "visible".'''
+    def _callback(src, result):
+       '''Callback function that gets called when we are done.'''
+       try:
+           query_results = engine.query_finish(result)
+           models = query_results.get_models()
+
+           json_response(msg, {
+               'status': 'ok',
+               'payload': [
+                   {
+                       'displayName': a.get_property('title'),
+                       'contentType': a.get_property('content-type'),
+                       'thumbnail': None,
+                       'id': a.get_property('ekn-id'),
+                       'tags': a.get_property('tags').unpack()
+                   }
+                   for a in models
+               ]
+           })
+       except GLib.Error as error:
+           json_response(msg, {
+               'status': 'error',
+               'error': serialize_error_as_json_object(
+                   EosCompanionAppService.error_quark(),
+                   EosCompanionAppService.Error.FAILED,
+                   detail={
+                       'server_error': str(error)
+                   }
+               )
+           })
+       server.unpause_message(msg)
+
+    app_id = query['applicationId']
+    engine = Eknc.Engine.get_default()
+
+    engine.query(Eknc.QueryObject(app_id=app_id, limit=500), None, _callback)
+    server.pause_message(msg)
+
+
 def create_companion_app_webserver():
     '''Create a HTTP server with companion app routes.'''
     server = Soup.Server()
@@ -194,6 +237,7 @@ def create_companion_app_webserver():
     server.add_handler('/device_authenticate', companion_app_server_device_authenticate_route)
     server.add_handler('/list_applications', companion_app_server_list_applications_route)
     server.add_handler('/application_icon', companion_app_server_application_icon_route)
+    server.add_handler('/list_application_content', companion_app_server_list_application_content_route)
     return server
 
 
