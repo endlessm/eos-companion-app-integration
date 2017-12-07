@@ -65,6 +65,9 @@ gboolean eos_companion_app_service_add_avahi_service_to_entry_group (GaEntryGrou
 void eos_companion_app_service_set_soup_message_response (SoupMessage *message,
                                                           const gchar *content_type,
                                                           const gchar *response);
+void eos_companion_app_service_set_soup_message_response_bytes (SoupMessage *message,
+                                                                const gchar *content_type,
+                                                                GBytes      *bytes);
 
 void eos_companion_app_service_set_soup_message_request (SoupMessage *message,
                                                          const gchar *content_type,
@@ -106,6 +109,33 @@ void eos_companion_app_service_list_application_infos (GCancellable        *canc
  */
 GPtrArray * eos_companion_app_service_finish_list_application_infos (GAsyncResult  *result,
                                                                      GError       **error);
+
+
+/**
+ * eos_companion_app_service_load_application_icon_data_from_data_dirs:
+ * @cancellable: A #GCancellable
+ * @callback: A #GAsyncReadyCallback
+ *
+ * Asynchronously load icon data for the given icon name and pass it as a
+ * #GBytes to the provided @callback.
+ */
+void eos_companion_app_service_load_application_icon_data_from_data_dirs (const gchar         *icon_name,
+                                                                          GCancellable        *cancellable,
+                                                                          GAsyncReadyCallback  callback,
+                                                                          gpointer             user_data);
+
+/**
+ * eos_companion_app_service_finish_load_application_icon_data_from_data_dirs:
+ * @result: A #GAsyncResult
+ * @error: A #GErrror
+ *
+ * Complete the call to eos_companion_app_service_load_application_icon_data_from_data_dirs by returning
+ * a #GBytes with PNG icon data.
+ *
+ * Returns: (transfer none): a #GBytes containing PNG data
+ */
+GBytes * eos_companion_app_service_finish_load_application_icon_data_from_data_dirs (GAsyncResult  *result,
+                                                                                     GError       **error);
 
 G_END_DECLS
 
