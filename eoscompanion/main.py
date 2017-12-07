@@ -25,10 +25,19 @@ import urllib.parse
 import gi
 
 gi.require_version('Avahi', '0.6')
+gi.require_version('EosKnowledgeContent', '0')
 gi.require_version('EosCompanionAppService', '1.0')
 gi.require_version('EosKnowledgeContent', '0')
 
-from gi.repository import Avahi, EosCompanionAppService, Gio, GLib, GObject, Soup
+from gi.repository import (
+    Avahi,
+    EosCompanionAppService,
+    EosKnowledgeContent as Eknc,
+    Gio,
+    GLib,
+    GObject,
+    Soup
+)
 
 
 def serialize_error_as_json_object(domain, code, detail={}):
