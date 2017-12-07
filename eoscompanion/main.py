@@ -421,16 +421,38 @@ def companion_app_server_content_metadata_route(server, msg, path, query, *args)
     })
 
 
-def create_companion_app_webserver():
+def application_hold_middleware(application, handler):
+    '''Middleware function to put a hold on the application.
+
+    This ensures that the application does not go away whilst we're handling
+    HTTP traffic.
+    '''
+    def _handler(server, msg, *args, **kwargs):
+        '''Middleware function.'''
+        application.hold()
+        msg.connect('finished', lambda _: application.release())
+        return handler(server, msg, *args, **kwargs)
+
+    return _handler
+
+
+COMPANION_APP_ROUTES = {
+    '/': companion_app_server_root_route,
+    '/device_authenticate': companion_app_server_device_authenticate_route,
+    '/list_applications': companion_app_server_list_applications_route,
+    '/application_icon': companion_app_server_application_icon_route,
+    '/list_application_content': companion_app_server_list_application_content_route,
+    '/content_data': companion_app_server_content_data_route,
+    '/content_metadata': companion_app_server_content_metadata_route
+}
+
+def create_companion_app_webserver(application):
     '''Create a HTTP server with companion app routes.'''
     server = Soup.Server()
-    server.add_handler('/', companion_app_server_root_route)
-    server.add_handler('/device_authenticate', companion_app_server_device_authenticate_route)
-    server.add_handler('/list_applications', companion_app_server_list_applications_route)
-    server.add_handler('/application_icon', companion_app_server_application_icon_route)
-    server.add_handler('/list_application_content', companion_app_server_list_application_content_route)
-    server.add_handler('/content_data', companion_app_server_content_data_route)
-    server.add_handler('/content_metadata', companion_app_server_content_metadata_route)
+    for path, handler in COMPANION_APP_ROUTES.items():
+        server.add_handler(path, application_hold_middleware(application,
+                                                             handler))
+
     return server
 
 
@@ -539,7 +561,7 @@ def register_services(group, service_name, port):
 class CompanionAppService(GObject.Object):
     '''A container object for the services.'''
 
-    def __init__(self, service_name, port, *args, **kwargs):
+    def __init__(self, application, service_name, port, *args, **kwargs):
         '''Initialize the service, attach to Avahi.'''
         super().__init__(*args, **kwargs)
 
@@ -558,7 +580,7 @@ class CompanionAppService(GObject.Object):
         self._group.connect('state-changed', self.on_entry_group_state_changed)
 
         # Create the server now, even if we don't start listening yet
-        self._server = create_companion_app_webserver()
+        self._server = create_companion_app_webserver(application)
 
     def stop(self):
         '''Close all connections and de-initialise.
@@ -641,7 +663,9 @@ class CompanionAppApplication(Gio.Application):
         if os.environ.get('EOS_COMPANION_APP_SERVICE_PERSIST', None):
           self.hold()
 
-        self._service = CompanionAppService('EOSCompanionAppService', 1110)
+        self._service = CompanionAppService(self,
+                                            'EOSCompanionAppService',
+                                            1110)
 
     def do_dbus_register(self, connection, path):
         '''Invoked when we get a D-Bus connection.'''
