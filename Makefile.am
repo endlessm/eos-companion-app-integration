@@ -31,7 +31,9 @@ systemdsystemunit_DATA =
 systemdsystemsocketdir = $(libdir)/systemd/system
 systemdsystemsocket_DATA = 
 
+BUILT_SOURCES = 
 CLEANFILES = 
+EXTRA_DIST = 
 
 # Python files
 app_PYTHON += \
@@ -110,10 +112,8 @@ eos-companion-app-service-dbus.c: data/com.endlessm.CompanionAppService.xml
 
 eos-companion-app-service-dbus.h: eos-companion-app-service-dbus.c
 
-CLEANFILES += \
-	eos-companion-app-service-dbus.c \
-	eos-companion-app-service-dbus.h \
-	$(NULL)
+BUILT_SOURCES += $(gdbus_generated)
+CLEANFILES += $(gdbus_generated)
 
 # # # GOBJECT_INTROSPECTION # # #
 include $(INTROSPECTION_MAKEFILE)
