@@ -36,11 +36,13 @@ G_BEGIN_DECLS
 /**
  * EosCompanionAppServiceError:
  * @EOS_COMPANION_APP_SERVICE_ERROR_INVALID_REQUEST: Invalid request made to service
+ * @EOS_COMPANION_APP_SERVICE_ERROR_FAILED: Programmer or logic error on server side
  *
  * Error codes for the %EOS_COMPANION_APP_SERVICE_ERROR error domain
  */
 typedef enum {
-  EOS_COMPANION_APP_SERVICE_ERROR_INVALID_REQUEST
+  EOS_COMPANION_APP_SERVICE_ERROR_INVALID_REQUEST,
+  EOS_COMPANION_APP_SERVICE_ERROR_FAILED
 } EosCompanionAppServiceError;
 
 GQuark eos_companion_app_service_error_quark (void);
