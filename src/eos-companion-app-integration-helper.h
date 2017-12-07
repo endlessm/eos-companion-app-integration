@@ -180,5 +180,27 @@ void eos_companion_app_service_load_all_in_stream_to_bytes (GInputStream        
 GBytes * eos_companion_app_service_finish_load_all_in_stream_to_bytes (GAsyncResult  *result,
                                                                        GError       **error);
 
+/**
+ * eos_companion_app_service_bytes_to_string:
+ * @bytes: A #GBytes
+ *
+ * Convert a #GBytes to a string. The string will be copied and a NUL-terminator
+ * added to the end of it.
+ *
+ * Returns: (transfer none): A string.
+ */
+gchar * eos_companion_app_service_bytes_to_string (GBytes *bytes);
+
+
+/**
+ * eos_companion_app_service_string_to_bytes:
+ * @string: (transfer none): A utf-8 string.
+ *
+ * Copy contents of string into a #Gbytes and return it.
+ *
+ * Returns: (transfer full): A string.
+ */
+GBytes * eos_companion_app_service_string_to_bytes (const gchar *string);
+
 G_END_DECLS
 

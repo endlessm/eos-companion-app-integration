@@ -723,6 +723,27 @@ eos_companion_app_service_load_all_in_stream_to_bytes (GInputStream        *stre
   g_task_run_in_thread (task, load_all_in_stream_to_bytes_thread_func);
 }
 
+/* It'd be nice if there was a way to do this without copying the underlying
+ * data */
+gchar *
+eos_companion_app_service_bytes_to_string (GBytes *bytes)
+{
+  gsize length;
+  const gchar *str = g_bytes_get_data (bytes, &length);
+  gchar *buffer = g_malloc ((length + 1) * sizeof (gchar));
+
+  memcpy ((gpointer) buffer, (gconstpointer) str, length * sizeof (gchar));
+  buffer[length] = '\0';
+
+  return buffer;
+}
+
+GBytes *
+eos_companion_app_service_string_to_bytes (const gchar *string)
+{
+  return g_bytes_new (string, strlen (string));
+}
+
 
 G_DEFINE_QUARK (eos-companion-app-service-error-quark, eos_companion_app_service_error)
 
