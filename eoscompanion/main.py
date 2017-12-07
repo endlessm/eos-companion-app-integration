@@ -28,11 +28,13 @@ gi.require_version('Avahi', '0.6')
 gi.require_version('EosKnowledgeContent', '0')
 gi.require_version('EosCompanionAppService', '1.0')
 gi.require_version('EosKnowledgeContent', '0')
+gi.require_version('EosShard', '0')
 
 from gi.repository import (
     Avahi,
     EosCompanionAppService,
     EosKnowledgeContent as Eknc,
+    EosShard,
     Gio,
     GLib,
     GObject,
@@ -69,6 +71,14 @@ def png_response(msg, bytes):
     msg.set_status(Soup.Status.OK)
     EosCompanionAppService.set_soup_message_response_bytes(msg,
                                                            'image/png',
+                                                           bytes)
+
+
+def jpeg_response(msg, bytes):
+    '''Respond with image/jpeg bytes.'''
+    msg.set_status(Soup.Status.OK)
+    EosCompanionAppService.set_soup_message_response_bytes(msg,
+                                                           'image/jpeg',
                                                            bytes)
 
 
@@ -187,6 +197,20 @@ def companion_app_server_application_icon_route(server, msg, path, query, *args)
     server.pause_message(msg)
 
 
+def yield_models_that_have_thumbnails(models):
+    '''Yield (thumbnail, EknContentObject) tuples if there is a bijection.'''
+    for model in models:
+        try:
+            thumbnail = model.get_property('thumbnail-uri')
+        except GLib.Error as error:
+            continue
+
+        if not thumbnail:
+            continue
+
+        yield (thumbnail, model)
+
+
 @require_query_string_param('deviceUUID')
 @require_query_string_param('applicationId')
 def companion_app_server_list_application_content_route(server, msg, path, query, *args):
@@ -201,13 +225,19 @@ def companion_app_server_list_application_content_route(server, msg, path, query
                'status': 'ok',
                'payload': [
                    {
-                       'displayName': a.get_property('title'),
-                       'contentType': a.get_property('content-type'),
-                       'thumbnail': None,
-                       'id': a.get_property('ekn-id'),
-                       'tags': a.get_property('tags').unpack()
+                       'displayName': model.get_property('title'),
+                       'contentType': model.get_property('content-type'),
+                       'thumbnail': format_uri_with_querystring(
+                           '/content_data',
+                           deviceUUID=query['deviceUUID'],
+                           applicationId=query['applicationId'],
+                           contentId=urllib.parse.urlparse(thumbnail_uri).path[1:]
+                       ),
+                       'id': urllib.parse.urlparse(model.get_property('ekn-id')).path[1:],
+                       'tags': model.get_property('tags').unpack()
                    }
-                   for a in models
+                   for thumbnail_uri, model in
+                   yield_models_that_have_thumbnails(models)
                ]
            })
        except GLib.Error as error:
@@ -230,6 +260,96 @@ def companion_app_server_list_application_content_route(server, msg, path, query
     server.pause_message(msg)
 
 
+def load_record_from_engine_async(engine, app_id, content_id, attr, callback):
+    '''Load bytes from stream for app and content_id.
+
+    :attr: must be one of 'data' or 'metadata'.
+
+    Once loading is complete, callback will be invoked with a GAsyncResult,
+    use EosCompanionAppService.finish_load_all_in_stream_to_bytes
+    to get the result or handle the corresponding error.
+
+    Returns True if a stream could be loaded, False otherwise.
+    '''
+    if attr not in ('data', 'metadata'):
+        raise RuntimeError('attr must be one of "data" or "metadata"')
+
+    domain = engine.get_domain_for_app(app_id)
+    shards = domain.get_shards()
+
+    for shard in shards:
+        record = shard.find_record_by_hex_name(content_id)
+
+        if not record:
+            continue
+
+        stream = getattr(record, attr).get_stream()
+
+        if not stream:
+            continue
+
+        EosCompanionAppService.load_all_in_stream_to_bytes(stream,
+                                                           256,
+                                                           None,
+                                                           callback)
+        return True
+
+    return False
+
+
+
+@require_query_string_param('deviceUUID')
+@require_query_string_param('applicationId')
+@require_query_string_param('contentId')
+def companion_app_server_content_data_route(server, msg, path, query, *args):
+    '''Return content for contentId.
+
+    Content-Type is content-defined. It will be determined based
+    on the metadata for that content.
+    '''
+    def _callback(src, result):
+        '''Callback function that gets called when we are done.'''
+        try:
+            bytes = EosCompanionAppService.finish_load_all_in_stream_to_bytes(result)
+            EosCompanionAppService.set_soup_message_response(msg,
+                                                             'application/json',
+                                                             bytes)
+        except GLib.Error as error:
+            json_response(msg, {
+                'status': 'error',
+                'error': serialize_error_as_json_object(
+                    EosCompanionAppService.error_quark(),
+                    EosCompanionAppService.Error.FAILED,
+                    detail={
+                        'server_error': str(error)
+                    }
+                )
+            })
+
+        server.unpause_message(msg)
+
+    if load_record_from_engine_async(Eknc.Engine.get_default(),
+                                     query['applicationId'],
+                                     query['contentId'],
+                                     'data',
+                                     _callback):
+        server.pause_message(msg)
+        return
+
+    # No corresponding record found, EKN ID must have been invalid
+    json_response(msg, {
+        'status': 'error',
+        'error': serialize_error_as_json_object(
+            EosCompanionAppService.error_quark(),
+            EosCompanionAppService.Error.INVALID_CONTENT_ID,
+            detail={
+                'applicationId': query['applicationId'],
+                'contentId': query['contentId']
+            }
+        )
+    })
+
+
 def create_companion_app_webserver():
     '''Create a HTTP server with companion app routes.'''
     server = Soup.Server()
@@ -238,6 +358,7 @@ def create_companion_app_webserver():
     server.add_handler('/list_applications', companion_app_server_list_applications_route)
     server.add_handler('/application_icon', companion_app_server_application_icon_route)
     server.add_handler('/list_application_content', companion_app_server_list_application_content_route)
+    server.add_handler('/content_data', companion_app_server_content_data_route)
     return server
 
 
