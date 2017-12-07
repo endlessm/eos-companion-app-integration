@@ -139,5 +139,46 @@ void eos_companion_app_service_load_application_icon_data_async (const gchar    
 GBytes * eos_companion_app_service_finish_load_application_icon_data_async (GAsyncResult  *result,
                                                                             GError       **error);
 
+
+/**
+ * eos_companion_app_service_load_all_in_stream_to_bytes:
+ * @stream: A #GInputStream
+ * @chunk_size: The chunk size to use in bytes when loading the stream.
+ *              Higher chunk sizes will result in greater thoroughput due
+ *              to less overhead, but will also consume greater amounts
+ *              of memory. The final buffer size will always be truncated to
+ *              the size of the read data.
+ * @cancellable: A #GCancellable,
+ * @callback: A #GAsyncReadyCallback
+ * @callback_data: Closure for @callback
+ *
+ * Asynchronously read the entire stream into a #GBytes object, passed
+ * to the provided @callback.
+ *
+ * Need this because EosShard uses GConverterInputStream and we can't measure
+ * the size of the stream beforehand such that we could convert it to bytes.
+ *
+ * Use eos_companion_app_service_finish_load_all_in_stream_to_bytes
+ * to complete the operation.
+ */
+void eos_companion_app_service_load_all_in_stream_to_bytes (GInputStream        *stream,
+                                                            gsize                chunk_size,
+                                                            GCancellable        *cancellable,
+                                                            GAsyncReadyCallback  callback,
+                                                            gpointer             callback_data);
+
+/**
+ * eos_companion_app_service_finish_load_all_in_stream_to_bytes:
+ * @result: A #GAsyncResult
+ * @error: A #GError
+ *
+ * Complete the call to eos_companion_app_service_load_all_in_stream_to_bytes
+ * by returning the read #GBytes.
+ *
+ * Returns: (transfer none): a #GBytes
+ */
+GBytes * eos_companion_app_service_finish_load_all_in_stream_to_bytes (GAsyncResult  *result,
+                                                                       GError       **error);
+
 G_END_DECLS
 

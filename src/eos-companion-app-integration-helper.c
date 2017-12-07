@@ -626,5 +626,102 @@ eos_companion_app_service_load_application_icon_data_async (const gchar         
   g_task_run_in_thread (task, load_application_icon_data_thread);
 }
 
+
+typedef struct _ReadBufferInfo
+{
+  GInputStream *stream;
+  gpointer      data;
+  gsize         chunk_size;
+} ReadBufferInfo;
+
+static ReadBufferInfo *
+read_buffer_info_new (GInputStream *stream, gsize chunk_size)
+{
+  ReadBufferInfo *info = g_slice_new0 (ReadBufferInfo);
+  info->stream = g_object_ref (stream);
+  info->chunk_size = chunk_size;
+
+  return info;
+}
+
+static void
+read_buffer_info_free (ReadBufferInfo *info)
+{
+  g_clear_object (&info->stream);
+  g_clear_pointer (&info->data, g_free);
+
+  g_slice_free (ReadBufferInfo, info);
+}
+
+GBytes *
+eos_companion_app_service_finish_load_all_in_stream_to_bytes (GAsyncResult  *result,
+                                                              GError       **error)
+{
+  g_return_val_if_fail (g_task_is_valid (result, NULL), NULL);
+
+  return g_task_propagate_pointer (G_TASK (result), error);
+}
+
+static void
+load_all_in_stream_to_bytes_thread_func (GTask        *task,
+                                         gpointer      source,
+                                         gpointer      task_data,
+                                         GCancellable *cancellable)
+{
+  ReadBufferInfo *info = task_data;
+  gsize allocated = 0;
+  gsize read_bytes = 0;
+  g_autofree gpointer buffer = NULL;
+
+  /* If this is the case, we still have more work to do */
+  while (allocated == read_bytes)
+    {
+      g_autoptr(GError) local_error = NULL;
+      gsize bytes_read_on_this_iteration;
+      allocated += info->chunk_size;
+      buffer = g_realloc (buffer, allocated * sizeof (gchar));
+
+      if (!g_input_stream_read_all (info->stream,
+                                    ((gchar *) buffer + read_bytes),
+                                    info->chunk_size,
+                                    &bytes_read_on_this_iteration,
+                                    cancellable,
+                                    &local_error))
+        {
+          g_message ("Return error %s", local_error->message);
+          g_task_return_error (task, g_steal_pointer (&local_error));
+          return;
+        }
+
+      /* Otherwise, add the number of bytes read to our running total
+       * and go around. If we read fewer bytes than allocated, then
+       * we're done */
+      read_bytes += bytes_read_on_this_iteration;
+    }
+
+  /* Truncate, store as bytes and transfer to task */
+  buffer = g_realloc (buffer, read_bytes * sizeof (gchar));
+  g_task_return_pointer (task,
+                         g_bytes_new_take (g_steal_pointer (&buffer),
+                                           read_bytes),
+                         (GDestroyNotify) g_bytes_unref);
+}
+
+void
+eos_companion_app_service_load_all_in_stream_to_bytes (GInputStream        *stream,
+                                                       gsize                chunk_size,
+                                                       GCancellable        *cancellable,
+                                                       GAsyncReadyCallback  callback,
+                                                       gpointer             callback_data)
+{
+  g_autoptr(GTask) task = g_task_new (NULL, cancellable, callback, callback_data);
+
+  g_task_set_task_data (task,
+                        read_buffer_info_new (stream, chunk_size),
+                        (GDestroyNotify) read_buffer_info_free);
+  g_task_run_in_thread (task, load_all_in_stream_to_bytes_thread_func);
+}
+
+
 G_DEFINE_QUARK (eos-companion-app-service-error-quark, eos_companion_app_service_error)
 
