@@ -350,6 +350,54 @@ def companion_app_server_content_data_route(server, msg, path, query, *args):
     })
 
 
+@require_query_string_param('deviceUUID')
+@require_query_string_param('applicationId')
+@require_query_string_param('contentId')
+def companion_app_server_content_metadata_route(server, msg, path, query, *args):
+    '''Return application/json of content metadata.'''
+    def _callback(src, result):
+        '''Callback function that gets called when we are done.'''
+        try:
+            bytes = EosCompanionAppService.finish_load_all_in_stream_to_bytes(result)
+            EosCompanionAppService.set_soup_message_response_bytes(msg,
+                                                                   'application/json',
+                                                                   bytes)
+        except GLib.Error as error:
+            json_response(msg, {
+                'status': 'error',
+                'error': serialize_error_as_json_object(
+                    EosCompanionAppService.error_quark(),
+                    EosCompanionAppService.Error.FAILED,
+                    detail={
+                        'server_error': str(error)
+                    }
+                )
+            })
+
+        server.unpause_message(msg)
+
+    if load_record_from_engine_async(Eknc.Engine.get_default(),
+                                     query['applicationId'],
+                                     query['contentId'],
+                                     'metadata',
+                                     _callback):
+        server.pause_message(msg)
+        return
+
+    # No corresponding record found, EKN ID must have been invalid
+    json_response(msg, {
+        'status': 'error',
+        'error': serialize_error_as_json_object(
+            EosCompanionAppService.error_quark(),
+            EosCompanionAppService.Error.INVALID_CONTENT_ID,
+            detail={
+                'applicationId': query['applicationId'],
+                'contentId': query['contentId']
+            }
+        )
+    })
+
+
 def create_companion_app_webserver():
     '''Create a HTTP server with companion app routes.'''
     server = Soup.Server()
@@ -359,6 +407,7 @@ def create_companion_app_webserver():
     server.add_handler('/application_icon', companion_app_server_application_icon_route)
     server.add_handler('/list_application_content', companion_app_server_list_application_content_route)
     server.add_handler('/content_data', companion_app_server_content_data_route)
+    server.add_handler('/content_metadata', companion_app_server_content_metadata_route)
     return server
 
 
