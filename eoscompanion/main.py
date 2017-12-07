@@ -21,6 +21,7 @@
 import json
 import re
 import sys
+import urllib.parse
 import gi
 
 gi.require_version('Avahi', '0.6')
@@ -54,6 +55,14 @@ def html_response(msg, html):
                                                      'text/html',
                                                      html)
 
+def png_response(msg, bytes):
+    '''Respond with image/png bytes.'''
+    msg.set_status(Soup.Status.OK)
+    EosCompanionAppService.set_soup_message_response_bytes(msg,
+                                                           'image/png',
+                                                           bytes)
+
+
 def require_query_string_param(param):
     '''Require a header to be defined on the incoming message or raise.'''
     def decorator(handler):
@@ -74,6 +83,12 @@ def require_query_string_param(param):
             return handler(server, msg, path, rectified_query, client)
         return middleware
     return decorator
+
+
+def format_uri_with_querystring(uri, **params):
+    '''Format the passed uri with the querystring params.'''
+    return '{uri}?{params}'.format(uri=uri,
+                                   params=urllib.parse.urlencode(params))
 
 
 def companion_app_server_root_route(_, msg, *args):
@@ -116,7 +131,11 @@ def companion_app_server_list_applications_route(server, msg, path, query, *args
                 {
                     'applicationId': a.get_property('app-id'),
                     'displayName': a.get_property('display-name'),
-                    'icon': None,
+                    'icon': format_uri_with_querystring(
+                        '/application_icon',
+                        deviceUUID=query['deviceUUID'],
+                        applicationId=a.get_property('app-id')
+                    ),
                     'language': a.get_property('app-id').split('.')[-1]
                 }
                 for a in infos
@@ -128,12 +147,44 @@ def companion_app_server_list_applications_route(server, msg, path, query, *args
     server.pause_message(msg)
 
 
+@require_query_string_param('deviceUUID')
+@require_query_string_param('applicationId')
+def companion_app_server_application_icon_route(server, msg, path, query, *args):
+    '''Return image/png data with the application icon.'''
+    def _callback(src, result):
+       '''Callback function that gets called when we are done.'''
+       try:
+           bytes = EosCompanionAppService.finish_load_application_icon_data_from_data_dirs(result)
+           png_response(msg, bytes)
+       except GLib.Error as error:
+           json_response(msg, {
+               'status': 'error',
+               'error': {
+                   'domain': GLib.quark_to_string(EosCompanionAppService.error_quark()),
+                   'code': EosCompanionAppService.Error.FAILED,
+                   'detail': {
+                       'server_error': str(error)
+                   }
+               }
+           })
+       server.unpause_message(msg)
+
+    desktop_file = '.'.join([query['applicationId'], 'desktop'])
+    desktop_info = Gio.DesktopAppInfo.new(desktop_file)
+    icon = desktop_info.get_icon()
+    icon_name = icon.to_string()
+
+    EosCompanionAppService.load_application_icon_data_from_data_dirs(icon_name, None, _callback)
+    server.pause_message(msg)
+
+
 def create_companion_app_webserver():
     '''Create a HTTP server with companion app routes.'''
     server = Soup.Server()
     server.add_handler('/', companion_app_server_root_route)
     server.add_handler('/device_authenticate', companion_app_server_device_authenticate_route)
     server.add_handler('/list_applications', companion_app_server_list_applications_route)
+    server.add_handler('/application_icon', companion_app_server_application_icon_route)
     return server
 
 
