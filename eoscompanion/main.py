@@ -265,7 +265,8 @@ class CompanionAppApplication(Gio.Application):
         '''Initialize the application class.'''
         kwargs.update({
             'application_id': 'com.endlessm.CompanionAppService',
-            'flags': Gio.ApplicationFlags.IS_SERVICE
+            'flags': Gio.ApplicationFlags.IS_SERVICE,
+            'inactivity_timeout': 20000
         })
         super(CompanionAppApplication, self).__init__(*args, **kwargs)
 
