@@ -54,7 +54,7 @@ def require_header(header):
                     'status': 'error',
                     'error': {
                         'domain': GLib.quark_to_string(EosCompanionAppService.error_quark()),
-                        'code': EosCompanionAppService.Error.ERROR_INVALID_REQUEST,
+                        'code': EosCompanionAppService.Error.INVALID_REQUEST,
                         'detail': {
                             'missing_header': header
                         }
