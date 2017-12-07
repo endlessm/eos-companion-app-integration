@@ -329,13 +329,35 @@ def companion_app_server_content_data_route(server, msg, path, query, *args):
     Content-Type is content-defined. It will be determined based
     on the metadata for that content.
     '''
-    def _callback(src, result):
-        '''Callback function that gets called when we are done.'''
+    def _on_got_metadata_callback(src, result):
+        '''Callback function that gets called when we got the metadata.
+
+        From here we can figure out what the content type is and load
+        accordingly.
+        '''
+        def _on_got_data_callback(data_src, data_result):
+            '''Callback function that gets called when we are done.'''
+            try:
+                image_bytes = EosCompanionAppService.finish_load_all_in_stream_to_bytes(data_result)
+                EosCompanionAppService.set_soup_message_response_bytes(msg,
+                                                                       content_type,
+                                                                       image_bytes)
+            except GLib.Error as error:
+                json_response(msg, {
+                    'status': 'error',
+                    'error': serialize_error_as_json_object(
+                        EosCompanionAppService.error_quark(),
+                        EosCompanionAppService.Error.FAILED,
+                        detail={
+                            'server_error': str(error)
+                        }
+                    )
+                })
+
+            server.unpause_message(msg)
+
         try:
-            image_bytes = EosCompanionAppService.finish_load_all_in_stream_to_bytes(result)
-            EosCompanionAppService.set_soup_message_response(msg,
-                                                             'application/json',
-                                                             image_bytes)
+            metadata_bytes = EosCompanionAppService.finish_load_all_in_stream_to_bytes(result)
         except GLib.Error as error:
             json_response(msg, {
                 'status': 'error',
@@ -347,14 +369,39 @@ def companion_app_server_content_data_route(server, msg, path, query, *args):
                     }
                 )
             })
+            server.unpause_message(msg)
+            return
 
-        server.unpause_message(msg)
+        # Now that we have the metadata, deserialize it and use the
+        # contentType hint to figure out the best way to load it.
+        content_type = json.loads(
+            EosCompanionAppService.bytes_to_string(metadata_bytes)
+        )['contentType']
+
+        if not load_record_from_engine_async(Eknc.Engine.get_default(),
+                                             query['applicationId'],
+                                             query['contentId'],
+                                            'data',
+                                            _on_got_data_callback):
+            # No corresponding record found, EKN ID must have been invalid,
+            # though it was valid for metadata...
+            json_response(msg, {
+                'status': 'error',
+                'error': serialize_error_as_json_object(
+                    EosCompanionAppService.error_quark(),
+                    EosCompanionAppService.Error.INVALID_CONTENT_ID,
+                    detail={
+                        'applicationId': query['applicationId'],
+                        'contentId': query['contentId']
+                    }
+                )
+            })
 
     if load_record_from_engine_async(Eknc.Engine.get_default(),
                                      query['applicationId'],
                                      query['contentId'],
-                                     'data',
-                                     _callback):
+                                     'metadata',
+                                     _on_got_metadata_callback):
         server.pause_message(msg)
         return
 
