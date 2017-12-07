@@ -69,7 +69,7 @@ def require_header(header):
                     )
                 })
 
-            return handler(server, msg, path, query, client)
+            return handler(server, msg, path, rectified_query, client)
         return middleware
     return decorator
 
