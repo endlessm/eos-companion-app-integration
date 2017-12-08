@@ -175,12 +175,85 @@ def register_services(group, service_name, port):
 class CompanionAppService(GObject.Object):
     '''A container object for the services.'''
 
-    def __init__(self, service_name, port, *args, **kwargs):
+    def __init__(self,
+                 application,
+                 dbus_service,
+                 service_name,
+                 port,
+                 *args,
+                 **kwargs):
         '''Initialize the service, attach to Avahi.'''
+        immediately_discoverable = kwargs.pop('immediately_discoverable', False)
         super().__init__(*args, **kwargs)
 
         self._service_name = service_name
         self._port = port
+        self._application = application
+        self._dbus_service = dbus_service
+
+        # Connect to D-Bus signals
+        self._dbus_service.connect('handle-enter-discoverable-mode',
+                                   self.on_enter_discoverable_mode)
+        self._dbus_service.connect('handle-exit-discoverable-mode',
+                                   self.on_exit_discoverable_mode)
+
+        # Initialise AvahiClient and AvahiEntryGroup to None
+        self._client = None
+        self._group = None
+        self._discoverable_timeout_id = -1
+
+        # Create the server now and start listening straight away
+        # even if we are not yet discoverable
+        self._server = create_companion_app_webserver()
+        EosCompanionAppService.soup_server_listen_on_sd_fd_or_port(self._server,
+                                                                   self._port,
+                                                                   0)
+
+        if immediately_discoverable:
+            self.enter_discoverable_mode_with_timeout(-1)
+
+    def stop(self):
+        '''Close all connections and de-initialise.
+
+        The object is useless after this point.
+        '''
+        self._server.disconnect()
+
+    def exit_discoverable_mode(self):
+        '''Exit "discoverable" mode.
+
+        This function does nothing if we were not already discoverable.
+        '''
+        if self._client is None:
+            return
+
+        # Technically we should be re-using client, but doing so makes
+        # the implementation a lot messier. Deal with the extra traffic
+        # and just unset everything here.
+        self._group.reset()
+        self._group = None
+        self._client = None
+
+        if self._discoverable_timeout_id != -1:
+            GLib.source_remove(self._discoverable_timeout)
+            self._discoverable_timeout = -1
+
+        self._dbus_service.set_property('discoverable', False)
+        self._application.release()
+
+    def enter_discoverable_mode_with_timeout(self, timeout):
+        '''Enter "discoverable" mode with a timeout.
+
+        If :timeout: is less than zero, then the service will stay discoverable
+        indefinitely. Otherwise, it will stay discoverable for :timeout:
+        milliseconds.
+
+        Calling this function while the service is already discoverable
+        is inert.
+        '''
+        if self._client is not None:
+            return
+
         self._client = Avahi.Client()
         self._group = AvahiEntryGroupWrapper()
 
@@ -191,20 +264,34 @@ class CompanionAppService(GObject.Object):
         self._client.connect('state-changed', self.on_server_state_changed)
         self._group.connect('state-changed', self.on_entry_group_state_changed)
         self._client.start()
+        self._dbus_service.set_property('discoverable', True)
 
-        # Create the server now and start listening straight away
-        # even if we are not yet discoverable
-        self._server = create_companion_app_webserver()
-        EosCompanionAppService.soup_server_listen_on_sd_fd_or_port(self._server,
-                                                                   self._port,
-                                                                   0)
+        if timeout >= 0:
+            GLib.timeout_add(timeout, self.exit_discoverable_mode)
 
-    def stop(self):
-        '''Close all connections and de-initialise.
+        self._application.hold()
 
-        The object is useless after this point.
-        '''
-        self._server.disconnect()
+    def on_enter_discoverable_mode(self, obj, invocation, timeout):
+        '''Handle the handle-enter-discoverable-mode signal from DBus.'''
+        try:
+            self.enter_discoverable_mode_with_timeout(timeout)
+        except Exception as error:
+            invocation.return_error(GLib.Error(EosCompanionAppService.error_quark(),
+                                               EosCompanionAppService.ERROR.FAILED))
+            return True
+        self._dbus_service.complete_enter_discoverable_mode(invocation)
+        return True
+
+    def on_exit_discoverable_mode(self, obj, invocation, timeout):
+        '''Handle the handle-exit-discoverable-mode signal from DBus.'''
+        try:
+            self.exit_discoverable_mode(timeout)
+        except Exception as error:
+            invocation.return_error(GLib.Error(EosCompanionAppService.error_quark(),
+                                               EosCompanionAppService.ERROR.FAILED))
+            return True
+        self._dbus_service.complete_exit_discoverable_mode(invocation)
+        return True
 
     @GObject.Signal(name='services-established')
     def signal_services_established(self):
@@ -257,6 +344,7 @@ class CompanionAppService(GObject.Object):
                                                    self._service_name,
                                                    self._port)
 
+
 class CompanionAppApplication(Gio.Application):
     '''Subclass of GApplication for controlling the companion app.'''
 
@@ -267,17 +355,26 @@ class CompanionAppApplication(Gio.Application):
             'flags': Gio.ApplicationFlags.IS_SERVICE,
             'inactivity_timeout': 20000
         })
+        self._dbus_service = None
         super(CompanionAppApplication, self).__init__(*args, **kwargs)
 
     def do_startup(self):
         '''Just print a message.'''
         Gio.Application.do_startup(self)
-
-        self._service = CompanionAppService('EOSCompanionAppService', 1110)
+        self._service = CompanionAppService(self,
+                                            self._dbus_service,
+                                            'EOSCompanionAppService',
+                                            1110)
 
     def do_dbus_register(self, connection, path):
         '''Invoked when we get a D-Bus connection.'''
         print('Got d-bus connection at {path}'.format(path=path))
+        self._dbus_service = EosCompanionAppService.ServiceSkeleton()
+        self._dbus_service.export(connection, path)
+
+        # We also need to explicitly set the property, apparently
+        self._dbus_service.set_property('discoverable', False)
+
         return Gio.Application.do_dbus_register(self, connection, path)
 
     def do_dbus_unregister(self, connection, path):

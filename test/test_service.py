@@ -144,6 +144,66 @@ def json_http_request_with_uuid(uuid, uri, body, callback):
     request.send_async(None, callback)
 
 
+class FakeDBusSkeleton(object):
+    '''A fake DBus skeleton which supports the same methods.'''
+
+    def __init__(self):
+        '''Initialise with discoverable set to None.'''
+        super().__init__()
+        self._discoverable = None
+
+    def connect(self, signal, callback):
+        '''Do nothing, for now.'''
+        pass
+
+    def get_property(self, prop):
+        '''Get a property if it would exist.'''
+        if prop == 'discoverable':
+            return self._discoverable
+            return
+
+        raise RuntimeError('No such property {}'.format(prop))
+
+    def set_property(self, prop, val):
+        '''Set a property if it would exist.'''
+        if prop == 'discoverable':
+            self._discoverable = val
+            return
+
+        raise RuntimeError('No such property {}'.format(prop))
+
+
+class FakeHoldableApplication(object):
+    '''A Fake application that supports hold() and release().'''
+
+    def __init__(self):
+        '''Initialize as released.'''
+        super().__init__()
+        self._hold_count = 0
+
+    def hold(self):
+        '''Increment hold count.'''
+        self._hold_count += 1
+
+    def release(self):
+        '''Decrement count.'''
+        self._hold_count -= 1
+
+
+class CompanionAppServiceDepsMockedWrapper(CompanionAppService):
+    '''A CompanionAppService with the dependencies mocked out.'''
+
+    def __init__(self, *args, **kwargs):
+        '''Initialize with mocked out dependencies.'''
+        kwargs.update({
+            'immediately_discoverable': True
+        })
+        super().__init__(FakeHoldableApplication(),
+                         FakeDBusSkeleton(),
+                         *args,
+                         **kwargs)
+
+
 class TestCompanionAppService(TestCase):
     '''Test suite for the CompanionAppService class.'''
 
@@ -168,7 +228,7 @@ class TestCompanionAppService(TestCase):
             if service_name == 'EOSCompanionAppServiceTest':
                 quit()
 
-        self.service = CompanionAppService('EOSCompanionAppServiceTest', 1100)
+        self.service = CompanionAppServiceDepsMockedWrapper('EOSCompanionAppServiceTest', 1100)
         self.listener = AvahiServiceListener(on_service_found)
 
     @with_main_loop
@@ -179,8 +239,8 @@ class TestCompanionAppService(TestCase):
             if service_name == 'EOSCompanionAppServiceTest (1)':
                 quit()
 
-        self.service = CompanionAppService('EOSCompanionAppServiceTest', 1110)
-        self.service2 = CompanionAppService('EOSCompanionAppServiceTest', 1111)
+        self.service = CompanionAppServiceDepsMockedWrapper('EOSCompanionAppServiceTest', 1110)
+        self.service2 = CompanionAppServiceDepsMockedWrapper('EOSCompanionAppServiceTest', 1111)
         self.listener = AvahiServiceListener(on_service_found)
 
     @with_main_loop
@@ -200,7 +260,7 @@ class TestCompanionAppService(TestCase):
                                         {},
                                         on_received_response)
 
-        self.service = CompanionAppService('EOSCompanionAppServiceTest', 1110)
+        self.service = CompanionAppServiceDepsMockedWrapper('EOSCompanionAppServiceTest', 1110)
         self.service.connect('services-established', on_service_ready)
         self.listener = AvahiServiceListener()
 
@@ -223,6 +283,6 @@ class TestCompanionAppService(TestCase):
                                         {},
                                         on_received_response)
 
-        self.service = CompanionAppService('EOSCompanionAppServiceTest', 1110)
+        self.service = CompanionAppServiceDepsMockedWrapper('EOSCompanionAppServiceTest', 1110)
         self.service.connect('services-established', on_service_ready)
         self.listener = AvahiServiceListener()

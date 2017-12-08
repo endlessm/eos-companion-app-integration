@@ -1,4 +1,10 @@
 <node>
   <interface name="com.endlessm.CompanionApp.Service">
+    <method name="EnterDiscoverableMode">
+      <arg name="timeout" direction="in" type="i"/>
+    </method>
+    <method name="ExitDiscoverableMode">
+    </method>
+    <property name="Discoverable" type="b" access="read"/>
   </interface>
 <node>
