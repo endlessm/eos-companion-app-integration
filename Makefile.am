@@ -79,7 +79,7 @@ libeoscompanion_dbus_1_la_LIBADD = \
 	$(EOS_COMPANION_APP_LIBS) \
 	$(NULL)
 
-nodist_libeoscompanion_1_la_SOURCES = \
+libeoscompanion_1_la_SOURCES = \
 	src/eos-companion-app-integration-helper.c \
 	src/eos-companion-app-integration-helper.h \
 	$(enum_sources) \
