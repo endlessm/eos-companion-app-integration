@@ -190,11 +190,14 @@ class CompanionAppService(GObject.Object):
         # do that there are not here
         self._client.connect('state-changed', self.on_server_state_changed)
         self._client.start()
-
         self._group.connect('state-changed', self.on_entry_group_state_changed)
 
-        # Create the server now, even if we don't start listening yet
+        # Create the server now and start listening straight away
+        # even if we are not yet discoverable
         self._server = create_companion_app_webserver()
+        EosCompanionAppService.soup_server_listen_on_sd_fd_or_port(self._server,
+                                                                   self._port,
+                                                                   0)
 
     def stop(self):
         '''Close all connections and de-initialise.
@@ -221,10 +224,6 @@ class CompanionAppService(GObject.Object):
     def on_entry_group_state_changed(self, entry_group, state):
         '''Handle group state changes.'''
         if state == Avahi.EntryGroupState.GA_ENTRY_GROUP_STATE_ESTABLISHED:
-            EosCompanionAppService.soup_server_listen_on_sd_fd_or_port(self._server,
-                                                                       self._port,
-                                                                       0)
-
             self.emit('services-established')
         # This is a typo in the avahi-glib API, looks like we are stuck
         # with it :(
