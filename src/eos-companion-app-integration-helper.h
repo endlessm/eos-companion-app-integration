@@ -95,15 +95,18 @@ void eos_companion_app_service_list_application_infos (GCancellable        *canc
  * @error: A #GErrror
  *
  * Complete the call to eos_companion_app_service_list_application_infos by returning
- * a pointer array of #GDesktopAppInfo.
+ * a pointer array of #GKeyFile with entries from the application's .desktop file.
+ *
+ * Note that we cannot return a GDesktopAppInfo since the application's binary
+ * will not be in PATH in the sandbox.
  *
  * XXX: For some very strange reason, transferring the container to PyGI causes
  * it to immediately crash since it tries to unref the container straight away,
  * even though g_task_propagate_pointer is meant to be transfer full. Leak it
  * for now.
  *
- * Returns: (transfer none) (element-type GDesktopAppInfo): a #GPtrArray
-            of #GDesktopAppInfo
+ * Returns: (transfer none) (element-type GKeyFile): a #GPtrArray
+            of #GKeyFile
  */
 GPtrArray * eos_companion_app_service_finish_list_application_infos (GAsyncResult  *result,
                                                                      GError       **error);
@@ -111,6 +114,7 @@ GPtrArray * eos_companion_app_service_finish_list_application_infos (GAsyncResul
 
 /**
  * eos_companion_app_service_load_application_icon_data_async:
+ * @icon_name: The name of the icon
  * @cancellable: A #GCancellable
  * @callback: A #GAsyncReadyCallback
  *

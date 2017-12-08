@@ -371,6 +371,65 @@ examine_flatpak_metadata (const gchar  *flatpak_directory,
 
 static const gchar *flatpak_applications_directory_path = "/var/lib/flatpak/app";
 
+/* Try and load directly from the flatpak directory first, if that fails,
+ * fallback to using GDesktopAppInfo and loading from that (in case an
+ * app was installed systemwide) */
+static gboolean
+load_desktop_info_key_file_for_app_id (const gchar  *app_id,
+                                       GKeyFile    **out_keyfile,
+                                       GError      **error)
+{
+  g_autofree gchar *desktop_id = NULL;
+  g_autofree gchar *flatpak_desktop_file_path = NULL;
+  g_autoptr(GDesktopAppInfo) desktop_info = NULL;
+  g_autoptr(GKeyFile) key_file = NULL;
+  g_autoptr(GError) local_error = NULL;
+
+  g_return_val_if_fail (out_keyfile != NULL, FALSE);
+
+  desktop_id = g_strdup_printf ("%s.desktop", app_id);
+  flatpak_desktop_file_path = g_build_filename ("var",
+                                                "lib",
+                                                "flatpak",
+                                                "export",
+                                                "share",
+                                                "applications",
+                                                desktop_id,
+                                                NULL);
+  key_file = g_key_file_new ();
+
+  if (!g_key_file_load_from_file (key_file,
+                                  flatpak_desktop_file_path,
+                                  G_KEY_FILE_NONE,
+                                  &local_error))
+    {
+      if (!g_error_matches (local_error, G_FILE_ERROR, G_FILE_ERROR_NOENT))
+        {
+          g_propagate_error (error, g_steal_pointer (&local_error));
+          return FALSE;
+        }
+
+      g_clear_error (&local_error);
+
+      desktop_info = g_desktop_app_info_new (desktop_id);
+
+      /* Couldn't find anything. Just return TRUE */
+      if (desktop_info == NULL)
+        return TRUE;
+
+      /* Try and load from the desktop file. Any errors are fatal, since
+       * the file should exist. */
+      if (!g_key_file_load_from_file (key_file,
+                                      g_desktop_app_info_get_filename (desktop_info),
+                                      G_KEY_FILE_NONE,
+                                      error))
+        return FALSE;
+    }
+
+  *out_keyfile = g_steal_pointer (&key_file);
+  return TRUE;
+}
+
 static GPtrArray *
 list_application_infos (GCancellable  *cancellable,
                         GError       **error)
@@ -393,10 +452,9 @@ list_application_infos (GCancellable  *cancellable,
       GFile *child = NULL;
       GFileInfo *info = NULL;
       g_autofree gchar *flatpak_directory = NULL;
-      g_autofree gchar *runtime_name;
-      g_autofree gchar *app_name;
-      g_autofree gchar *desktop_id = NULL;
-      g_autoptr(GDesktopAppInfo) app_info = NULL;
+      g_autofree gchar *runtime_name = NULL;
+      g_autofree gchar *app_name = NULL;
+      g_autoptr(GKeyFile) app_info = NULL;
       gboolean is_compatible_app = FALSE;
 
       if (!g_file_enumerator_iterate (enumerator, &info, &child, cancellable, error))
@@ -421,9 +479,10 @@ list_application_infos (GCancellable  *cancellable,
       if (!is_compatible_app)
         continue;
 
-      desktop_id = g_strdup_printf("%s.desktop", app_name);
-      app_info = g_desktop_app_info_new (desktop_id);
+      if (!load_desktop_info_key_file_for_app_id (app_name, &app_info, error))
+        return NULL;
 
+      /* If nothing loaded, this app is not compatible, continue */
       if (app_info == NULL)
         continue;
 
@@ -496,7 +555,15 @@ get_singleton_icon_theme ()
 
   if (g_once_init_enter (&initialization_value))
     {
+      g_autofree gchar *icons_path = g_build_filename ("var",
+                                                       "lib",
+                                                       "flatpak",
+                                                       "export",
+                                                       "share",
+                                                       "icons",
+                                                       NULL);
       theme = gtk_icon_theme_new ();
+      gtk_icon_theme_prepend_search_path (theme, icons_path);
       g_once_init_leave (&initialization_value, 1);
     }
 
@@ -552,7 +619,7 @@ eos_companion_app_service_load_application_icon_data_async (const gchar         
                                                             GAsyncReadyCallback  callback,
                                                             gpointer             user_data)
 {
-  g_autoptr(GTask) task = g_task_new (NULL, cancellable, callback, NULL);
+  g_autoptr(GTask) task = g_task_new (NULL, cancellable, callback, user_data);
 
   g_task_set_return_on_cancel (task, TRUE);
   g_task_set_task_data (task, g_strdup (icon_name), g_free);

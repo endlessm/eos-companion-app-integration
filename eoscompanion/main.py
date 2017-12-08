@@ -149,18 +149,20 @@ def companion_app_server_list_applications_route(server, msg, path, query, *args
             'status': 'ok',
             'payload': [
                 {
-                    'applicationId': desktop_id_to_app_id(a.app_id),
+                    'applicationId': a.app_id,
                     'displayName': a.display_name,
                     'icon': format_uri_with_querystring(
                         '/application_icon',
                         deviceUUID=query['deviceUUID'],
-                        applicationId=desktop_id_to_app_id(a.app_id)
+                        applicationId=a.app_id
                     ),
                     'language': a.app_id.split('.')[-1]
                 }
                 for a in [
-                    ApplicationListing(desktop_id_to_app_id(app_info.get_id()),
-                                       app_info.get_display_name())
+                    ApplicationListing(app_info.get_string('Desktop Entry',
+                                                           'X-Flatpak'),
+                                       app_info.get_string('Desktop Entry',
+                                                           'Name'))
                     for app_info in infos
                 ]
             ]
