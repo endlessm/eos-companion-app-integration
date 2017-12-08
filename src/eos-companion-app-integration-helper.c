@@ -254,59 +254,178 @@ record_application_is_supported_cache (const gchar *app_id, gboolean is_supporte
   return is_supported;
 }
 
-/* Check if the application will be supported by the companion app - right
- * now this should always return true, but we will need this check
- * to stick around once we remove the whitelist and expand support to
- * a wider range of applications. */
 static gboolean
-application_is_supported (const gchar *app_id)
+parse_runtime_spec (const gchar  *runtime_spec,
+                    gchar       **out_runtime_name,
+                    gchar       **out_runtime_version,
+                    GError      **error)
+{
+  g_autoptr(GRegex) regex = NULL;
+  g_autoptr(GMatchInfo) info = NULL;
+
+  g_return_val_if_fail (out_runtime_name != NULL, FALSE);
+  g_return_val_if_fail (out_runtime_version != NULL, FALSE);
+
+  regex = g_regex_new ("(.*?)\\/.*?\\/(.*)", 0, 0, error);
+
+  if (regex == NULL)
+    return FALSE;
+
+  if (!g_regex_match (regex, runtime_spec, 0, &info))
+    {
+      g_set_error (error, G_IO_ERROR, G_IO_ERROR_FAILED, "Failed parse %s", runtime_spec);
+      return FALSE;
+    }
+
+  *out_runtime_name = g_match_info_fetch (info, 1);
+  *out_runtime_version = g_match_info_fetch (info, 2);
+
+  return TRUE;
+}
+
+static gboolean
+app_is_compatible (const gchar  *app_id,
+                   const gchar  *runtime_spec,
+                   gboolean     *out_app_is_compatible,
+                   GError      **error)
 {
   g_autoptr(GFile) data_dir = NULL;
   gboolean supported_cache = FALSE;
+  gchar *runtime_name = NULL;
+  gchar *arch = NULL;
+  gchar *runtime_version = NULL;
 
   if (application_is_supported_cache (app_id, &supported_cache))
-    return supported_cache;
+    {
+      *out_app_is_compatible = supported_cache;
+      return TRUE;
+    }
+
+  if (!parse_runtime_spec (runtime_spec, &runtime_name, &runtime_version, error))
+    return FALSE;
+
+  if (g_strcmp0 (runtime_name, "com.endlessm.apps.Platform") != 0)
+    {
+      *out_app_is_compatible = record_application_is_supported_cache (app_id, FALSE);
+      return TRUE;
+    }
+
+  if (g_strcmp0 (runtime_version, "2") != 0)
+    {
+      *out_app_is_compatible = record_application_is_supported_cache (app_id, FALSE);
+      return TRUE;
+    }
+
+  if (!is_content_app_from_app_name (app_id))
+    {
+      *out_app_is_compatible = record_application_is_supported_cache (app_id, FALSE);
+      return TRUE;
+    }
 
   data_dir = eknc_get_data_dir (app_id);
-  return record_application_is_supported_cache (app_id, data_dir != NULL);
+  *out_app_is_compatible = record_application_is_supported_cache (app_id, data_dir != NULL);
+  return TRUE;
 }
 
-const gchar *supported_applications[] = {
-  "com.endlessm.test_with_martin.en",
-  "com.endlessm.celebrities.en",
-  "com.endlessm.history.en",
-  "com.endlessm.animals.en",
-  "com.endlessm.astronomy.en",
-  NULL
-};
+static gboolean
+examine_flatpak_metadata (const gchar  *flatpak_directory,
+                          gchar       **out_app_name,
+                          gchar       **out_runtime_spec,
+                          GError      **error)
+{
+  g_autoptr(GKeyFile) keyfile = NULL;
+  g_autofree gchar *metadata_path = NULL;
+  g_autofree gchar *app_name = NULL;
+  g_autofree gchar *runtime_spec = NULL;
+
+  g_return_val_if_fail (out_app_name != NULL, FALSE);
+  g_return_val_if_fail (out_runtime_spec != NULL, FALSE);
+
+  metadata_path = g_build_filename (flatpak_directory,
+                                    "current",
+                                    "active",
+                                    "metadata",
+                                    NULL);
+  keyfile = g_key_file_new ();
+
+  if (!g_key_file_load_from_file (keyfile, metadata_path, G_KEY_FILE_NONE, error))
+    return FALSE;
+
+  app_name = g_key_file_get_string (keyfile, "Application", "name", error);
+
+  if (!app_name)
+    return FALSE;
+
+  runtime_spec = g_key_file_get_string (keyfile, "Application", "runtime", error);
+
+  if (!runtime_spec)
+    return FALSE;
+
+  *out_app_name = g_steal_pointer (&app_name);
+  *out_runtime_spec = g_steal_pointer (&runtime_spec);
+
+  return TRUE;
+}
+
+static const gchar *flatpak_applications_directory_path = "/var/lib/flatpak/app";
 
 static GPtrArray *
 list_application_infos (GCancellable  *cancellable,
                         GError       **error)
 {
-  const gchar **iter = supported_applications;
-  g_autoptr(GPtrArray) app_infos = g_ptr_array_new_with_free_func (g_object_unref);
+  g_autoptr(GFile) flatpak_applications_directory = g_file_new_for_path (flatpak_applications_directory_path);
+  g_autoptr(GFileEnumerator) enumerator = g_file_enumerate_children (flatpak_applications_directory,
+                                                                     G_FILE_ATTRIBUTE_STANDARD_NAME,
+                                                                     G_FILE_QUERY_INFO_NONE,
+                                                                     cancellable,
+                                                                     error);
+  g_autoptr(GPtrArray) app_infos = NULL;
 
-  for (; *iter != NULL; ++iter)
+  if (enumerator == NULL)
+    return NULL;
+
+  app_infos = g_ptr_array_new_with_free_func (g_object_unref);
+
+  while (TRUE)
     {
+      GFile *child = NULL;
+      GFileInfo *info = NULL;
+      g_autofree gchar *flatpak_directory = NULL;
+      g_autofree gchar *runtime_name;
+      g_autofree gchar *app_name;
       g_autofree gchar *desktop_id = NULL;
-      g_autoptr(GDesktopAppInfo) desktop_info = NULL;
+      g_autoptr(GDesktopAppInfo) app_info = NULL;
+      gboolean is_compatible_app = FALSE;
 
-      if (!application_is_supported (*iter))
+      if (!g_file_enumerator_iterate (enumerator, &info, &child, cancellable, error))
+        return NULL;
+
+      if (!info)
+        break;
+
+      flatpak_directory = g_build_filename (flatpak_applications_directory_path,
+                                            g_file_info_get_name (info),
+                                            NULL);
+
+      /* Look inside the metadata for each flatpak to work out what runtime
+       * it is using */
+      if (!examine_flatpak_metadata (flatpak_directory, &app_name, &runtime_name, error))
+        return NULL;
+
+      /* Check if the application is an eligible content app */
+      if (!app_is_compatible (app_name, runtime_name, &is_compatible_app, error))
+        return NULL;
+
+      if (!is_compatible_app)
         continue;
 
-      /* XXX: This isn't great, but still needed to filter for apps that are
-       * actually content apps */
-      if (!is_content_app_from_app_name (*iter))
+      desktop_id = g_strdup_printf("%s.desktop", app_name);
+      app_info = g_desktop_app_info_new (desktop_id);
+
+      if (app_info == NULL)
         continue;
 
-      desktop_id = g_strdup_printf ("%s.desktop", *iter);
-      desktop_info = g_desktop_app_info_new (desktop_id);
-
-      if (desktop_info == NULL)
-        continue;
-
-      g_ptr_array_add (app_infos, g_steal_pointer (&desktop_info));
+      g_ptr_array_add (app_infos, g_steal_pointer (&app_info));
     }
 
   return g_steal_pointer (&app_infos);
