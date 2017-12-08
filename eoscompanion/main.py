@@ -18,6 +18,7 @@
 # All rights reserved.
 '''Main executable entry point for eos-companion-app-service.'''
 
+from collections import namedtuple
 import errno
 import json
 import os
@@ -130,6 +131,14 @@ def companion_app_server_device_authenticate_route(_, msg, *args):
     })
 
 
+def desktop_id_to_app_id(desktop_id):
+    '''Remove .desktop suffix from desktop_id.'''
+    return os.path.splitext(desktop_id)[0]
+
+
+ApplicationListing = namedtuple('ApplicationListing', 'app_id display_name')
+
+
 @require_query_string_param('deviceUUID')
 def companion_app_server_list_applications_route(server, msg, path, query, *args):
     '''List all applications that are available on the system.'''
@@ -140,16 +149,20 @@ def companion_app_server_list_applications_route(server, msg, path, query, *args
             'status': 'ok',
             'payload': [
                 {
-                    'applicationId': a.get_property('app-id'),
-                    'displayName': a.get_property('display-name'),
+                    'applicationId': desktop_id_to_app_id(a.app_id),
+                    'displayName': a.display_name,
                     'icon': format_uri_with_querystring(
                         '/application_icon',
                         deviceUUID=query['deviceUUID'],
-                        applicationId=a.get_property('app-id')
+                        applicationId=desktop_id_to_app_id(a.app_id)
                     ),
-                    'language': a.get_property('app-id').split('.')[-1]
+                    'language': a.app_id.split('.')[-1]
                 }
-                for a in infos
+                for a in [
+                    ApplicationListing(desktop_id_to_app_id(app_info.get_id()),
+                                       app_info.get_display_name())
+                    for app_info in infos
+                ]
             ]
         })
         server.unpause_message(msg)

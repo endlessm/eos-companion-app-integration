@@ -24,8 +24,6 @@
 
 #include <libsoup/soup.h>
 
-#include "eos-companion-app-integration-app-info.h"
-
 G_BEGIN_DECLS
 
 /**
@@ -97,7 +95,7 @@ void eos_companion_app_service_list_application_infos (GCancellable        *canc
  * @error: A #GErrror
  *
  * Complete the call to eos_companion_app_service_list_application_infos by returning
- * a pointer array of #EosCompanionAppServiceAppInfo.
+ * a pointer array of #GDesktopAppInfo.
  *
  * XXX: For some very strange reason, transferring the container to PyGI causes
  * it to immediately crash since it tries to unref the container straight away,

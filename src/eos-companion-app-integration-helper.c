@@ -21,7 +21,6 @@
 #include <eknc-utils.h>
 
 #include "eos-companion-app-integration-helper.h"
-#include "eos-companion-app-integration-app-info.h"
 
 #include <string.h>
 
@@ -292,7 +291,6 @@ list_application_infos (GCancellable  *cancellable,
     {
       g_autofree gchar *desktop_id = NULL;
       g_autoptr(GDesktopAppInfo) desktop_info = NULL;
-      g_autoptr(EosCompanionAppServiceAppInfo) info = NULL;
 
       if (!application_is_supported (*iter))
         continue;
@@ -308,10 +306,7 @@ list_application_infos (GCancellable  *cancellable,
       if (desktop_info == NULL)
         continue;
 
-      info = eos_companion_app_service_app_info_new (*iter,
-                                                     g_app_info_get_display_name (G_APP_INFO (desktop_info)));
-
-      g_ptr_array_add (app_infos, g_steal_pointer (&info));
+      g_ptr_array_add (app_infos, g_steal_pointer (&desktop_info));
     }
 
   return g_steal_pointer (&app_infos);
