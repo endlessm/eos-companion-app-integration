@@ -20,12 +20,12 @@
 
 from collections import namedtuple
 import errno
+import gi
 import json
 import os
 import re
 import sys
 import urllib.parse
-import gi
 import uuid
 
 gi.require_version('Avahi', '0.6')
