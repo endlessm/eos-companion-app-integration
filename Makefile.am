@@ -117,12 +117,16 @@ BUILT_SOURCES += $(gdbus_generated)
 CLEANFILES += $(gdbus_generated)
 EXTRA_DIST += data/com.endlessm.CompanionAppService.xml
 
+# XXX: We need to touch the output file first while
+# we wait for the version of glib that has https://github.com/endlessm/glib/commit/d8aee2cf5b150659928984de04c655dc06439b9c
+# is picked into the runtime.
+#
 # # # ENUM HEADER FILES # # #
 src/enums.h: $(enum_template_h_file) $(enum_header_files)
-	$(AM_V_GEN) $(GLIB_MKENUMS) --template=$(enum_template_h_file) $(enum_header_files) --output $@
+	$(AM_V_GEN) mkdir -p `dirname $@` && touch $@ && $(GLIB_MKENUMS) --template=$(enum_template_h_file) $(enum_header_files) --output $(abs_top_builddir)/$@
 
 src/enums.c: $(enum_template_c_file) $(enum_header_files) src/enums.h
-	$(AM_V_GEN) $(GLIB_MKENUMS) --template=$(enum_template_c_file) $(enum_header_files) --output $@
+	$(AM_V_GEN) mkdir -p `dirname $@` && touch $@ &&  $(GLIB_MKENUMS) --template=$(enum_template_c_file) $(enum_header_files) --output $(abs_top_builddir)/$@
 
 BUILT_SOURCES += $(enum_sources)
 CLEANFILES += $(enum_sources)
