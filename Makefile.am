@@ -95,13 +95,13 @@ libeoscompanion_1_la_LIBADD = \
 
 # Wrapper script
 bin/eos-companion-app-service: bin/eos-companion-app-service.in
-	$(AM_V_GEN) sed -e 's|@libdir[@]|${libdir}|g;s|@pkgdatadir[@]|${pkgdatadir}|g;s|@pythonminorversion[@]|${pythonminorversion}|g' $< > $@.tmp && mv $@.tmp $@
+	$(AM_V_GEN) mkdir -p `dirname $@` && sed -e 's|@libdir[@]|${libdir}|g;s|@pkgdatadir[@]|${pkgdatadir}|g;s|@pythonminorversion[@]|${pythonminorversion}|g' $< > $@.tmp && mv $@.tmp $@
 
 CLEANFILES += bin/eos-companion-app-service
 
 # # # D-BUS SERVICES # # #
-data/com.endlessm.CompanionAppService.service: $(abs_top_srcdir)/data/com.endlessm.CompanionAppService.service.in
-	$(AM_V_GEN) sed -e 's|@bindir[@]|${bindir}|g' $< > $@.tmp && mv $@.tmp $@
+data/com.endlessm.CompanionAppService.service: data/com.endlessm.CompanionAppService.service.in
+	$(AM_V_GEN) mkdir -p `dirname $@` && sed -e 's|@bindir[@]|${bindir}|g' $< > $@.tmp && mv $@.tmp $@
 
 CLEANFILES += data/com.endlessm.CompanionAppService.service
 
