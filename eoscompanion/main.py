@@ -189,8 +189,8 @@ class CompanionAppService(GObject.Object):
         # self._group once the client has actually started, so we need to
         # do that there are not here
         self._client.connect('state-changed', self.on_server_state_changed)
-        self._client.start()
         self._group.connect('state-changed', self.on_entry_group_state_changed)
+        self._client.start()
 
         # Create the server now and start listening straight away
         # even if we are not yet discoverable
