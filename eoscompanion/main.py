@@ -38,6 +38,7 @@ from gi.repository import (
     Gio,
     GLib,
     GObject,
+    Gtk,
     Soup
 )
 
@@ -165,7 +166,7 @@ def companion_app_server_application_icon_route(server, msg, path, query, *args)
     def _callback(src, result):
        '''Callback function that gets called when we are done.'''
        try:
-           bytes = EosCompanionAppService.finish_load_application_icon_data_from_data_dirs(result)
+           bytes = EosCompanionAppService.finish_load_application_icon_data_async(result)
            png_response(msg, bytes)
        except GLib.Error as error:
            json_response(msg, {
@@ -185,7 +186,7 @@ def companion_app_server_application_icon_route(server, msg, path, query, *args)
     icon = desktop_info.get_icon()
     icon_name = icon.to_string()
 
-    EosCompanionAppService.load_application_icon_data_from_data_dirs(icon_name, None, _callback)
+    EosCompanionAppService.load_application_icon_data_async(icon_name, None, _callback)
     server.pause_message(msg)
 
 
@@ -423,5 +424,6 @@ class CompanionAppApplication(Gio.Application):
 
 def main(args=None):
     '''Entry point function.'''
+    Gtk.init(args)
     CompanionAppApplication().run(args or sys.argv)
 

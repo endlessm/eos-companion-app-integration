@@ -112,31 +112,30 @@ GPtrArray * eos_companion_app_service_finish_list_application_infos (GAsyncResul
 
 
 /**
- * eos_companion_app_service_load_application_icon_data_from_data_dirs:
+ * eos_companion_app_service_load_application_icon_data_async:
  * @cancellable: A #GCancellable
  * @callback: A #GAsyncReadyCallback
  *
  * Asynchronously load icon data for the given icon name and pass it as a
  * #GBytes to the provided @callback.
  */
-void eos_companion_app_service_load_application_icon_data_from_data_dirs (const gchar         *icon_name,
-                                                                          GCancellable        *cancellable,
-                                                                          GAsyncReadyCallback  callback,
-                                                                          gpointer             user_data);
+void eos_companion_app_service_load_application_icon_data_async (const gchar         *icon_name,
+                                                                 GCancellable        *cancellable,
+                                                                 GAsyncReadyCallback  callback,
+                                                                 gpointer             user_data);
 
 /**
- * eos_companion_app_service_finish_list_application_infos:
+ * eos_companion_app_service_finish_load_application_icon_data_async:
  * @result: A #GAsyncResult
  * @error: A #GErrror
  *
  * Complete the call to eos_companion_app_service_load_application_icon_data_from_data_dirs by returning
  * a #GBytes with PNG icon data.
  *
- * Returns: (transfer none) (element-type EosCompanionAppServiceAppInfo): a #GPtrArray
-            of #EosCompanionAppServiceAppInfo
+ * Returns: (transfer none): a #GBytes of PNG data.
  */
-GBytes * eos_companion_app_service_finish_load_application_icon_data_from_data_dirs (GAsyncResult  *result,
-                                                                                     GError       **error);
+GBytes * eos_companion_app_service_finish_load_application_icon_data_async (GAsyncResult  *result,
+                                                                            GError       **error);
 
 G_END_DECLS
 
