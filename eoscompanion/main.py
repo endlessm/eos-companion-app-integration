@@ -418,6 +418,9 @@ class CompanionAppApplication(Gio.Application):
         '''Just print a message.'''
         Gio.Application.do_startup(self)
 
+        if os.environ.get('EOS_COMPANION_APP_SERVICE_PERSIST', None):
+          self.hold()
+
         self._service = CompanionAppService('EOSCompanionAppService', 1110)
 
     def do_dbus_register(self, connection, path):
