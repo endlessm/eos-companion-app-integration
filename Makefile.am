@@ -137,7 +137,7 @@ INTROSPECTION_COMPILER_ARGS = --includedir=$(srcdir)
 if HAVE_INTROSPECTION
 introspection_sources = \
 	$(gdbus_generated) \
-	$(nodist_libeoscompanion_1_la_SOURCES) \
+	$(libeoscompanion_1_la_SOURCES) \
 	$(NULL)
 
 EosCompanionAppService-1.0.gir: libeoscompanion-dbus-1.la libeoscompanion-1.la
