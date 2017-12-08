@@ -8,6 +8,7 @@
         "--share=ipc",
         "--system-talk-name=org.freedesktop.Avahi",
         "--filesystem=xdg-run/dconf", "--filesystem=~/.config/dconf:ro",
+        "--filesystem=/var/lib/flatpak:ro",
         "--talk-name=ca.desrt.dconf", "--env=DCONF_USER_CONFIG_DIR=.config/dconf",
         "--share=network",
         "--command=eos-companion-app-service"
