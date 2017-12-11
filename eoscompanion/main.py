@@ -18,10 +18,13 @@
 # All rights reserved.
 '''Main executable entry point for eos-companion-app-service.'''
 
+import errno
 import json
+import os
 import re
 import sys
 import gi
+import uuid
 
 gi.require_version('Avahi', '0.6')
 gi.require_version('EosCompanionAppService', '1.0')
@@ -134,6 +137,33 @@ class AvahiEntryGroupWrapper(Avahi.EntryGroup):
             self._attached = True
 
 
+def format_txt_records(records_dict):
+    '''Format key-value pair records from dictionary.'''
+    return '\n'.join([
+        '{k}={v}'.format(k=k, v=v) for k, v in records_dict.items()
+    ])
+
+
+def read_or_generate_server_uuid():
+    '''Get UUID for server, generating it if it does not exist.'''
+    config_dir = os.path.join(GLib.get_user_config_dir(),
+                              'com.endlessm.CompanionAppService')
+    uuid_file = os.path.join(config_dir, 'uuid')
+
+    os.makedirs(config_dir, exist_ok=True)
+    try:
+        with open(uuid_file, 'r') as uuid_fileobj:
+            return uuid_fileobj.read().strip()
+    except OSError as error:
+         if error.errno != errno.ENOENT:
+             raise error
+
+         with open(uuid_file, 'w') as uuid_fileobj:
+             uuid_fileobj.write(str(uuid.uuid4()))
+
+         return read_or_generate_server_uuid()
+
+
 # Avahi-GObject does not define this constant anywhere, so we have to
 # define ourselves
 AVAHI_ERROR_LOCAL_SERVICE_NAME_COLLISION = -8
@@ -146,6 +176,11 @@ def register_services(group, service_name, port):
     the final service name in use.
     '''
     group.reset()
+
+    records = {
+        'ServerUUID': read_or_generate_server_uuid()
+    }
+
     # See the documentation of this function, we cannot use
     # group.add_service_full since that is not introspectable
     #
@@ -158,7 +193,7 @@ def register_services(group, service_name, port):
                                                                     None,
                                                                     None,
                                                                     port,
-                                                                    'sam=australia')
+                                                                    format_txt_records(records))
             break
         except Exception as error:
             if error.matches(Avahi.error_quark(), AVAHI_ERROR_LOCAL_SERVICE_NAME_COLLISION):
