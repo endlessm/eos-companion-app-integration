@@ -32,6 +32,12 @@ AC_ARG_VAR([PYTHON3], [Path to python3])
 pythonminorversion=$($PYTHON3 --version | cut -d ' ' -f 2 | cut -d '.' -f 1,2)
 AC_SUBST([pythonminorversion])
 
+# glib-mkenums
+AC_PATH_PROG([GLIB_MKENUMS],[glib-mkenums])
+AS_IF([test "$GLIB_MKENUMS" == ""],[
+  AC_MSG_ERROR([glib-mkenums not found])
+])
+
 GLIB_GSETTINGS
 PKG_CHECK_MODULES([EOS_COMPANION_APP], [
   avahi-glib
