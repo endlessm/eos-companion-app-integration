@@ -36,7 +36,7 @@ def serialize_error_as_json_object(domain, code, detail={}):
     '''Serialize a GLib.Error as a JSON object.'''
     return {
         'domain': GLib.quark_to_string(domain),
-        'code': code.value_name,
+        'code': code.value_nick.replace('-', '_').upper(),
         'detail': detail
     }
 
