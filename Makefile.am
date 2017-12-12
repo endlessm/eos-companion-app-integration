@@ -79,7 +79,7 @@ libeoscompanion_dbus_1_la_LIBADD = \
 	$(EOS_COMPANION_APP_LIBS) \
 	$(NULL)
 
-nodist_libeoscompanion_1_la_SOURCES = \
+libeoscompanion_1_la_SOURCES = \
 	src/eos-companion-app-integration-helper.c \
 	src/eos-companion-app-integration-helper.h \
 	$(enum_sources) \
@@ -95,15 +95,17 @@ libeoscompanion_1_la_LIBADD = \
 
 # Wrapper script
 bin/eos-companion-app-service: bin/eos-companion-app-service.in
-	$(AM_V_GEN) sed -e 's|@libdir[@]|${libdir}|g;s|@pkgdatadir[@]|${pkgdatadir}|g;s|@pythonminorversion[@]|${pythonminorversion}|g' $< > $@.tmp && mv $@.tmp $@
+	$(AM_V_GEN) mkdir -p `dirname $@` && sed -e 's|@libdir[@]|${libdir}|g;s|@pkgdatadir[@]|${pkgdatadir}|g;s|@pythonminorversion[@]|${pythonminorversion}|g' $< > $@.tmp && mv $@.tmp $@
 
 CLEANFILES += bin/eos-companion-app-service
+EXTRA_DIST += bin/eos-companion-app-service.in
 
 # # # D-BUS SERVICES # # #
-data/com.endlessm.CompanionAppService.service: $(abs_top_srcdir)/data/com.endlessm.CompanionAppService.service.in
-	$(AM_V_GEN) sed -e 's|@bindir[@]|${bindir}|g' $< > $@.tmp && mv $@.tmp $@
+data/com.endlessm.CompanionAppService.service: data/com.endlessm.CompanionAppService.service.in
+	$(AM_V_GEN) mkdir -p `dirname $@` && sed -e 's|@bindir[@]|${bindir}|g' $< > $@.tmp && mv $@.tmp $@
 
 CLEANFILES += data/com.endlessm.CompanionAppService.service
+EXTRA_DIST += data/com.endlessm.CompanionAppService.service.in
 
 # # # D-BUS CODEGEN # # #
 eos-companion-app-service-dbus.c: data/com.endlessm.CompanionAppService.xml
@@ -113,6 +115,7 @@ eos-companion-app-service-dbus.h: eos-companion-app-service-dbus.c
 
 BUILT_SOURCES += $(gdbus_generated)
 CLEANFILES += $(gdbus_generated)
+EXTRA_DIST += data/com.endlessm.CompanionAppService.xml
 
 # # # ENUM HEADER FILES # # #
 src/enums.h: $(enum_template_h_file) $(enum_header_files)
