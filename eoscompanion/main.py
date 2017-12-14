@@ -18,18 +18,29 @@
 # All rights reserved.
 '''Main executable entry point for eos-companion-app-service.'''
 
+from collections import namedtuple
 import errno
+import gi
 import json
 import os
 import re
 import sys
-import gi
+import urllib.parse
 import uuid
 
 gi.require_version('Avahi', '0.6')
 gi.require_version('EosCompanionAppService', '1.0')
+gi.require_version('EosKnowledgeContent', '0')
 
-from gi.repository import Avahi, EosCompanionAppService, Gio, GLib, GObject, Soup
+from gi.repository import (
+    Avahi,
+    EosCompanionAppService,
+    EosKnowledgeContent as Eknc,
+    Gio,
+    GLib,
+    GObject,
+    Soup
+)
 
 
 def serialize_error_as_json_object(domain, code, detail={}):
@@ -56,25 +67,40 @@ def html_response(msg, html):
                                                      'text/html',
                                                      html)
 
-def require_header(header):
+def png_response(msg, bytes):
+    '''Respond with image/png bytes.'''
+    msg.set_status(Soup.Status.OK)
+    EosCompanionAppService.set_soup_message_response_bytes(msg,
+                                                           'image/png',
+                                                           bytes)
+
+
+def require_query_string_param(param):
     '''Require a header to be defined on the incoming message or raise.'''
     def decorator(handler):
         def middleware(server, msg, path, query, client):
-            if not msg.request_headers.get_one(header):
+            rectified_query = query or {}
+            if not rectified_query.get(param, None):
                 return json_response(msg, {
                     'status': 'error',
                     'error': serialize_error_as_json_object(
                         EosCompanionAppService.error_quark(),
                         EosCompanionAppService.Error.INVALID_REQUEST,
                         detail={
-                            'missing_header': header
+                            'missing_querystring_param': param
                         }
                     )
                 })
 
-            return handler(server, msg, path, query, client)
+            return handler(server, msg, path, rectified_query, client)
         return middleware
     return decorator
+
+
+def format_uri_with_querystring(uri, **params):
+    '''Format the passed uri with the querystring params.'''
+    return '{uri}?{params}'.format(uri=uri,
+                                   params=urllib.parse.urlencode(params))
 
 
 def companion_app_server_root_route(_, msg, *args):
@@ -93,7 +119,7 @@ def companion_app_server_root_route(_, msg, *args):
     html_response(msg, html)
 
 
-@require_header('X-Endless-CompanionApp-UUID')
+@require_query_string_param('deviceUUID')
 def companion_app_server_device_authenticate_route(_, msg, *args):
     '''Authorize the client.'''
     print('Would authorize client with id {id}'.format(
@@ -105,11 +131,86 @@ def companion_app_server_device_authenticate_route(_, msg, *args):
     })
 
 
+def desktop_id_to_app_id(desktop_id):
+    '''Remove .desktop suffix from desktop_id.'''
+    return os.path.splitext(desktop_id)[0]
+
+
+ApplicationListing = namedtuple('ApplicationListing', 'app_id display_name')
+
+
+@require_query_string_param('deviceUUID')
+def companion_app_server_list_applications_route(server, msg, path, query, *args):
+    '''List all applications that are available on the system.'''
+    def _callback(src, result):
+        '''Callback function that gets called when we are done.'''
+        infos = EosCompanionAppService.finish_list_application_infos(result)
+        json_response(msg, {
+            'status': 'ok',
+            'payload': [
+                {
+                    'applicationId': a.app_id,
+                    'displayName': a.display_name,
+                    'icon': format_uri_with_querystring(
+                        '/application_icon',
+                        deviceUUID=query['deviceUUID'],
+                        applicationId=a.app_id
+                    ),
+                    'language': a.app_id.split('.')[-1]
+                }
+                for a in [
+                    ApplicationListing(app_info.get_string('Desktop Entry',
+                                                           'X-Flatpak'),
+                                       app_info.get_string('Desktop Entry',
+                                                           'Name'))
+                    for app_info in infos
+                ]
+            ]
+        })
+        server.unpause_message(msg)
+
+    EosCompanionAppService.list_application_infos(None, _callback)
+    server.pause_message(msg)
+
+
+@require_query_string_param('deviceUUID')
+@require_query_string_param('applicationId')
+def companion_app_server_application_icon_route(server, msg, path, query, *args):
+    '''Return image/png data with the application icon.'''
+    def _callback(src, result):
+       '''Callback function that gets called when we are done.'''
+       try:
+           bytes = EosCompanionAppService.finish_load_application_icon_data_async(result)
+           png_response(msg, bytes)
+       except GLib.Error as error:
+           json_response(msg, {
+               'status': 'error',
+               'error': {
+                   'domain': GLib.quark_to_string(EosCompanionAppService.error_quark()),
+                   'code': EosCompanionAppService.Error.FAILED,
+                   'detail': {
+                       'server_error': str(error)
+                   }
+               }
+           })
+       server.unpause_message(msg)
+
+    desktop_file = '.'.join([query['applicationId'], 'desktop'])
+    desktop_info = Gio.DesktopAppInfo.new(desktop_file)
+    icon = desktop_info.get_icon()
+    icon_name = icon.to_string()
+
+    EosCompanionAppService.load_application_icon_data_async(icon_name, None, _callback)
+    server.pause_message(msg)
+
+
 def create_companion_app_webserver():
     '''Create a HTTP server with companion app routes.'''
     server = Soup.Server()
     server.add_handler('/', companion_app_server_root_route)
     server.add_handler('/device_authenticate', companion_app_server_device_authenticate_route)
+    server.add_handler('/list_applications', companion_app_server_list_applications_route)
+    server.add_handler('/application_icon', companion_app_server_application_icon_route)
     return server
 
 
@@ -316,6 +417,9 @@ class CompanionAppApplication(Gio.Application):
     def do_startup(self):
         '''Just print a message.'''
         Gio.Application.do_startup(self)
+
+        if os.environ.get('EOS_COMPANION_APP_SERVICE_PERSIST', None):
+          self.hold()
 
         self._service = CompanionAppService('EOSCompanionAppService', 1110)
 
