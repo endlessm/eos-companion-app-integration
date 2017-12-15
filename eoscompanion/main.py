@@ -76,7 +76,7 @@ def png_response(msg, bytes):
 
 
 def require_query_string_param(param):
-    '''Require a header to be defined on the incoming message or raise.'''
+    '''Require the uri to contain certain query parameter or raise.'''
     def decorator(handler):
         def middleware(server, msg, path, query, client):
             rectified_query = query or {}
