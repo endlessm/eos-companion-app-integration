@@ -76,7 +76,7 @@ def png_response(msg, bytes):
 
 
 def require_query_string_param(param):
-    '''Require a header to be defined on the incoming message or raise.'''
+    '''Require the uri to contain certain query parameter or raise.'''
     def decorator(handler):
         def middleware(server, msg, path, query, client):
             rectified_query = query or {}
@@ -120,10 +120,10 @@ def companion_app_server_root_route(_, msg, *args):
 
 
 @require_query_string_param('deviceUUID')
-def companion_app_server_device_authenticate_route(_, msg, *args):
+def companion_app_server_device_authenticate_route(server, msg, path, query, *args):
     '''Authorize the client.'''
-    print('Would authorize client with id {id}'.format(
-        id=msg.request_headers.get_one('X-Endless-CompanionApp-UUID'))
+    print('Authorize client with id {id}'.format(
+        id=query['deviceUUID'])
     )
     json_response(msg, {
         'status': 'ok',
@@ -169,6 +169,9 @@ def companion_app_server_list_applications_route(server, msg, path, query, *args
         })
         server.unpause_message(msg)
 
+    print('List applications for client with id {id}'.format(
+        id=query['deviceUUID'])
+    )
     EosCompanionAppService.list_application_infos(None, _callback)
     server.pause_message(msg)
 
@@ -200,6 +203,9 @@ def companion_app_server_application_icon_route(server, msg, path, query, *args)
     icon = desktop_info.get_icon()
     icon_name = icon.to_string()
 
+    print('Return icon data of application {application} for client with id {id}'.format(
+        application=query['applicationId'], id=query['deviceUUID'])
+    )
     EosCompanionAppService.load_application_icon_data_async(icon_name, None, _callback)
     server.pause_message(msg)
 
