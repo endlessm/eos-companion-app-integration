@@ -234,7 +234,7 @@ application_is_supported_cache (const gchar *app_id, gboolean *is_supported)
   ret = g_hash_table_lookup_extended (_supported_applications_cache,
                                       app_id,
                                       NULL,
-                                      (gpointer *) &is_supported);
+                                      (gpointer *) is_supported);
 
   g_mutex_unlock (&_supported_applications_cache_mutex);
   return ret;
