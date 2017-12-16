@@ -48,8 +48,6 @@ AC_SUBST([systemdsystemunitdir])
 
 GLIB_GSETTINGS
 PKG_CHECK_MODULES([EOS_COMPANION_APP], [
-  avahi-glib
-  avahi-gobject
   eos-knowledge-content-0
   eos-shard-0
   gdk-pixbuf-2.0

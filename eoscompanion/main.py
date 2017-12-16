@@ -28,13 +28,11 @@ import sys
 import urllib.parse
 import uuid
 
-gi.require_version('Avahi', '0.6')
 gi.require_version('EosCompanionAppService', '1.0')
 gi.require_version('EosKnowledgeContent', '0')
 gi.require_version('EosShard', '0')
 
 from gi.repository import (
-    Avahi,
     EosCompanionAppService,
     EosKnowledgeContent as Eknc,
     Gio,
@@ -655,131 +653,21 @@ def create_companion_app_webserver(application):
     return server
 
 
-def revise_name(service_name):
-    '''Revise the service name into something that won't collide.'''
-    match = re.match('.*\((\d+)\)\s*$', service_name)
-
-    if match:
-        span = match.span(1)
-        num = int(service_name[span[0]:span[1]])
-        return service_name[:span[0]] + str(num + 1) + service_name[span[1]:]
-
-    return '{name} (1)'.format(name=service_name)
-
-
-class AvahiEntryGroupWrapper(Avahi.EntryGroup):
-    '''Subclass of Avahi.EntryGroup with idempotent attach method.'''
-
-    def __init__(self, *args, **kwargs):
-        '''Initialise the application class.'''
-        super(Avahi.EntryGroup, self).__init__(*args, **kwargs)
-        self._attached = False
-
-    def attach(self, client):
-        '''Attach to client, but do nothing if already attached.
-
-        Invariant is that we must have already been attached to the
-        same client. It is a programmer error to try and attach to
-        a different client.
-        '''
-        if not self._attached:
-            super(AvahiEntryGroupWrapper, self).attach(client)
-            self._attached = True
-
-
-def format_txt_records(records_dict):
-    '''Format key-value pair records from dictionary.'''
-    return '\n'.join([
-        '{k}={v}'.format(k=k, v=v) for k, v in records_dict.items()
-    ])
-
-
-def read_or_generate_server_uuid():
-    '''Get UUID for server, generating it if it does not exist.'''
-    config_dir = os.path.join(GLib.get_user_config_dir(),
-                              'com.endlessm.CompanionAppService')
-    uuid_file = os.path.join(config_dir, 'uuid')
-
-    os.makedirs(config_dir, exist_ok=True)
-    try:
-        with open(uuid_file, 'r') as uuid_fileobj:
-            return uuid_fileobj.read().strip()
-    except OSError as error:
-         if error.errno != errno.ENOENT:
-             raise error
-
-         with open(uuid_file, 'w') as uuid_fileobj:
-             uuid_fileobj.write(str(uuid.uuid4()))
-
-         return read_or_generate_server_uuid()
-
-
-# Avahi-GObject does not define this constant anywhere, so we have to
-# define ourselves
-AVAHI_ERROR_LOCAL_SERVICE_NAME_COLLISION = -8
-
-
-def register_services(group, service_name, port):
-    '''Attempt to register services under the :service_name:.
-
-    If that fails, revise the name and keep trying until it works, returning
-    the final service name in use.
-    '''
-    group.reset()
-
-    records = {
-        'ServerUUID': read_or_generate_server_uuid()
-    }
-
-    # See the documentation of this function, we cannot use
-    # group.add_service_full since that is not introspectable
-    #
-    # https://github.com/lathiat/avahi/issues/156
-    while True:
-        try:
-            EosCompanionAppService.add_avahi_service_to_entry_group(group,
-                                                                    service_name,
-                                                                    '_eoscompanion._tcp',
-                                                                    None,
-                                                                    None,
-                                                                    port,
-                                                                    format_txt_records(records))
-            break
-        except GLib.Error as error:
-            if error.matches(Avahi.error_quark(), AVAHI_ERROR_LOCAL_SERVICE_NAME_COLLISION):
-                service_name = revise_name(service_name)
-                print('Local name collision, changing name to "{}"'.format(service_name))
-                continue
-
-            raise error
-
-    group.commit()
-    return service_name
-
-
 class CompanionAppService(GObject.Object):
     '''A container object for the services.'''
 
-    def __init__(self, application, service_name, port, *args, **kwargs):
+    def __init__(self, application, port, *args, **kwargs):
         '''Initialize the service, attach to Avahi.'''
         super().__init__(*args, **kwargs)
 
-        self._service_name = service_name
-        self._port = port
-        self._client = Avahi.Client()
-        self._group = AvahiEntryGroupWrapper()
-
-        # Tricky - the state-changed signal only gets fired once, and only
-        # once we call client.start(). However, we can only initialise
-        # self._group once the client has actually started, so we need to
-        # do that there are not here
-        self._client.connect('state-changed', self.on_server_state_changed)
-        self._client.start()
-
-        self._group.connect('state-changed', self.on_entry_group_state_changed)
-
-        # Create the server now, even if we don't start listening yet
+        # Create the server now and start listening.
+        #
+        # We want to listen right away as we'll probably be started by
+        # socket activation
         self._server = create_companion_app_webserver(application)
+        EosCompanionAppService.soup_server_listen_on_sd_fd_or_port(self._server,
+                                                                   port,
+                                                                   0)
 
     def stop(self):
         '''Close all connections and de-initialise.
@@ -788,60 +676,6 @@ class CompanionAppService(GObject.Object):
         '''
         self._server.disconnect()
 
-    @GObject.Signal(name='services-established')
-    def signal_services_established(self):
-        '''Default handler for services-established.'''
-        print('Services established under name "{}"'.format(self._service_name), file=sys.stderr)
-
-    @GObject.Signal(name='remote-name-collision')
-    def signal_remote_name_collision(self):
-        '''Default handler for services-established.'''
-        print('Remote name collision, will try with name "{}"'.format(self._service_name), file=sys.stderr)
-
-    @GObject.Signal(name='services-establish-fail')
-    def signal_remote_name_collision(self):
-        '''Default handler for remote-name-collision.'''
-        print('Services failed to established', file=sys.stderr)
-
-    def on_entry_group_state_changed(self, entry_group, state):
-        '''Handle group state changes.'''
-        if state == Avahi.EntryGroupState.GA_ENTRY_GROUP_STATE_ESTABLISHED:
-            EosCompanionAppService.soup_server_listen_on_sd_fd_or_port(self._server,
-                                                                       self._port,
-                                                                       0)
-
-            self.emit('services-established')
-        # This is a typo in the avahi-glib API, looks like we are stuck
-        # with it :(
-        #
-        # https://github.com/lathiat/avahi/issues/157
-        elif state == Avahi.EntryGroupState.GA_ENTRY_GROUP_STATE_COLLISTION:
-            self._service_name = register_services(self._group,
-                                                   revise_name(self._service_name),
-                                                   self._port)
-            self.emit('remote-name-collision')
-        elif state == Avahi.EntryGroupState.GA_ENTRY_GROUP_STATE_FAILURE:
-            self.emit('services-establish-fail')
-
-    def on_server_state_changed(self, service, state):
-        '''Handle state changes on the server side.'''
-        if state == Avahi.ClientState.GA_CLIENT_STATE_S_COLLISION:
-            self._service_name = register_services(self._group,
-                                                   revise_name(self._service_name),
-                                                   self._port)
-            self.emit('remote-name-collision')
-        elif state == Avahi.ClientState.GA_CLIENT_STATE_S_RUNNING:
-            print('Server running, registering services')
-
-            # It is only safe to attach to the client now once the client
-            # has actualy been set up. However, we can get to this point
-            # multiple times so the wrapper class will silently prevent
-            # attaching multiple times (which is an error)
-            self._group.attach(self._client)
-
-            self._service_name = register_services(self._group,
-                                                   self._service_name,
-                                                   self._port)
 
 class CompanionAppApplication(Gio.Application):
     '''Subclass of GApplication for controlling the companion app.'''
@@ -862,9 +696,7 @@ class CompanionAppApplication(Gio.Application):
         if os.environ.get('EOS_COMPANION_APP_SERVICE_PERSIST', None):
           self.hold()
 
-        self._service = CompanionAppService(self,
-                                            'EOSCompanionAppService',
-                                            1110)
+        self._service = CompanionAppService(self, 1110)
 
     def do_dbus_register(self, connection, path):
         '''Invoked when we get a D-Bus connection.'''
