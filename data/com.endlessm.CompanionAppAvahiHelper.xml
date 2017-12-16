@@ -1,0 +1,11 @@
+<node>
+  <interface name="com.endlessm.CompanionApp.AvahiHelper">
+    <method name="EnterDiscoverableMode">
+      <arg name="timeout" direction="in" type="i"/>
+      <arg name="name" direction="in" type="s"/>
+    </method>
+    <method name="ExitDiscoverableMode">
+    </method>
+    <property name="Discoverable" type="b" access="read"/>
+  </interface>
+</node>
