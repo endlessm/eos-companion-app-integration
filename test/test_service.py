@@ -35,7 +35,7 @@ os.environ['GI_TYPELIB_PATH'] = os.pathsep.join([
 from unittest import TestCase
 from eoscompanion.main import CompanionAppService
 
-from gi.repository import Avahi, EosCompanionAppService, GLib, Soup
+from gi.repository import EosCompanionAppService, GLib, Soup
 
 
 def with_main_loop(testfunc):
@@ -71,66 +71,6 @@ def with_main_loop(testfunc):
     return decorator
 
 
-AVAHI_IF_UNSPEC = -1
-AVAHI_PROTO_UNSPEC = -1
-
-
-class AvahiServiceListener(object):
-
-    def __init__(self,
-                 service_found_callback=None,
-                 failure_callback=None,
-                 *args,
-                 **kwargs):
-        '''Start up the listener'''
-        super().__init__(*args, **kwargs)
-        self.service_found_callback = service_found_callback
-        self.failure_callback = failure_callback
-
-        # We have to be a bit careful here and assign to self so as
-        # to keep references alive. Not ideal.
-        self.browser = Avahi.ServiceBrowser.new('_eoscompanion._tcp')
-        self.browser.connect('new-service', self.on_new_service)
-        self.client = Avahi.Client()
-        self.client.start()
-        self.browser.attach(self.client)
-
-    def on_service_found(self,
-                         obj,
-                         interface,
-                         protocol,
-                         name,
-                         service_type,
-                         domain,
-                         hostname,
-                         address,
-                         port,
-                         txt_records,
-                         flags):
-        '''Check to see if the found service was the companion app.'''
-        if self.service_found_callback:
-            self.service_found_callback(service_type, name, port)
-
-    def on_new_service(self,
-                       obj,
-                       interface,
-                       protocol,
-                       name,
-                       service_type,
-                       domain,
-                       flags):
-        '''Found a new service, resolve it.'''
-        self.resolver = Avahi.ServiceResolver.new(AVAHI_IF_UNSPEC,
-                                                  AVAHI_PROTO_UNSPEC,
-                                                  name,
-                                                  service_type,
-                                                  domain,
-                                                  AVAHI_PROTO_UNSPEC,
-                                                  Avahi.LookupFlags.GA_LOOKUP_NO_FLAGS)
-        self.resolver.connect('found', self.on_service_found)
-        self.resolver.attach(self.client)
-
-
 def json_http_request_with_uuid(uuid, uri, body, callback):
     '''Send a new HTTP request with the UUID in the header.'''
     session = Soup.Session.new()
@@ -151,37 +91,12 @@ class TestCompanionAppService(TestCase):
     # so that the references on them are dropped
     def setUp(self):
         '''Tear down the test case.'''
-        self.listener = None
         self.service = None
 
     def tearDown(self):
         '''Tear down the test case.'''
-        self.listener = None
         self.service.stop()
         self.service = None
-
-    @with_main_loop
-    def test_services_get_established_on_startup(self, quit):
-        '''Ensure that services are visible once started.'''
-        def on_service_found(service_type, service_name, port):
-            '''Called when a service is found.'''
-            if service_name == 'EOSCompanionAppServiceTest':
-                quit()
-
-        self.service = CompanionAppService('EOSCompanionAppServiceTest', 1100)
-        self.listener = AvahiServiceListener(on_service_found)
-
-    @with_main_loop
-    def test_second_service_gets_renamed(self, quit):
-        '''Ensure that a second service gets renamed.'''
-        def on_service_found(service_type, service_name, port):
-            '''Called when a service is found.'''
-            if service_name == 'EOSCompanionAppServiceTest (1)':
-                quit()
-
-        self.service = CompanionAppService('EOSCompanionAppServiceTest', 1110)
-        self.service2 = CompanionAppService('EOSCompanionAppServiceTest', 1111)
-        self.listener = AvahiServiceListener(on_service_found)
 
     @with_main_loop
     def test_make_connection_to_authenticate(self, quit):
@@ -193,16 +108,11 @@ class TestCompanionAppService(TestCase):
             self.assertTrue(json.loads(bytes.get_data().decode())['status'] == 'ok')
             quit()
 
-        def on_service_ready(obj):
-            '''Called when a service is found.'''
-            json_http_request_with_uuid('Some UUID',
-                                        'http://localhost:1110/device_authenticate',
-                                        {},
-                                        on_received_response)
-
         self.service = CompanionAppService('EOSCompanionAppServiceTest', 1110)
-        self.service.connect('services-established', on_service_ready)
-        self.listener = AvahiServiceListener()
+        json_http_request_with_uuid('Some UUID',
+                                    'http://localhost:1110/device_authenticate',
+                                    {},
+                                    on_received_response)
 
     @with_main_loop
     def test_connection_reject_if_no_uuid(self, quit):
@@ -216,13 +126,9 @@ class TestCompanionAppService(TestCase):
             self.assertTrue(response['error']['code'] == EosCompanionAppService.Error.ERROR_INVALID_REQUEST)
             quit()
 
-        def on_service_ready(obj):
-            '''Called when a service is found.'''
-            json_http_request_with_uuid('',
-                                        'http://localhost:1110/device_authenticate',
-                                        {},
-                                        on_received_response)
-
         self.service = CompanionAppService('EOSCompanionAppServiceTest', 1110)
-        self.service.connect('services-established', on_service_ready)
-        self.listener = AvahiServiceListener()
+        json_http_request_with_uuid('',
+                                   'http://localhost:1110/device_authenticate',
+                                   {},
+                                   on_received_response)
+

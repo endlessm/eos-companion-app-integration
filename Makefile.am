@@ -242,7 +242,7 @@ introspection_sources = \
 	$(NULL)
 
 EosCompanionAppService-1.0.gir: libeoscompanion-dbus-1.la libeoscompanion-1.la
-EosCompanionAppService_1_0_gir_INCLUDES = Avahi-0.6 GObject-2.0 Gio-2.0 GLib-2.0 Soup-2.4
+EosCompanionAppService_1_0_gir_INCLUDES = GObject-2.0 Gio-2.0 GLib-2.0 Soup-2.4
 EosCompanionAppService_1_0_gir_CFLAGS = $(INCLUDES)
 EosCompanionAppService_1_0_gir_LIBS = libeoscompanion-dbus-1.la libeoscompanion-1.la
 EosCompanionAppService_1_0_gir_FILES = $(introspection_sources)
