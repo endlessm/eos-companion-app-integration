@@ -128,7 +128,7 @@ class TestCompanionAppService(TestCase):
             bytes = stream.read_bytes(8096, None)
             response = json.loads(bytes.get_data().decode())
             self.assertTrue(response['status'] == 'error')
-            self.assertTrue(response['error']['code'] == EosCompanionAppService.Error.ERROR_INVALID_REQUEST)
+            self.assertTrue(response['error']['code'] == 'INVALID_REQUEST')
             quit()
 
         self.service = CompanionAppService('EOSCompanionAppServiceTest', 1110)
