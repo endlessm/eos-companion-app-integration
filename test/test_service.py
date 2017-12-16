@@ -21,6 +21,7 @@
 import json
 import os
 import sys
+from urllib.parse import urlencode
 
 os.environ['GI_TYPELIB_PATH'] = os.pathsep.join([
     os.path.abspath(
@@ -74,9 +75,13 @@ def with_main_loop(testfunc):
 def json_http_request_with_uuid(uuid, uri, body, callback):
     '''Send a new HTTP request with the UUID in the header.'''
     session = Soup.Session.new()
-    request = session.request_http_uri('POST', Soup.URI.new(uri))
+    querystring = urlencode({
+        'deviceUUID': uuid
+    })
+    request = session.request_http_uri('POST',
+                                       Soup.URI.new('{}?{}'.format(uri,
+                                                                   querystring)))
     message = request.get_message()
-    message.request_headers.append('X-Endless-CompanionApp-UUID', uuid)
     message.request_headers.append('Accept', 'application/json')
     EosCompanionAppService.set_soup_message_request(message,
                                                     'application/json',
@@ -128,7 +133,7 @@ class TestCompanionAppService(TestCase):
 
         self.service = CompanionAppService('EOSCompanionAppServiceTest', 1110)
         json_http_request_with_uuid('',
-                                   'http://localhost:1110/device_authenticate',
-                                   {},
-                                   on_received_response)
+                                    'http://localhost:1110/device_authenticate',
+                                    {},
+                                    on_received_response)
 
