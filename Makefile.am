@@ -33,6 +33,8 @@ typelibdir = $(libdir)/girepository-1.0
 typelib_DATA =
 systemdserviceunitdir = $(libdir)/systemd/system/
 systemdserviceunit_DATA = 
+# systemsystemunitdir is defined by configure.ac
+systemdsystemunit_DATA = 
 tmpfilesdir = $(prefix)/lib/tmpfiles.d
 tmpfiles_DATA = 
 
@@ -77,9 +79,21 @@ dbussystemconf_DATA += \
 	data/com.endlessm.CompanionAppServiceAvahiHelper.conf \
 	$(NULL)
 
-# systemd service for the Avahi Helper
-systemdserviceunit_DATA += \
+# systemd service for the Avahi Helper and the Companion App Service
+systemdsystemunit_DATA += \
 	data/eos-companion-app-avahi-helper.service \
+	data/eos-companion-app.service \
+	data/eos-companion-app.socket \
+	$(NULL)
+
+# systemd sysusers.d entry for the companion-app-helper user
+systemdsysusers_DATA += \
+	data/eos-companion-app-helper-sysuser.conf \
+	$(NULL)
+
+EXTRA_DIST += \
+	data/eos-companion-app-helper-sysuser.conf \
+	$(NULL)
 
 # tmpfiles entry for Avahi Helper
 tmpfiles_DATA += \
@@ -249,3 +263,8 @@ typelib_DATA += $(INTROSPECTION_GIRS:.gir=.typelib)
 CLEANFILES += $(gir_DATA) $(typelib_DATA)
 endif
 
+# Install systemd unit files to the specified
+# directory when doing 'make distcheck'.
+AM_DISTCHECK_CONFIGURE_FLAGS = \
+	--with-systemdsystemunit='$${prefix}/lib/systemd/system' \
+	$(NULL)
