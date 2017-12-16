@@ -1,0 +1,192 @@
+#!/usr/bin/python3
+#
+# eos-companion-app-avahi-helper: A DBus-activatable service that
+# modifies the companion app avahi configuration
+#
+# Copyright (C) 2017 Endless Mobile, Inc.
+# Authors:
+#  Sam Spilsbury <sam@endlessm.com>
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+import errno
+import logging
+import os
+import shutil
+import subprocess
+import tempfile
+
+from systemd import journal
+
+import gi
+gi.require_version('EosCompanionAppAvahiHelper', '1.0')
+from gi.repository import EosCompanionAppAvahiHelper
+from gi.repository import Gio
+from gi.repository import GLib
+from gi.repository import GObject
+import os
+import sys
+
+
+_AVAHI_SERVICE_METADATA = '''
+<service-group>
+
+  <name replace-wildcards="yes">{name} %h</name>
+
+  <service>
+    <type>_eoscompanion._tcp</type>
+    <port>1100</port>
+    <txt-record value-format="text">ServerUUID={uuid}</txt-record>
+  </service>
+
+</service-group>
+'''
+
+
+_COMPANION_APP_SERVICE = '/etc/avahi/services/companion-app.service'
+_IDLE_TIMEOUT = 20000
+
+
+def _can_enable_avahi_discoverability():
+    '''Check if the CompanionAppService flatpak has been installed.
+
+    Note that we cannot use the Flatpak API directly, since calling
+    flatpak_installation_new_system as the companion-app-helper
+    user will fail with a permission error. Instead we just look
+    inside the directory to see if the expected file exists
+    '''
+    return os.path.exists(os.path.join('/',
+                                       'var',
+                                       'lib',
+                                       'flatpak',
+                                       'app',
+                                       'com.endlessm.CompanionAppService',
+                                       'current',
+                                       'active',
+                                       'metadata'))
+
+
+def _read_machine_id():
+    '''Read the machine id.'''
+    return open('/etc/machine-id').read().strip()
+
+
+def _write_service_metadata(name, machine_id):
+    '''Write the service metadata, formatting with name and machine_id.'''
+    with open(_COMPANION_APP_SERVICE, 'w') as f:
+        f.write(_AVAHI_SERVICE_METADATA.format(name=name,
+                                               uuid=machine_id))
+
+
+def _remove_avahi_service_file():
+    '''Unconditionally remove the avahi service file.
+
+    Suppresses errors if the avahi service file does not exist.
+    '''
+    try:
+        os.remove(_COMPANION_APP_SERVICE)
+    except OSError as error:
+        if error.errno != errno.ENOENT:
+            raise error
+
+
+class CompanionAppAvahiHelperSkeleton(EosCompanionAppAvahiHelper.AvahiHelperSkeleton):
+    '''Subclass that handles AvahiHelperSkeleton methods and properties.'''
+
+    def __init__(self, quit_handle):
+        '''Initialize with quit_handle.'''
+        self._quit_handle = quit_handle
+        super().__init__()
+
+    def do_handle_enter_discoverable_mode(self, invocation, name):
+        '''Discoverable mode entered. Enable if supported.'''
+        try:
+            if _can_enable_avahi_discoverability():
+                _write_service_metadata(name, _read_machine_id())
+                self.complete_enter_discoverable_mode(invocation)
+                return True
+
+            invocation.return_error_literal(Gio.dbus_error_quark(),
+                                            Gio.DBusError.FAILED,
+                                            'The com.endlessm.CompanionAppService flatpak is not installed.')
+        except Exception as error:
+            invocation.return_error_literal(Gio.dbus_error_quark(),
+                                            Gio.DBusError.FAILED,
+                                            str(error))
+
+        self._quit_handle.quit()
+        return True
+
+    def do_handle_exit_discoverable_mode(self, invocation):
+        '''Exit discoverable mode by removing the file.'''
+        try:
+            _remove_avahi_service_file()
+            self.complete_exit_discoverable_mode(invocation)
+        except Exception as error:
+            invocation.return_error_literal(Gio.dbus_error_quark(),
+                                            Gio.DBusError.FAILED,
+                                            str(error))
+
+        self._quit_handle.quit()
+        return True
+
+    @GObject.Property(type=bool, default=False)
+    def discoverable(self):
+        '''Return True if the discoverability file is installed.'''
+        return os.path.exists(_COMPANION_APP_SERVICE)
+
+
+class CompanionAppAvahiHelperApplication():
+    '''Helper application to update the Avahi configuration.'''
+
+    def __init__(self, *args, **kwargs):
+        '''Initialize application and set up structures.'''
+        super(CompanionAppAvahiHelperApplication, self).__init__(*args, **kwargs)
+        self._loop = GLib.MainLoop()
+        self._skeleton = CompanionAppAvahiHelperSkeleton(self._loop)
+        self._system_bus = Gio.bus_own_name(Gio.BusType.SYSTEM,
+                                            'com.endlessm.CompanionAppServiceAvahiHelper',
+                                            Gio.BusNameOwnerFlags.NONE,
+                                            self._system_bus_acquired,
+                                            self._system_bus_name_acquired,
+                                            self._system_bus_name_lost)
+
+    def run(self):
+        '''Run the internal main loop.'''
+        GLib.timeout_add(_IDLE_TIMEOUT, self._loop.quit)
+        self._loop.run()
+
+    def _system_bus_acquired(self, connection, name):
+        '''System bus was acquired, regsiter objects.'''
+        self._registration_id = self._skeleton.export(connection,
+                                                      '/com/endlessm/CompanionAppServiceAvahiHelper')
+
+    def _system_bus_name_acquired(self, connection, name):
+        '''System bus name was acquired.'''
+        print('Got system bus name {}'.format(name), file=sys.stderr)
+
+    def _system_bus_name_lost(self, connection, name):
+        '''System bus name was acquired.'''
+        connection.unregister_object(self._registration_id)
+
+
+def main():
+    '''Entry point function.'''
+    CompanionAppAvahiHelperApplication().run()
+
+
+if __name__ == '__main__':
+    main()
+

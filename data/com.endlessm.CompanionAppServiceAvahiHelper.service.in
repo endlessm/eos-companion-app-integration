@@ -1,0 +1,5 @@
+[D-BUS Service]
+Name=com.endlessm.CompanionAppServiceAvahiHelper
+Exec=@libexecdir@/eos-companion-app-avahi-helper
+SystemdService=eos-companion-app-avahi-helper.service
+User=companion-app-helper

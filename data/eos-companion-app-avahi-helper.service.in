@@ -1,0 +1,32 @@
+[Unit]
+Description=Companion App Avahi Helper
+
+[Service]
+ExecStart=@libexecdir@/eos-companion-app-avahi-helper
+Type=dbus
+BusName=com.endless.CompanionAppServiceAvahiHelper
+NotifyAccess=main
+User=companion-app-helper
+
+# Sandboxing
+CapabilityBoundingSet=
+Environment=GIO_USE_VFS=local
+Environment=GVFS_DISABLE_FUSE=1
+Environment=GVFS_REMOTE_VOLUME_MONITOR_IGNORE=1
+Environment=GSETTINGS_BACKEND=memory
+MemoryDenyWriteExecute=yes
+NoNewPrivileges=yes
+PrivateDevices=yes
+PrivateNetwork=yes
+PrivateTmp=yes
+PrivateUsers=yes
+ProtectControlGroups=yes
+ProtectHome=yes
+ProtectKernelModules=yes
+ProtectKernelTunables=yes
+ProtectSystem=true
+RestrictAddressFamilies=AF_UNIX
+RestrictRealtime=yes
+SystemCallErrorNumber=EPERM
+# network-io seems to be required in order for journald to work
+SystemCallFilter=~@resources @obsolete @mount @module @keyring @chown @privileged
