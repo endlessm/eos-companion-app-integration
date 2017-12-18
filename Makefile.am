@@ -35,6 +35,8 @@ systemdserviceunitdir = $(libdir)/systemd/system/
 systemdserviceunit_DATA = 
 # systemsystemunitdir is defined by configure.ac
 systemdsystemunit_DATA = 
+systemdsysusersdir= $(libdir)/sysusers.d
+systemdsysusers_DATA = 
 tmpfilesdir = $(prefix)/lib/tmpfiles.d
 tmpfiles_DATA = 
 
