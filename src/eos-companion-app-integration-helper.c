@@ -388,10 +388,11 @@ load_desktop_info_key_file_for_app_id (const gchar  *app_id,
   g_return_val_if_fail (out_keyfile != NULL, FALSE);
 
   desktop_id = g_strdup_printf ("%s.desktop", app_id);
-  flatpak_desktop_file_path = g_build_filename ("var",
+  flatpak_desktop_file_path = g_build_filename ("/",
+                                                "var",
                                                 "lib",
                                                 "flatpak",
-                                                "export",
+                                                "exports",
                                                 "share",
                                                 "applications",
                                                 desktop_id,
