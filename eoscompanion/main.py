@@ -310,7 +310,7 @@ def register_services(group, service_name, port):
                                                                     port,
                                                                     format_txt_records(records))
             break
-        except Exception as error:
+        except GLib.Error as error:
             if error.matches(Avahi.error_quark(), AVAHI_ERROR_LOCAL_SERVICE_NAME_COLLISION):
                 service_name = revise_name(service_name)
                 print('Local name collision, changing name to "{}"'.format(service_name))
