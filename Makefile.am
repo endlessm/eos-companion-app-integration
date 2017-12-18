@@ -52,11 +52,6 @@ lib_LTLIBRARIES += \
 dbusservice_DATA += \
 	data/com.endlessm.CompanionAppService.service
 
-gdbus_generated = \
-	eos-companion-app-service-dbus.c \
-	eos-companion-app-service-dbus.h \
-	$(NULL)
-
 enum_header_files = \
 	src/eos-companion-app-integration-helper.h \
 	$(NULL)
@@ -65,6 +60,12 @@ enum_template_c_file = src/enums.c.in
 enum_sources = \
 	src/enums.h \
 	src/enums.c \
+	$(NULL)
+
+# Companion App D-Bus Library
+gdbus_generated = \
+	eos-companion-app-service-dbus.c \
+	eos-companion-app-service-dbus.h \
 	$(NULL)
 
 nodist_libeoscompanion_dbus_1_la_SOURCES = \
