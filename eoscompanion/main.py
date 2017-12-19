@@ -67,12 +67,12 @@ def html_response(msg, html):
                                                      'text/html',
                                                      html)
 
-def png_response(msg, bytes):
+def png_response(msg, image_bytes):
     '''Respond with image/png bytes.'''
     msg.set_status(Soup.Status.OK)
     EosCompanionAppService.set_soup_message_response_bytes(msg,
                                                            'image/png',
-                                                           bytes)
+                                                           image_bytes)
 
 
 def require_query_string_param(param):
@@ -183,8 +183,8 @@ def companion_app_server_application_icon_route(server, msg, path, query, *args)
     def _callback(src, result):
        '''Callback function that gets called when we are done.'''
        try:
-           bytes = EosCompanionAppService.finish_load_application_icon_data_async(result)
-           png_response(msg, bytes)
+           image_bytes = EosCompanionAppService.finish_load_application_icon_data_async(result)
+           png_response(msg, image_bytes)
        except GLib.Error as error:
            json_response(msg, {
                'status': 'error',
