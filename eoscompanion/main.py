@@ -235,8 +235,61 @@ def yield_models_that_have_thumbnails(models):
 
 @require_query_string_param('deviceUUID')
 @require_query_string_param('applicationId')
-def companion_app_server_list_application_content_route(server, msg, path, query, *args):
-    '''Return json listing of all application content that is "visible".'''
+def companion_app_server_list_application_sets_route(server, msg, path, query, *args):
+    '''Return json listing of all sets in an application.'''
+    def _callback(src, result):
+       '''Callback function that gets called when we are done.'''
+       try:
+           query_results = engine.query_finish(result)
+           models = query_results.get_models()
+
+           json_response(msg, {
+               'status': 'ok',
+               'payload': [
+                   {
+                       'setId': model.get_property('title'),
+                       'contentType': 'application/x-ekncontent-set',
+                       'thumbnail': format_uri_with_querystring(
+                           '/content_data',
+                           deviceUUID=query['deviceUUID'],
+                           applicationId=query['applicationId'],
+                           contentId=urllib.parse.urlparse(thumbnail_uri).path[1:]
+                       ),
+                       'id': urllib.parse.urlparse(model.get_property('ekn-id')).path[1:]
+                   }
+                   for thumbnail_uri, model in
+                   yield_models_that_have_thumbnails(models)
+               ]
+           })
+       except GLib.Error as error:
+           json_response(msg, {
+               'status': 'error',
+               'error': serialize_error_as_json_object(
+                   EosCompanionAppService.error_quark(),
+                   EosCompanionAppService.Error.FAILED,
+                   detail={
+                       'server_error': str(error)
+                   }
+               )
+           })
+       server.unpause_message(msg)
+
+    app_id = query['applicationId']
+    engine = Eknc.Engine.get_default()
+
+    engine.query(Eknc.QueryObject(app_id=app_id,
+                                  tags_match_all=GLib.Variant('as', ['EknSetObject']),
+                                  limit=500),
+                 cancellable=None,
+                 callback=_callback)
+    server.pause_message(msg)
+
+
+@require_query_string_param('deviceUUID')
+@require_query_string_param('applicationId')
+@require_query_string_param('setId')
+def companion_app_server_list_application_content_for_set_route(server, msg, path, query, *args):
+    '''Return json listing of all application content in a set.'''
     def _callback(src, result):
        '''Callback function that gets called when we are done.'''
        try:
@@ -278,7 +331,11 @@ def companion_app_server_list_application_content_route(server, msg, path, query
     app_id = query['applicationId']
     engine = Eknc.Engine.get_default()
 
-    engine.query(Eknc.QueryObject(app_id=app_id, limit=500), None, _callback)
+    engine.query(Eknc.QueryObject(app_id=app_id,
+                                  tags_match_all=GLib.Variant('as', [query['setId']]),
+                                  limit=500),
+                 cancellable=None,
+                 callback=_callback)
     server.pause_message(msg)
 
 
@@ -540,7 +597,8 @@ COMPANION_APP_ROUTES = {
     '/device_authenticate': companion_app_server_device_authenticate_route,
     '/list_applications': companion_app_server_list_applications_route,
     '/application_icon': companion_app_server_application_icon_route,
-    '/list_application_content': companion_app_server_list_application_content_route,
+    '/list_application_sets': companion_app_server_list_application_sets_route,
+    '/list_application_content_for_set': companion_app_server_list_application_content_for_set_route,
     '/content_data': companion_app_server_content_data_route,
     '/content_metadata': companion_app_server_content_metadata_route
 }
