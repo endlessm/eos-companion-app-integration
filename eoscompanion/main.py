@@ -233,6 +233,10 @@ def yield_models_that_have_thumbnails(models):
         yield (thumbnail, model)
 
 
+# For now a limit parameter is required for queries
+_SENSIBLE_QUERY_LIMIT = 500
+
+
 @require_query_string_param('deviceUUID')
 @require_query_string_param('applicationId')
 def companion_app_server_list_application_sets_route(server, msg, path, query, *args):
@@ -279,7 +283,7 @@ def companion_app_server_list_application_sets_route(server, msg, path, query, *
 
     engine.query(Eknc.QueryObject(app_id=app_id,
                                   tags_match_all=GLib.Variant('as', ['EknSetObject']),
-                                  limit=500),
+                                  limit=_SENSIBLE_QUERY_LIMIT),
                  cancellable=None,
                  callback=_callback)
     server.pause_message(msg)
@@ -333,7 +337,7 @@ def companion_app_server_list_application_content_for_set_route(server, msg, pat
 
     engine.query(Eknc.QueryObject(app_id=app_id,
                                   tags_match_all=GLib.Variant('as', [query['setId']]),
-                                  limit=500),
+                                  limit=_SENSIBLE_QUERY_LIMIT),
                  cancellable=None,
                  callback=_callback)
     server.pause_message(msg)
