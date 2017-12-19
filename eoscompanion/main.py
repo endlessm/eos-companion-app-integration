@@ -339,6 +339,9 @@ def companion_app_server_list_application_content_for_set_route(server, msg, pat
     server.pause_message(msg)
 
 
+_BYTE_CHUNK_SIZE = 256
+
+
 def load_record_from_engine_async(engine, app_id, content_id, attr, callback):
     '''Load bytes from stream for app and content_id.
 
@@ -368,7 +371,7 @@ def load_record_from_engine_async(engine, app_id, content_id, attr, callback):
             continue
 
         EosCompanionAppService.load_all_in_stream_to_bytes(stream,
-                                                           256,
+                                                           _BYTE_CHUNK_SIZE,
                                                            None,
                                                            callback)
         return True
