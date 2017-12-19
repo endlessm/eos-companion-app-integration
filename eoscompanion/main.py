@@ -371,9 +371,9 @@ def load_record_from_engine_async(engine, app_id, content_id, attr, callback):
             continue
 
         EosCompanionAppService.load_all_in_stream_to_bytes(stream,
-                                                           _BYTE_CHUNK_SIZE,
-                                                           None,
-                                                           callback)
+                                                           chunk_size=_BYTE_CHUNK_SIZE,
+                                                           cancellable=None,
+                                                           callback=callback)
         return True
 
     return False
