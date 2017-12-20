@@ -131,8 +131,8 @@ def companion_app_server_root_route(_, msg, *args):
 @require_query_string_param('deviceUUID')
 def companion_app_server_device_authenticate_route(server, msg, path, query, *args):
     '''Authorize the client.'''
-    print('Authorize client with id {id}'.format(
-        id=query['deviceUUID'])
+    print('Authorize client: clientId={clientId}'.format(
+        clientId=query['deviceUUID'])
     )
     json_response(msg, {
         'status': 'ok',
@@ -178,8 +178,8 @@ def companion_app_server_list_applications_route(server, msg, path, query, *args
         })
         server.unpause_message(msg)
 
-    print('List applications for client with id {id}'.format(
-        id=query['deviceUUID'])
+    print('List applications: clientId={clientId}'.format(
+        clientId=query['deviceUUID'])
     )
     EosCompanionAppService.list_application_infos(None, _callback)
     server.pause_message(msg)
@@ -212,8 +212,8 @@ def companion_app_server_application_icon_route(server, msg, path, query, *args)
     icon = desktop_info.get_icon()
     icon_name = icon.to_string()
 
-    print('Return icon data of application {application} for client with id {id}'.format(
-        application=query['applicationId'], id=query['deviceUUID'])
+    print('Get application icon: clientId={clientId}, applicationId={applicationId}'.format(
+        applicationId=query['applicationId'], clientId=query['deviceUUID'])
     )
     EosCompanionAppService.load_application_icon_data_async(icon_name, None, _callback)
     server.pause_message(msg)
@@ -278,6 +278,10 @@ def companion_app_server_list_application_sets_route(server, msg, path, query, *
            })
        server.unpause_message(msg)
 
+    print('List application sets: clientId={clientId}, applicationId={applicationId}'.format(
+        applicationId=query['applicationId'], clientId=query['deviceUUID'])
+    )
+
     app_id = query['applicationId']
     engine = Eknc.Engine.get_default()
 
@@ -331,6 +335,10 @@ def companion_app_server_list_application_content_for_set_route(server, msg, pat
                )
            })
        server.unpause_message(msg)
+
+    print('List application content for set: clientId={clientId}, applicationId={applicationId}, setId={setId}'.format(
+        setId=query['setId'], applicationId=query['applicationId'], clientId=query['deviceUUID'])
+    )
 
     app_id = query['applicationId']
     engine = Eknc.Engine.get_default()
@@ -514,6 +522,10 @@ def companion_app_server_content_data_route(server, msg, path, query, *args):
                 )
             })
 
+    print('Get content data: clientId={clientId}, applicationId={applicationId}, contentId={contentId}'.format(
+        contentId=query['contentId'], applicationId=query['applicationId'], clientId=query['deviceUUID'])
+    )
+
     if load_record_from_engine_async(Eknc.Engine.get_default(),
                                      query['applicationId'],
                                      query['contentId'],
@@ -561,6 +573,10 @@ def companion_app_server_content_metadata_route(server, msg, path, query, *args)
             })
 
         server.unpause_message(msg)
+
+    print('Get content metadata: clientId={clientId}, applicationId={applicationId}, contentId={contentId}'.format(
+        contentId=query['contentId'], applicationId=query['applicationId'], clientId=query['deviceUUID'])
+    )
 
     if load_record_from_engine_async(Eknc.Engine.get_default(),
                                      query['applicationId'],
