@@ -560,7 +560,7 @@ get_singleton_icon_theme ()
                                                        "var",
                                                        "lib",
                                                        "flatpak",
-                                                       "export",
+                                                       "exports",
                                                        "share",
                                                        "icons",
                                                        NULL);
