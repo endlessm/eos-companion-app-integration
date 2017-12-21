@@ -145,7 +145,7 @@ def desktop_id_to_app_id(desktop_id):
     return os.path.splitext(desktop_id)[0]
 
 
-ApplicationListing = namedtuple('ApplicationListing', 'app_id display_name')
+ApplicationListing = namedtuple('ApplicationListing', 'app_id display_name icon')
 
 
 @require_query_string_param('deviceUUID')
@@ -163,7 +163,7 @@ def companion_app_server_list_applications_route(server, msg, path, query, *args
                     'icon': format_uri_with_querystring(
                         '/application_icon',
                         deviceUUID=query['deviceUUID'],
-                        applicationId=a.app_id
+                        iconName=a.icon
                     ),
                     'language': a.app_id.split('.')[-1]
                 }
@@ -171,7 +171,9 @@ def companion_app_server_list_applications_route(server, msg, path, query, *args
                     ApplicationListing(app_info.get_string('Desktop Entry',
                                                            'X-Flatpak'),
                                        app_info.get_string('Desktop Entry',
-                                                           'Name'))
+                                                           'Name'),
+                                       app_info.get_string('Desktop Entry',
+                                                           'Icon'))
                     for app_info in infos
                 ]
             ]
@@ -186,7 +188,7 @@ def companion_app_server_list_applications_route(server, msg, path, query, *args
 
 
 @require_query_string_param('deviceUUID')
-@require_query_string_param('applicationId')
+@require_query_string_param('iconName')
 def companion_app_server_application_icon_route(server, msg, path, query, *args):
     '''Return image/png data with the application icon.'''
     def _callback(src, result):
@@ -207,15 +209,13 @@ def companion_app_server_application_icon_route(server, msg, path, query, *args)
            })
        server.unpause_message(msg)
 
-    desktop_file = '.'.join([query['applicationId'], 'desktop'])
-    desktop_info = Gio.DesktopAppInfo.new(desktop_file)
-    icon = desktop_info.get_icon()
-    icon_name = icon.to_string()
-
-    print('Get application icon: clientId={clientId}, applicationId={applicationId}'.format(
-        applicationId=query['applicationId'], clientId=query['deviceUUID'])
+    print('Get application icon: clientId={clientId}, iconName={iconName}'.format(
+        iconName=query['iconName'],
+        clientId=query['deviceUUID'])
     )
-    EosCompanionAppService.load_application_icon_data_async(icon_name, None, _callback)
+    EosCompanionAppService.load_application_icon_data_async(query['iconName'],
+                                                            cancellable=None,
+                                                            callback=_callback)
     server.pause_message(msg)
 
 
