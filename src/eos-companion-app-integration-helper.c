@@ -556,7 +556,8 @@ get_singleton_icon_theme ()
 
   if (g_once_init_enter (&initialization_value))
     {
-      g_autofree gchar *icons_path = g_build_filename ("var",
+      g_autofree gchar *icons_path = g_build_filename ("/",
+                                                       "var",
                                                        "lib",
                                                        "flatpak",
                                                        "export",
