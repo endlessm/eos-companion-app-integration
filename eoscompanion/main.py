@@ -352,6 +352,9 @@ def companion_app_server_list_application_content_for_set_route(server, msg, pat
 
 
 _BYTE_CHUNK_SIZE = 256
+_LOAD_FROM_ENGINE_SUCCESS = 0
+_LOAD_FROM_ENGINE_NO_SUCH_APP = 1
+_LOAD_FROM_ENGINE_NO_SUCH_CONTENT = 2
 
 
 def load_record_from_engine_async(engine, app_id, content_id, attr, callback):
@@ -368,7 +371,12 @@ def load_record_from_engine_async(engine, app_id, content_id, attr, callback):
     if attr not in ('data', 'metadata'):
         raise RuntimeError('attr must be one of "data" or "metadata"')
 
-    domain = engine.get_domain_for_app(app_id)
+    try:
+        domain = engine.get_domain_for_app(app_id)
+    except GLib.Error as error:
+        if error.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.FAILED):
+            return _LOAD_FROM_ENGINE_NO_SUCH_APP
+
     shards = domain.get_shards()
 
     for shard in shards:
@@ -386,9 +394,9 @@ def load_record_from_engine_async(engine, app_id, content_id, attr, callback):
                                                            chunk_size=_BYTE_CHUNK_SIZE,
                                                            cancellable=None,
                                                            callback=callback)
-        return True
+        return _LOAD_FROM_ENGINE_SUCCESS
 
-    return False
+    return _LOAD_FROM_ENGINE_NO_SUCH_CONTENT
 
 
 def rewrite_ekn_url(ekn_id, query):
@@ -503,18 +511,21 @@ def companion_app_server_content_data_route(server, msg, path, query, *args):
             EosCompanionAppService.bytes_to_string(metadata_bytes)
         )['contentType']
 
-        if not load_record_from_engine_async(Eknc.Engine.get_default(),
-                                             query['applicationId'],
-                                             query['contentId'],
-                                            'data',
-                                            _on_got_data_callback):
+        metadata_result = load_record_from_engine_async(Eknc.Engine.get_default(),
+                                                        query['applicationId'],
+                                                        query['contentId'],
+                                                       'data',
+                                                       _on_got_data_callback)
+        if metadata_result != _LOAD_FROM_ENGINE_SUCCESS:
             # No corresponding record found, EKN ID must have been invalid,
             # though it was valid for metadata...
             json_response(msg, {
                 'status': 'error',
                 'error': serialize_error_as_json_object(
                     EosCompanionAppService.error_quark(),
-                    EosCompanionAppService.Error.INVALID_CONTENT_ID,
+                    EosCompanionAppService.Error.INVALID_APP_ID
+                    if metadata_result == _LOAD_FROM_ENGINE_NO_SUCH_APP
+                    else EosCompanionAppService.Error.INVALID_CONTENT_ID,
                     detail={
                         'applicationId': query['applicationId'],
                         'contentId': query['contentId']
@@ -526,20 +537,23 @@ def companion_app_server_content_data_route(server, msg, path, query, *args):
         contentId=query['contentId'], applicationId=query['applicationId'], clientId=query['deviceUUID'])
     )
 
-    if load_record_from_engine_async(Eknc.Engine.get_default(),
-                                     query['applicationId'],
-                                     query['contentId'],
-                                     'metadata',
-                                     _on_got_metadata_callback):
+    result = load_record_from_engine_async(Eknc.Engine.get_default(),
+                                           query['applicationId'],
+                                           query['contentId'],
+                                           'metadata',
+                                           _on_got_metadata_callback)
+
+    if result == _LOAD_FROM_ENGINE_SUCCESS:
         server.pause_message(msg)
         return
 
-    # No corresponding record found, EKN ID must have been invalid
     json_response(msg, {
         'status': 'error',
         'error': serialize_error_as_json_object(
             EosCompanionAppService.error_quark(),
-            EosCompanionAppService.Error.INVALID_CONTENT_ID,
+            EosCompanionAppService.Error.INVALID_APP_ID
+            if result == _LOAD_FROM_ENGINE_NO_SUCH_APP
+            else EosCompanionAppService.Error.INVALID_CONTENT_ID,
             detail={
                 'applicationId': query['applicationId'],
                 'contentId': query['contentId']
@@ -578,20 +592,23 @@ def companion_app_server_content_metadata_route(server, msg, path, query, *args)
         contentId=query['contentId'], applicationId=query['applicationId'], clientId=query['deviceUUID'])
     )
 
-    if load_record_from_engine_async(Eknc.Engine.get_default(),
-                                     query['applicationId'],
-                                     query['contentId'],
-                                     'metadata',
-                                     _callback):
+    result = load_record_from_engine_async(Eknc.Engine.get_default(),
+                                           query['applicationId'],
+                                           query['contentId'],
+                                           'metadata',
+                                           _on_got_metadata_callback)
+
+    if result == _LOAD_FROM_ENGINE_SUCCESS:
         server.pause_message(msg)
         return
 
-    # No corresponding record found, EKN ID must have been invalid
     json_response(msg, {
         'status': 'error',
         'error': serialize_error_as_json_object(
             EosCompanionAppService.error_quark(),
-            EosCompanionAppService.Error.INVALID_CONTENT_ID,
+            EosCompanionAppService.Error.INVALID_APP_ID
+            if result == _LOAD_FROM_ENGINE_NO_SUCH_APP
+            else EosCompanionAppService.Error.INVALID_CONTENT_ID,
             detail={
                 'applicationId': query['applicationId'],
                 'contentId': query['contentId']
