@@ -470,6 +470,7 @@ def companion_app_server_content_data_route(server, msg, path, query, *args):
             '''Callback function that gets called when we are done.'''
             try:
                 data_bytes = EosCompanionAppService.finish_load_all_in_stream_to_bytes(data_result)
+                msg.set_status(Soup.Status.OK)
                 EosCompanionAppService.set_soup_message_response_bytes(msg,
                                                                        content_type,
                                                                        adjust_content(content_type,
@@ -571,6 +572,7 @@ def companion_app_server_content_metadata_route(server, msg, path, query, *args)
         '''Callback function that gets called when we are done.'''
         try:
             metadata_bytes = EosCompanionAppService.finish_load_all_in_stream_to_bytes(result)
+            msg.set_status(Soup.Status.OK)
             EosCompanionAppService.set_soup_message_response_bytes(msg,
                                                                    'application/json',
                                                                    metadata_bytes)
