@@ -211,8 +211,8 @@ def companion_app_server_application_icon_route(server, msg, path, query, *args)
 
     print('Get application icon: clientId={clientId}, iconName={iconName}'.format(
         iconName=query['iconName'],
-        clientId=query['deviceUUID'])
-    )
+        clientId=query['deviceUUID']
+    ))
     EosCompanionAppService.load_application_icon_data_async(query['iconName'],
                                                             cancellable=None,
                                                             callback=_callback)
