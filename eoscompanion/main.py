@@ -355,16 +355,14 @@ _LOAD_FROM_ENGINE_NO_SUCH_APP = 1
 _LOAD_FROM_ENGINE_NO_SUCH_CONTENT = 2
 
 
-def load_record_from_engine_async(engine, app_id, content_id, attr, callback):
-    '''Load bytes from stream for app and content_id.
+
+def load_record_blob_from_engine(engine, app_id, content_id, attr):
+    '''Load a blob for app and content_id.
 
     :attr: must be one of 'data' or 'metadata'.
 
-    Once loading is complete, callback will be invoked with a GAsyncResult,
-    use EosCompanionAppService.finish_load_all_in_stream_to_bytes
-    to get the result or handle the corresponding error.
-
-    Returns True if a stream could be loaded, False otherwise.
+    Returns the a tuple of a (status code, blob) on success,
+    (status code, None) otherwise.
     '''
     if attr not in ('data', 'metadata'):
         raise RuntimeError('attr must be one of "data" or "metadata"')
@@ -373,7 +371,7 @@ def load_record_from_engine_async(engine, app_id, content_id, attr, callback):
         domain = engine.get_domain_for_app(app_id)
     except GLib.Error as error:
         if error.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.FAILED):
-            return _LOAD_FROM_ENGINE_NO_SUCH_APP
+            return _LOAD_FROM_ENGINE_NO_SUCH_APP, None
 
     shards = domain.get_shards()
 
@@ -383,18 +381,36 @@ def load_record_from_engine_async(engine, app_id, content_id, attr, callback):
         if not record:
             continue
 
-        stream = getattr(record, attr).get_stream()
+        return _LOAD_FROM_ENGINE_SUCCESS, getattr(record, attr)
 
-        if not stream:
-            continue
+    return _LOAD_FROM_ENGINE_NO_SUCH_CONTENT, None
 
-        EosCompanionAppService.load_all_in_stream_to_bytes(stream,
+
+def load_record_from_engine_async(engine, app_id, content_id, attr, callback):
+    '''Load bytes from stream for app and content_id.
+
+    :attr: must be one of 'data' or 'metadata'.
+
+    Once loading is complete, callback will be invoked with a GAsyncResult,
+    use EosCompanionAppService.finish_load_all_in_stream_to_bytes
+    to get the result or handle the corresponding error.
+
+    Returns _LOAD_FROM_ENGINE_SUCCESS if a stream could be loaded,
+    _LOAD_FROM_ENGINE_NO_SUCH_APP if the app wasn't found and
+    _LOAD_FROM_ENGINE_NO_SUCH_CONTENT if the content wasn't found.
+    '''
+    status, blob = load_record_blob_from_engine(engine,
+                                                app_id,
+                                                content_id,
+                                                attr)
+
+    if status == _LOAD_FROM_ENGINE_SUCCESS:
+        EosCompanionAppService.load_all_in_stream_to_bytes(blob.get_stream(),
                                                            chunk_size=_BYTE_CHUNK_SIZE,
                                                            cancellable=None,
                                                            callback=callback)
-        return _LOAD_FROM_ENGINE_SUCCESS
 
-    return _LOAD_FROM_ENGINE_NO_SUCH_CONTENT
+    return status
 
 
 def rewrite_ekn_url(ekn_id, query):
