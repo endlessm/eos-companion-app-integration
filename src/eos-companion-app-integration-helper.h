@@ -18,6 +18,9 @@
 #pragma once
 
 #include <glib-object.h>
+
+#include <eos-shard/eos-shard-blob.h>
+
 #include <libsoup/soup.h>
 
 G_BEGIN_DECLS
@@ -189,7 +192,6 @@ gchar * eos_companion_app_service_bytes_to_string (GBytes *bytes);
  */
 GBytes * eos_companion_app_service_string_to_bytes (const gchar *string);
 
-
 /**
  * eos_companion_app_service_get_runtime_name_for_app_id:
  * @app_id: (transfer none): A utf-8 string.
@@ -200,6 +202,39 @@ GBytes * eos_companion_app_service_string_to_bytes (const gchar *string);
  */
 gchar * eos_companion_app_service_get_runtime_name_for_app_id (const gchar  *app_id,
                                                                GError      **error);
+
+/**
+ * eos_companion_app_service_get_stream_at_offset_for_blob
+ * @blob: (transfer none): An #EosShardBlob to seek
+ * @offset: offset in bytes to seek to
+ * @cancellable: (transfer none): A #GCancellable
+ * @callback: A callback that will be invoked on success or failure once
+ *            seeking is complete.
+ * @user_data: The closure for @callback
+ *
+ * Do whatever is necessary to seek the underlying data stream for the
+ * given @blob to the position specified by @offset. For compressed
+ * streams this will mean unpacking the stream contents until we get to
+ * the desired point - an O(N) operation.
+ */
+void eos_companion_app_service_get_stream_at_offset_for_blob (EosShardBlob        *blob,
+                                                              goffset              offset,
+                                                              GCancellable        *cancellable,
+                                                              GAsyncReadyCallback  callback,
+                                                              gpointer             user_data);
+
+/**
+ * eos_companion_app_service_finish_get_stream_at_offset_for_blob
+ * @result: A #GAsyncResult
+ * @error: A #GError
+ *
+ * Complete the call to eos_companion_app_service_get_stream_at_offset_for_blob
+ * by returning the newly seeked #GInputStream.
+ *
+ * Returns: (transfer none): a #GInputStream seeked to a given offset
+ */
+GInputStream * eos_companion_app_service_finish_get_stream_at_offset_for_blob (GAsyncResult  *result,
+                                                                               GError       **error);
 
 G_END_DECLS
 
