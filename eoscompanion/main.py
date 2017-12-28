@@ -464,15 +464,68 @@ def adjust_content(content_type, content_bytes, query):
     return content_bytes
 
 
+def define_content_range_from_headers_and_size(request_headers, content_size):
+    '''Determine how to set the content-range headers.'''
+    range_header_value = request_headers.get_one('Range')
+
+    if not range_header_value:
+        return 0, content_size, content_size
+
+    print(range_header_value)
+    match = re.match('bytes=(?P<start>\d+)\-(?P<end>\d*)', range_header_value)
+    if not match:
+        raise RuntimeError('Range value {value} does not look valid'.format(value=range_header_value))
+
+    start = int(match.group('start'))
+
+    try:
+        end = int(match.group('end'))
+    except ValueError:
+        end = content_size - 1
+
+    if end < start:
+        raise RuntimeError('Range values {start}, {end} are not valid'.format(start=start,
+                                                                              end=end))
+
+    length = end - start
+    if length > content_size:
+        raise RuntimeError(
+            'Requested length {length} exceeds content length {content_length}'.format(
+                length=length,
+                content_length=content_size
+            )
+        )
+
+    return start, end, end - start + 1
+
 
 @require_query_string_param('deviceUUID')
 @require_query_string_param('applicationId')
 @require_query_string_param('contentId')
-def companion_app_server_content_data_route(server, msg, path, query, *args):
-    '''Return content for contentId.
+def companion_app_server_content_data_route(server, msg, path, query, context):
+    '''Stream content, given contentId.
 
     Content-Type is content-defined. It will be determined based
     on the metadata for that content.
+
+    The client can optionally pass a Range header to start streaming
+    the content from a given byte offset.
+
+    Unfortunately, due to some of the complexities that we have to handle,
+    there are a lot of callbacks that occur within this function. The general
+    flow looks something like this:
+
+    Request -> Lookup record -> Load metadata -> Load content type ->
+    Lookup blob -> Set Content-Length -> Maybe set Content-Range ->
+    Set Response Status -> Seek blob -> Send headers and wait ->
+    Splice blob stream onto response -> Wait for all data to be sent ->
+    Report on status
+
+    Note that a lot of fighting with browsers occurred in the implementation
+    of this method. If you intend to modify it, pay special attention
+    to the comments since some browsers, (especially Chromium!) are very
+    particular with what gets sent in the response headers and a single
+    mistake will cause inexplicable loading failures part way through streams.
     '''
     def _on_got_metadata_callback(src, result):
         '''Callback function that gets called when we got the metadata.
@@ -480,58 +533,49 @@ def companion_app_server_content_data_route(server, msg, path, query, *args):
         From here we can figure out what the content type is and load
         accordingly.
         '''
-        def _on_got_data_callback(data_src, data_result):
-            '''Callback function that gets called when we are done.'''
+        def on_splice_finished(src, result):
+            '''Callback for when we are done splicing.'''
             try:
-                data_bytes = EosCompanionAppService.finish_load_all_in_stream_to_bytes(data_result)
-                msg.set_status(Soup.Status.OK)
-                EosCompanionAppService.set_soup_message_response_bytes(msg,
-                                                                       content_type,
-                                                                       adjust_content(content_type,
-                                                                                      data_bytes,
-                                                                                      query))
+                bytes_written = src.splice_finish(result)
             except GLib.Error as error:
-                json_response(msg, {
-                    'status': 'error',
-                    'error': serialize_error_as_json_object(
-                        EosCompanionAppService.error_quark(),
-                        EosCompanionAppService.Error.FAILED,
-                        detail={
-                            'server_error': str(error)
-                        }
-                    )
-                })
-
-            server.unpause_message(msg)
-
-        try:
-            metadata_bytes = EosCompanionAppService.finish_load_all_in_stream_to_bytes(result)
-        except GLib.Error as error:
-            json_response(msg, {
-                'status': 'error',
-                'error': serialize_error_as_json_object(
-                    EosCompanionAppService.error_quark(),
-                    EosCompanionAppService.Error.FAILED,
-                    detail={
-                        'server_error': str(error)
-                    }
+                # Can't really do much here except log server side
+                print(
+                    'Splice operation on file failed: {error}'.format(error=error.message),
+                    file=sys.stderr
                 )
-            })
+                return
+
+        def on_got_offsetted_stream(src, result):
+            '''Use the offsetted stream to stream the rest of the content.'''
+            def on_wrote_headers(msg):
+                '''Callback when headers are written.'''
+                stream = context.steal_connection()
+                ostream = stream.get_output_stream()
+                ostream.splice_async(istream,
+                                     Gio.OutputStreamSpliceFlags.CLOSE_TARGET,
+                                     GLib.PRIORITY_DEFAULT,
+                                     None,
+                                     on_splice_finished)
+
+            # Now that we have the offseted stream, we can continue writing
+            # the message body and insert our spliced stream in place
+            istream = EosCompanionAppService.finish_get_stream_at_offset_for_blob(result)
+            msg.connect('wrote-headers', on_wrote_headers)
+
             server.unpause_message(msg)
-            return
 
         # Now that we have the metadata, deserialize it and use the
         # contentType hint to figure out the best way to load it.
+        metadata_bytes = EosCompanionAppService.finish_load_all_in_stream_to_bytes(result)
         content_type = json.loads(
             EosCompanionAppService.bytes_to_string(metadata_bytes)
         )['contentType']
 
-        metadata_result = load_record_from_engine_async(Eknc.Engine.get_default(),
-                                                        query['applicationId'],
-                                                        query['contentId'],
-                                                       'data',
-                                                       _on_got_data_callback)
-        if metadata_result != _LOAD_FROM_ENGINE_SUCCESS:
+        blob_result, blob = load_record_blob_from_engine(Eknc.Engine.get_default(),
+                                                         query['applicationId'],
+                                                         query['contentId'],
+                                                         'data')
+        if blob_result != _LOAD_FROM_ENGINE_SUCCESS:
             # No corresponding record found, EKN ID must have been invalid,
             # though it was valid for metadata...
             json_response(msg, {
@@ -539,7 +583,7 @@ def companion_app_server_content_data_route(server, msg, path, query, *args):
                 'error': serialize_error_as_json_object(
                     EosCompanionAppService.error_quark(),
                     EosCompanionAppService.Error.INVALID_APP_ID
-                    if metadata_result == _LOAD_FROM_ENGINE_NO_SUCH_APP
+                    if blob_result == _LOAD_FROM_ENGINE_NO_SUCH_APP
                     else EosCompanionAppService.Error.INVALID_CONTENT_ID,
                     detail={
                         'applicationId': query['applicationId'],
@@ -547,8 +591,60 @@ def companion_app_server_content_data_route(server, msg, path, query, *args):
                     }
                 )
             })
+            server.unpause_message(msg)
+            return
 
-    print('Get content data: clientId={clientId}, applicationId={applicationId}, contentId={contentId}'.format(
+        # Now that we have the blob, we can post back with how big the
+        # content is
+        response_headers = msg.get_property('response-headers')
+        request_headers = msg.get_property('request-headers')
+
+        total_content_size = blob.get_content_size()
+        start, end, length = define_content_range_from_headers_and_size(request_headers,
+                                                                        total_content_size)
+
+        # Note that the length we set here is the number of bytes that will
+        # be contained in the payload, but this is different from the
+        # 'total' that is sent in the Content-Range header
+        #
+        # Essentially, it is end - start + 1, taking into account the
+        # requirements for the end marker below.
+        response_headers.set_content_length(length)
+        response_headers.set_content_type(content_type)
+        response_headers.replace('Connection', 'keep-alive')
+
+        # If we did not get a Range header, then we do not want to set Content-Range,
+        # nor do we want to respond with PARTIAL_CONTENT as the status code. If
+        # we do that, browsers like Firefox will handle it fine, but Chrome
+        # and VLC just choke. Note that we do not even want to send
+        # Accept-Ranges unless the client requested a Range.
+        if request_headers.get_one('Range'):
+            response_headers.replace('Accept-Ranges', 'bytes')
+
+            # The format of this must be
+            #
+            #   'bytes start-end/total'
+            #
+            # The 'end' marker must be one byte less than 'total' and
+            # all bytes up to 'end' must be sent by the implementation. Browsers
+            # like Chrome will, upon seeking, attempt to load the last 6524
+            # bytes of the stream and won't continue until all of those
+            # bytes have been sent by the client (at which point it actually
+            # loads from the correct place).
+            response_headers.replace('Content-Range',
+                                     'bytes {start}-{end}/{total}'.format(start=start,
+                                                                          end=end,
+                                                                          total=total_content_size))
+            msg.set_status(Soup.Status.PARTIAL_CONTENT)
+        else:
+            msg.set_status(Soup.Status.OK)
+
+        EosCompanionAppService.get_stream_at_offset_for_blob(blob,
+                                                             start,
+                                                             None,
+                                                             on_got_offsetted_stream)
+
+    print('Get content stream: clientId={clientId}, applicationId={applicationId}, contentId={contentId}'.format(
         contentId=query['contentId'], applicationId=query['applicationId'], clientId=query['deviceUUID'])
     )
 
