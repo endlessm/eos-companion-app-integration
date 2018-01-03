@@ -57,6 +57,7 @@ _AVAHI_SERVICE_METADATA = '''
 
 _COMPANION_APP_SERVICE = '/etc/avahi/services/companion-app.service'
 _IDLE_TIMEOUT = 20000
+_POSTACTION_TIMEOUT = 1000
 _STREAM = journal.stream()
 
 
@@ -147,7 +148,9 @@ class CompanionAppAvahiHelperSkeleton(EosCompanionAppAvahiHelper.AvahiHelperSkel
                                             Gio.DBusError.FAILED,
                                             str(error))
 
-        self._quit_handle.quit()
+        # We need to add a bit of time here so that the PropertiesChanged
+        # call gets emitted before quitting
+        GLib.timeout_add(_POSTACTION_TIMEOUT, lambda: self._quit_handle.quit())
         return True
 
     def do_handle_exit_discoverable_mode(self, invocation):
@@ -162,7 +165,7 @@ class CompanionAppAvahiHelperSkeleton(EosCompanionAppAvahiHelper.AvahiHelperSkel
                                             Gio.DBusError.FAILED,
                                             str(error))
 
-        self._quit_handle.quit()
+        GLib.timeout_add(_POSTACTION_TIMEOUT, lambda: self._quit_handle.quit())
         return True
 
 
