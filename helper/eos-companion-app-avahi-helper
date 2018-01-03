@@ -111,6 +111,8 @@ class CompanionAppAvahiHelperSkeleton(EosCompanionAppAvahiHelper.AvahiHelperSkel
         self._quit_handle = quit_handle
         super().__init__()
 
+        self.set_property('discoverable', os.path.exists(_COMPANION_APP_SERVICE))
+
     def do_handle_enter_discoverable_mode(self, invocation, timeout, name):
         '''Discoverable mode entered. Enable if supported.'''
         try:
@@ -118,6 +120,22 @@ class CompanionAppAvahiHelperSkeleton(EosCompanionAppAvahiHelper.AvahiHelperSkel
             # use it later if we want to support ephemeral discoverability.
             if _can_enable_avahi_discoverability():
                 _write_service_metadata(name, _read_machine_id())
+
+                # XXX: It seems like we have to explicitly set the property
+                # here in order for the PropertiesChanged signal to be emitted
+                # later when we call notify() (and we also have to explicitly
+                # call that, too, since the properties implementation has been
+                # overridden by PyGI)
+                #
+                # We also cannot use getter and setter based property overrides
+                # since that breaks property change notification.
+                #
+                # It also seems that the use of set_property() here is
+                # required as well, merely setting the attribute to True
+                # does not seem to get reflected on the GObject side, even
+                # though 'discoverable' is a property of this object.
+                self.set_property('discoverable', True)
+                self.notify('discoverable')
                 self.complete_enter_discoverable_mode(invocation)
                 return True
 
@@ -136,6 +154,8 @@ class CompanionAppAvahiHelperSkeleton(EosCompanionAppAvahiHelper.AvahiHelperSkel
         '''Exit discoverable mode by removing the file.'''
         try:
             _remove_avahi_service_file()
+            self.set_property('discoverable', False)
+            self.notify('discoverable')
             self.complete_exit_discoverable_mode(invocation)
         except Exception as error:
             invocation.return_error_literal(Gio.dbus_error_quark(),
@@ -144,11 +164,6 @@ class CompanionAppAvahiHelperSkeleton(EosCompanionAppAvahiHelper.AvahiHelperSkel
 
         self._quit_handle.quit()
         return True
-
-    @GObject.Property(type=bool, default=False)
-    def discoverable(self):
-        '''Return True if the discoverability file is installed.'''
-        return os.path.exists(_COMPANION_APP_SERVICE)
 
 
 class CompanionAppAvahiHelperApplication():
