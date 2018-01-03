@@ -86,6 +86,10 @@ dbussystemconf_DATA += \
 	data/com.endlessm.CompanionAppServiceAvahiHelper.conf \
 	$(NULL)
 
+EXTRA_DIST += \
+	data/com.endlessm.CompanionAppServiceAvahiHelper.conf \
+	$(NULL)
+
 # systemd service for the Avahi Helper and the Companion App Service
 systemdsystemunit_DATA += \
 	data/eos-companion-app-avahi-helper.service \
