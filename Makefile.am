@@ -290,5 +290,5 @@ endif
 # Install systemd unit files to the specified
 # directory when doing 'make distcheck'.
 AM_DISTCHECK_CONFIGURE_FLAGS = \
-	--with-systemdsystemunit='$${prefix}/lib/systemd/system' \
+	--with-systemdsystemunitdir='$${DESTDIR}$${prefix}/lib/systemd/system' \
 	$(NULL)
