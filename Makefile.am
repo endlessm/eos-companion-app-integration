@@ -97,6 +97,12 @@ systemdsystemunit_DATA += \
 	data/eos-companion-app.socket \
 	$(NULL)
 
+EXTRA_DIST += \
+	data/eos-companion-app-avahi-helper.service \
+	data/eos-companion-app.service \
+	data/eos-companion-app.socket \
+	$(NULL)
+
 # systemd sysusers.d entry for the companion-app-helper user
 systemdsysusers_DATA += \
 	data/eos-companion-app-helper-sysuser.conf \
