@@ -26,10 +26,6 @@ girdir = $(datadir)/gir-1.0
 gir_DATA = 
 typelibdir = $(libdir)/girepository-1.0
 typelib_DATA =
-icondir = $(datadir)/icons/hicolor/32x32/apps/
-icon_DATA = 
-desktopdir = $(datadir)/applications
-desktop_DATA = 
 
 BUILT_SOURCES = 
 CLEANFILES = 
@@ -44,7 +40,6 @@ app_PYTHON += \
 # Wrapper script
 bin_SCRIPTS += \
 	bin/eos-companion-app-service \
-	data/com.endlessm.test_with_martin.en \
 	$(NULL)
 
 # GDBus wrapper
@@ -136,12 +131,6 @@ src/enums.c: $(enum_template_c_file) $(enum_header_files) src/enums.h
 BUILT_SOURCES += $(enum_sources)
 CLEANFILES += $(enum_sources)
 EXTRA_DIST += $(enum_template_h_file) $(enum_template_c_file)
-
-# # # XXX: TEMPORARY .DESKTOP FILES FOR TESTING # # #
-desktop_DATA = data/com.endlessm.test_with_martin.en.desktop
-icon_DATA = data/com.endlessm.test_with_martin.en.png
-
-EXTRA_DIST += $(destkop_DATA) $(icon_DATA)
 
 # # # GOBJECT_INTROSPECTION # # #
 include $(INTROSPECTION_MAKEFILE)
