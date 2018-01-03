@@ -1,6 +1,6 @@
 # /eoscompanion/main.py
 #
-# Copyright (C) 2017 Endless Mobile, Inc.
+# Copyright (C) 2017, 2018 Endless Mobile, Inc.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -568,7 +568,7 @@ def companion_app_server_content_data_route(server, msg, path, query, *args):
 @require_query_string_param('contentId')
 def companion_app_server_content_metadata_route(server, msg, path, query, *args):
     '''Return application/json of content metadata.'''
-    def _callback(src, result):
+    def _on_got_metadata_callback(src, result):
         '''Callback function that gets called when we are done.'''
         try:
             metadata_bytes = EosCompanionAppService.finish_load_all_in_stream_to_bytes(result)
