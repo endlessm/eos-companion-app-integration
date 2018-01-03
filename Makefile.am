@@ -67,6 +67,11 @@ libexec_SCRIPTS += \
 	helper/eos-companion-app-avahi-helper \
 	$(NULL)
 
+# Necessary to get it included in the dist tarball
+EXTRA_DIST += \
+	helper/eos-companion-app-avahi-helper \
+	$(NULL)
+
 # DBus-activation
 dbusservice_DATA += \
 	data/com.endlessm.CompanionAppService.service
