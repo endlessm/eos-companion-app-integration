@@ -572,10 +572,13 @@ def companion_app_server_content_metadata_route(server, msg, path, query, *args)
         '''Callback function that gets called when we are done.'''
         try:
             metadata_bytes = EosCompanionAppService.finish_load_all_in_stream_to_bytes(result)
+            metadata_json = json.loads(EosCompanionAppService.bytes_to_string(metadata_bytes))
+            metadata_json['version'] = '2'
             msg.set_status(Soup.Status.OK)
-            EosCompanionAppService.set_soup_message_response_bytes(msg,
-                                                                   'application/json',
-                                                                   metadata_bytes)
+            json_response(msg, {
+                'status': 'success',
+                'payload': metadata_json
+            })
         except GLib.Error as error:
             json_response(msg, {
                 'status': 'error',
