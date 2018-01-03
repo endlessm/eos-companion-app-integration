@@ -196,10 +196,6 @@ data/com.endlessm.CompanionAppService.service: data/com.endlessm.CompanionAppSer
 data/com.endlessm.CompanionAppServiceAvahiHelper.service: data/com.endlessm.CompanionAppServiceAvahiHelper.service.in
 	$(AM_V_GEN) mkdir -p `dirname $@` && sed -e 's|@libexecdir[@]|${libexecdir}|g' $< > $@.tmp && mv $@.tmp $@
 
-# # # SYSTEMD SERVICES # # #
-data/eos-companion-app-avahi-helper.service: data/eos-companion-app-avahi-helper.service.in
-	$(AM_V_GEN) mkdir -p `dirname $@` && sed -e 's|@libexecdir[@]|${libexecdir}|g' $< > $@.tmp && mv $@.tmp $@
-
 CLEANFILES += \
 	data/com.endlessm.CompanionAppService.service \
 	data/com.endlessm.CompanionAppServiceAvahiHelper.service \
@@ -207,6 +203,17 @@ CLEANFILES += \
 EXTRA_DIST += \
 	data/com.endlessm.CompanionAppService.service.in \
 	data/com.endlessm.CompanionAppServiceAvahiHelper.service.in \
+	$(NULL)
+
+# # # SYSTEMD SERVICES # # #
+data/eos-companion-app-avahi-helper.service: data/eos-companion-app-avahi-helper.service.in
+	$(AM_V_GEN) mkdir -p `dirname $@` && sed -e 's|@libexecdir[@]|${libexecdir}|g' $< > $@.tmp && mv $@.tmp $@
+
+CLEANFILES += \
+	data/eos-companion-app-avahi-helper.service \
+	$(NULL)
+EXTRA_DIST += \
+	data/eos-companion-app-avahi-helper.service.in \
 	$(NULL)
 
 # # # D-BUS CODEGEN # # #
