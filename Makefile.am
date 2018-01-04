@@ -91,9 +91,11 @@ EXTRA_DIST += \
 	data/com.endlessm.CompanionAppServiceAvahiHelper.conf \
 	$(NULL)
 
-# systemd service for the Avahi Helper and the Companion App Service
+# systemd service for the Avahi Helper, Companion App Service and Configuration
+# Manager
 systemdsystemunit_DATA += \
 	data/eos-companion-app-avahi-helper.service \
+	data/eos-companion-app-configuration-manager.service \
 	data/eos-companion-app.service \
 	data/eos-companion-app.socket \
 	$(NULL)
@@ -230,11 +232,16 @@ EXTRA_DIST += \
 data/eos-companion-app-avahi-helper.service: data/eos-companion-app-avahi-helper.service.in
 	$(AM_V_GEN) mkdir -p `dirname $@` && sed -e 's|@libexecdir[@]|${libexecdir}|g' $< > $@.tmp && mv $@.tmp $@
 
+data/eos-companion-app-configuration-manager.service: data/eos-companion-app-configuration-manager.service.in
+	$(AM_V_GEN) mkdir -p `dirname $@` && sed -e 's|@libexecdir[@]|${libexecdir}|g' $< > $@.tmp && mv $@.tmp $@
+
 CLEANFILES += \
 	data/eos-companion-app-avahi-helper.service \
+	data/eos-companion-app-configuration-manager.service \
 	$(NULL)
 EXTRA_DIST += \
 	data/eos-companion-app-avahi-helper.service.in \
+	data/eos-companion-app-configuration-manager.service.in \
 	$(NULL)
 
 # # # D-BUS CODEGEN # # #
