@@ -1,0 +1,44 @@
+[Unit]
+Description=Endless OS Companion App Enabler
+Wants=dbus.service
+After=dbus.service
+DefaultDependencies=no
+Conflicts=shutdown.target
+
+# Only if the file exists, we are not marked as discoverable
+# and we haven't run yet
+ConditionPathExists=/var/lib/companion-app/enabled
+ConditionPathExists=!/etc/avahi/services/companion-app.service
+ConditionPathExists=!/var/lib/companion-app/enabled.stamp
+
+[Service]
+Type=oneshot
+RemainAfterExit=true
+ExecStart=@libexecdir@/eos-companion-app-enabler
+
+# Sandboxing
+# Leaving this enabled seems to prevent us from writing to /var/lib/companion-app
+#CapabilityBoundingSet=
+Environment=GIO_USE_VFS=local
+Environment=GVFS_DISABLE_FUSE=1
+Environment=GVFS_REMOTE_VOLUME_MONITOR_IGNORE=1
+Environment=GSETTINGS_BACKEND=memory
+MemoryDenyWriteExecute=yes
+NoNewPrivileges=yes
+PrivateDevices=yes
+PrivateNetwork=yes
+PrivateTmp=yes
+#PrivateUsers=yes
+ProtectControlGroups=yes
+ProtectHome=no
+ProtectKernelModules=yes
+ProtectKernelTunables=yes
+ProtectSystem=no
+RestrictAddressFamilies=AF_UNIX
+RestrictRealtime=yes
+SystemCallErrorNumber=EPERM
+# @network-io is required for logging to the journal to work
+SystemCallFilter=~@resources @obsolete @mount @module @keyring @privileged
+
+[Install]
+WantedBy=multi-user.target

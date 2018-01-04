@@ -21,4 +21,9 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+echo "Running Companion App Disabler" 1>&2
 gdbus call -y -d com.endlessm.CompanionAppServiceAvahiHelper -o /com/endlessm/CompanionAppServiceAvahiHelper -m com.endlessm.CompanionApp.AvahiHelper.ExitDiscoverableMode
+systemctl disable eos-companion-app.socket
+systemctl disable eos-companion-app.service
+service eos-companion-app start
+rm /var/lib/companion-app/enabled.stamp || true

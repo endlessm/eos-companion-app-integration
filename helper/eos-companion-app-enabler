@@ -21,4 +21,10 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+echo "Running Companion App Enabler" 1>&2
 gdbus call -y -d com.endlessm.CompanionAppServiceAvahiHelper -o /com/endlessm/CompanionAppServiceAvahiHelper -m com.endlessm.CompanionApp.AvahiHelper.EnterDiscoverableMode 0 "Endless Content on $(hostname)"
+systemctl enable eos-companion-app.socket
+systemctl enable eos-companion-app.service
+service eos-companion-app start
+mkdir -p /var/lib/companion-app/
+touch /var/lib/companion-app/enabled.stamp

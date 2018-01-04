@@ -18,6 +18,8 @@ case "$1" in
   configure)
     # enable systemd socket
     systemctl enable eos-companion-app.socket
+    systemctl enable eos-companion-app-enabler.service
+    systemctl enable eos-companion-app-disabler.service
   ;;
   abort-upgrade|abort-remove|abort-deconfigure)
   ;;

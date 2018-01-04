@@ -1,4 +1,6 @@
 debian/eos-companion-app-os-integration/lib/systemd/system/*
+debian/eos-companion-app-os-integration/usr/lib/*/eos-companion-app-enabler
+debian/eos-companion-app-os-integration/usr/lib/*/eos-companion-app-disabler
 debian/eos-companion-app-os-integration/usr/lib/*/eos-companion-app-avahi-helper
 debian/eos-companion-app-os-integration/usr/share/dbus-1/system.d/com.endlessm.CompanionAppServiceAvahiHelper.conf
 debian/eos-companion-app-os-integration/usr/share/dbus-1/system-services/com.endlessm.CompanionAppServiceAvahiHelper.service

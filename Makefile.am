@@ -65,10 +65,14 @@ lib_LTLIBRARIES += \
 # Helper scripts
 libexec_SCRIPTS += \
 	helper/eos-companion-app-avahi-helper \
+	helper/eos-companion-app-enabler \
+	helper/eos-companion-app-disabler \
 	$(NULL)
 
 # Necessary to get it included in the dist tarball
 EXTRA_DIST += \
+	helper/eos-companion-app-enabler \
+	helper/eos-companion-app-disabler \
 	helper/eos-companion-app-avahi-helper \
 	$(NULL)
 
@@ -90,9 +94,11 @@ EXTRA_DIST += \
 	data/com.endlessm.CompanionAppServiceAvahiHelper.conf \
 	$(NULL)
 
-# systemd service for the Avahi Helper and the Companion App Service
+# systemd service for the Avahi Helper, Companion App Service and enablers
 systemdsystemunit_DATA += \
 	data/eos-companion-app-avahi-helper.service \
+	data/eos-companion-app-enabler.service \
+	data/eos-companion-app-disabler.service \
 	data/eos-companion-app.service \
 	data/eos-companion-app.socket \
 	$(NULL)
@@ -209,11 +215,21 @@ EXTRA_DIST += \
 data/eos-companion-app-avahi-helper.service: data/eos-companion-app-avahi-helper.service.in
 	$(AM_V_GEN) mkdir -p `dirname $@` && sed -e 's|@libexecdir[@]|${libexecdir}|g' $< > $@.tmp && mv $@.tmp $@
 
+data/eos-companion-app-enabler.service: data/eos-companion-app-enabler.service.in
+	$(AM_V_GEN) mkdir -p `dirname $@` && sed -e 's|@libexecdir[@]|${libexecdir}|g' $< > $@.tmp && mv $@.tmp $@
+
+data/eos-companion-app-disabler.service: data/eos-companion-app-disabler.service.in
+	$(AM_V_GEN) mkdir -p `dirname $@` && sed -e 's|@libexecdir[@]|${libexecdir}|g' $< > $@.tmp && mv $@.tmp $@
+
 CLEANFILES += \
 	data/eos-companion-app-avahi-helper.service \
+	data/eos-companion-app-enabler.service \
+	data/eos-companion-app-disaber.service \
 	$(NULL)
 EXTRA_DIST += \
 	data/eos-companion-app-avahi-helper.service.in \
+	data/eos-companion-app-enabler.service.in \
+	data/eos-companion-app-disaber.service.in \
 	$(NULL)
 
 # # # D-BUS CODEGEN # # #
