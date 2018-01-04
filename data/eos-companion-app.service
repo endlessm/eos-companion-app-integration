@@ -1,6 +1,7 @@
 [Unit]
 Description=EOS Companion App Service
 After=network.target
+ConditionPathExists=/var/companion-app/enabled
 
 [Service]
 ExecStart=/usr/bin/flatpak run --no-desktop com.endlessm.CompanionAppService

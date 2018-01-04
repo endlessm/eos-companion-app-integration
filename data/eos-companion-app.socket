@@ -1,6 +1,7 @@
 [Unit]
 Description=EOS Companion App Service
 Wants=network.target
+ConditionPathExists=/var/companion-app/enabled
 
 [Socket]
 ListenStream=1110
