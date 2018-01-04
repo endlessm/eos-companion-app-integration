@@ -8,5 +8,3 @@ User=companion-app-helper
 
 PrivateTmp=yes
 
-[Install]
-WantedBy=multi-user.target
