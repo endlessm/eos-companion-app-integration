@@ -6,6 +6,3 @@ After=network.target
 ExecStart=/usr/bin/flatpak run --no-desktop com.endlessm.CompanionAppService
 User=companion-app-helper
 PrivateTmp=yes
-
-[Install]
-WantedBy=multi-user.target
