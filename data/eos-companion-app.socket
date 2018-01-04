@@ -6,4 +6,4 @@ Wants=network.target
 ListenStream=1110
 
 [Install]
-WantedBy=sockets.target
+WantedBy=graphical.target
