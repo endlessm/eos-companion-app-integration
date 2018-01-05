@@ -466,37 +466,13 @@ def adjust_content(content_type, content_bytes, query):
 
 def define_content_range_from_headers_and_size(request_headers, content_size):
     '''Determine how to set the content-range headers.'''
-    range_header_value = request_headers.get_one('Range')
+    has_ranges, ranges = request_headers.get_ranges(content_size)
 
-    if not range_header_value:
+    if not has_ranges:
         return 0, content_size, content_size
 
-    print(range_header_value)
-    match = re.match('bytes=(?P<start>\d+)\-(?P<end>\d*)', range_header_value)
-    if not match:
-        raise RuntimeError('Range value {value} does not look valid'.format(value=range_header_value))
-
-    start = int(match.group('start'))
-
-    try:
-        end = int(match.group('end'))
-    except ValueError:
-        end = content_size - 1
-
-    if end < start:
-        raise RuntimeError('Range values {start}, {end} are not valid'.format(start=start,
-                                                                              end=end))
-
-    length = end - start
-    if length > content_size:
-        raise RuntimeError(
-            'Requested length {length} exceeds content length {content_length}'.format(
-                length=length,
-                content_length=content_size
-            )
-        )
-
-    return start, end, end - start + 1
+    # Just use the first range
+    return ranges[0].start, ranges[0].end, ranges[0].end - ranges[0].start + 1
 
 
 @require_query_string_param('deviceUUID')
