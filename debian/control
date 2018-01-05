@@ -3,6 +3,7 @@ Priority: standard
 Maintainer: Sam Spilsbury <sam@endlessm.com>
 Build-Depends: debhelper (>= 9),
                dh-autoreconf,
+               dh-systemd,
                python3-gi,
                gobject-introspection,
                intltool (>= 0.35),
