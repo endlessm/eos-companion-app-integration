@@ -72,6 +72,14 @@ def with_main_loop(testfunc):
     return decorator
 
 
+def soup_uri_with_query(uri, querystring):
+    '''Create a new SoupURI for uri, with a querystring.'''
+    soup_uri = Soup.URI.new(uri)
+    soup_uri.set_query(querystring)
+
+    return soup_uri
+
+
 def json_http_request_with_uuid(uuid, uri, body, callback):
     '''Send a new HTTP request with the UUID in the header.'''
     session = Soup.Session.new()
@@ -79,8 +87,7 @@ def json_http_request_with_uuid(uuid, uri, body, callback):
         'deviceUUID': uuid
     })
     request = session.request_http_uri('POST',
-                                       Soup.URI.new('{}?{}'.format(uri,
-                                                                   querystring)))
+                                       soup_uri_with_query(uri, querystring))
     message = request.get_message()
     message.request_headers.append('Accept', 'application/json')
     EosCompanionAppService.set_soup_message_request(message,
