@@ -16,7 +16,9 @@ set -e
 
 case "$1" in
   configure)
-    # enable systemd services here
+   # add the companion-app-helper user to the to the
+   # avahi-service-writers group
+   usermod -a -G avahi-service-writers,companion-app-helper companion-app-helper
   ;;
   abort-upgrade|abort-remove|abort-deconfigure)
   ;;
