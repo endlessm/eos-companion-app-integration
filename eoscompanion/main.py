@@ -593,7 +593,9 @@ def companion_app_server_content_metadata_route(server, msg, path, query, *args)
         try:
             metadata_bytes = EosCompanionAppService.finish_load_all_in_stream_to_bytes(result)
             metadata_json = json.loads(EosCompanionAppService.bytes_to_string(metadata_bytes))
-            metadata_json['version'] = '2'
+            metadata_json['version'] = app_id_to_runtime_version(
+                runtime_name_for_app_id_cached(query['applicationId'])
+            )
             msg.set_status(Soup.Status.OK)
             json_response(msg, {
                 'status': 'success',
