@@ -96,6 +96,22 @@ def json_http_request_with_uuid(uuid, uri, body, callback):
     request.send_async(None, callback)
 
 
+class Holdable(object):
+    '''A fake application placeholder that implements hold and release.'''
+
+    def __init__(self):
+        '''Initialize hold count.'''
+        self.hold_count = 0
+
+    def hold(self):
+        '''Increment hold count.'''
+        self.hold_count += 1
+
+    def release(self):
+        '''Decrement hold count.'''
+        self.hold_count -= 1
+
+
 class TestCompanionAppService(TestCase):
     '''Test suite for the CompanionAppService class.'''
 
@@ -120,7 +136,7 @@ class TestCompanionAppService(TestCase):
             self.assertTrue(json.loads(bytes.get_data().decode())['status'] == 'ok')
             quit()
 
-        self.service = CompanionAppService('EOSCompanionAppServiceTest', 1110)
+        self.service = CompanionAppService(Holdable(), 1110)
         json_http_request_with_uuid('Some UUID',
                                     'http://localhost:1110/device_authenticate',
                                     {},
@@ -138,7 +154,7 @@ class TestCompanionAppService(TestCase):
             self.assertTrue(response['error']['code'] == 'INVALID_REQUEST')
             quit()
 
-        self.service = CompanionAppService('EOSCompanionAppServiceTest', 1110)
+        self.service = CompanionAppService(Holdable(), 1110)
         json_http_request_with_uuid('',
                                     'http://localhost:1110/device_authenticate',
                                     {},
