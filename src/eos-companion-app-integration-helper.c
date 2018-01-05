@@ -369,6 +369,26 @@ examine_flatpak_metadata (const gchar  *flatpak_directory,
   return TRUE;
 }
 
+gchar *
+eos_companion_app_service_get_runtime_name_for_app_id (const gchar  *app_id,
+                                                       GError      **error)
+{
+  g_autofree gchar *flatpak_directory = g_build_filename ("/",
+                                                          "var",
+                                                          "lib",
+                                                          "flatpak",
+                                                          "app",
+                                                          app_id,
+                                                          NULL);
+  g_autofree gchar *app_name = NULL;
+  g_autofree gchar *runtime_name = NULL;
+
+  if (!examine_flatpak_metadata (flatpak_directory, &app_name, &runtime_name, error))
+    return FALSE;
+
+  return g_steal_pointer (&runtime_name);
+}
+
 static const gchar *flatpak_applications_directory_path = "/var/lib/flatpak/app";
 
 /* Try and load directly from the flatpak directory first, if that fails,

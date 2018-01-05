@@ -202,5 +202,17 @@ gchar * eos_companion_app_service_bytes_to_string (GBytes *bytes);
  */
 GBytes * eos_companion_app_service_string_to_bytes (const gchar *string);
 
+
+/**
+ * eos_companion_app_service_get_runtime_name_for_app_id:
+ * @app_id: (transfer none): A utf-8 string.
+ *
+ * Blocking fetch of the runtime name for app id
+ *
+ * Returns: (transfer full): A string.
+ */
+gchar * eos_companion_app_service_get_runtime_name_for_app_id (const gchar  *app_id,
+                                                               GError      **error);
+
 G_END_DECLS
 
