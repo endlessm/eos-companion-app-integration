@@ -563,6 +563,26 @@ def companion_app_server_content_data_route(server, msg, path, query, *args):
     })
 
 
+_RUNTIME_NAMES_FOR_APP_IDS = {}
+
+
+def runtime_name_for_app_id_cached(app_id):
+    '''Get the runtime name for the given Flatpak app_id.
+
+    This does caching so as to avoid too may blocking key file reads.
+    '''
+    if app_id in _RUNTIME_NAMES_FOR_APP_IDS:
+        return _RUNTIME_NAMES_FOR_APP_IDS[app_id]
+
+    _RUNTIME_NAMES_FOR_APP_IDS[app_id] = EosCompanionAppService.get_runtime_name_for_app_id(app_id)
+    return _RUNTIME_NAMES_FOR_APP_IDS[app_id]
+
+
+def app_id_to_runtime_version(app_id):
+    '''Parse the app ID using a regex and get the runtime'''
+    return int(app_id.split('/')[2])
+
+
 @require_query_string_param('deviceUUID')
 @require_query_string_param('applicationId')
 @require_query_string_param('contentId')
@@ -572,10 +592,15 @@ def companion_app_server_content_metadata_route(server, msg, path, query, *args)
         '''Callback function that gets called when we are done.'''
         try:
             metadata_bytes = EosCompanionAppService.finish_load_all_in_stream_to_bytes(result)
+            metadata_json = json.loads(EosCompanionAppService.bytes_to_string(metadata_bytes))
+            metadata_json['version'] = app_id_to_runtime_version(
+                runtime_name_for_app_id_cached(query['applicationId'])
+            )
             msg.set_status(Soup.Status.OK)
-            EosCompanionAppService.set_soup_message_response_bytes(msg,
-                                                                   'application/json',
-                                                                   metadata_bytes)
+            json_response(msg, {
+                'status': 'success',
+                'payload': metadata_json
+            })
         except GLib.Error as error:
             json_response(msg, {
                 'status': 'error',
