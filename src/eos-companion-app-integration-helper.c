@@ -711,6 +711,94 @@ eos_companion_app_service_string_to_bytes (const gchar *string)
   return g_bytes_new (string, strlen (string));
 }
 
+typedef struct _SlowSeekData
+{
+  EosShardBlob *blob;
+  goffset       seek_point;
+} SlowSeekData;
+
+static SlowSeekData *
+slow_seek_data_new (EosShardBlob *blob,
+                    goffset       seek_point)
+{
+  SlowSeekData *data = g_slice_new0 (SlowSeekData);
+
+  data->blob = eos_shard_blob_ref (blob);
+  data->seek_point = seek_point;
+
+  return data;
+}
+
+static void
+slow_seek_data_free (SlowSeekData *data)
+{
+  g_clear_pointer (&data->blob, eos_shard_blob_unref);
+
+  g_slice_free (SlowSeekData, data);
+}
+
+static void
+get_stream_offset_for_blob_thread_func (GTask        *task,
+                                        gpointer      source,
+                                        gpointer      task_data,
+                                        GCancellable *cancellable)
+{
+  SlowSeekData *data = task_data;
+  GInputStream *stream = eos_shard_blob_get_stream (data->blob);
+  g_autoptr(GError) local_error = NULL;
+
+  /* In this case, we will need to do a little bit more work, since it is not
+   * possible to seek a compressed stream in O(1) time. */
+  if (eos_shard_blob_get_flags (data->blob) & EOS_SHARD_BLOB_FLAG_COMPRESSED_ZLIB)
+    {
+      g_input_stream_skip (stream,
+                           data->seek_point,
+                           cancellable,
+                           &local_error);
+    }
+  else
+    {
+      /* We can just seek if we get to here */
+      g_seekable_seek (G_SEEKABLE (stream),
+                       data->seek_point,
+                       G_SEEK_SET,
+                       cancellable,
+                       &local_error);
+    }
+
+  if (local_error)
+    {
+      g_task_return_error (task, g_steal_pointer (&local_error));
+      return;
+    }
+
+  /* Return the newly seeked stream back to the main thread */
+  g_task_return_pointer (task, stream, g_object_unref);
+}
+
+void
+eos_companion_app_service_get_stream_at_offset_for_blob (EosShardBlob        *blob,
+                                                         goffset              offset,
+                                                         GCancellable        *cancellable,
+                                                         GAsyncReadyCallback  callback,
+                                                         gpointer             user_data)
+{
+  g_autoptr(GTask) task = g_task_new (NULL, cancellable, callback, user_data);
+  g_task_set_task_data (task,
+                        slow_seek_data_new (blob,
+                                            offset),
+                       (GDestroyNotify) slow_seek_data_free);
+  g_task_run_in_thread (task, get_stream_offset_for_blob_thread_func);
+}
+
+GInputStream *
+eos_companion_app_service_finish_get_stream_at_offset_for_blob (GAsyncResult  *result,
+                                                                GError       **error)
+{
+  g_return_val_if_fail (g_task_is_valid (G_TASK (result), NULL), NULL);
+
+  return g_task_propagate_pointer (G_TASK (result), error);
+}
 
 G_DEFINE_QUARK (eos-companion-app-service-error-quark, eos_companion_app_service_error)
 
