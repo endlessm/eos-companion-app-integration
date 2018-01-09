@@ -1,0 +1,6 @@
+Format: http://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: eos-companion-app-integration
+Upstream-Contact: Sam Spilsbury <sam@endlessm.com>
+Disclaimer: This package is not part of Debian. It is proprietary software.
+Copyright: Copyright 2017 Endless Mobile, Inc.
+License: GPL-2+

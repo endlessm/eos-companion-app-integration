@@ -18,10 +18,6 @@
 #pragma once
 
 #include <glib-object.h>
-
-#include <avahi-gobject/ga-client.h>
-#include <avahi-gobject/ga-entry-group.h>
-
 #include <libsoup/soup.h>
 
 G_BEGIN_DECLS
@@ -50,15 +46,6 @@ typedef enum {
 } EosCompanionAppServiceError;
 
 GQuark eos_companion_app_service_error_quark (void);
-
-gboolean eos_companion_app_service_add_avahi_service_to_entry_group (GaEntryGroup  *group,
-                                                                     const gchar   *name,
-                                                                     const gchar   *type,
-                                                                     const gchar   *domain,
-                                                                     const gchar   *host,
-                                                                     guint          port,
-                                                                     const gchar   *text,
-                                                                     GError       **error);
 
 void eos_companion_app_service_set_soup_message_response (SoupMessage *message,
                                                           const gchar *content_type,

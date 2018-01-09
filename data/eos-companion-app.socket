@@ -1,0 +1,10 @@
+[Unit]
+Description=EOS Companion App Service
+Wants=network.target
+ConditionPathExists=/var/lib/eos-companion-app/enabled
+
+[Socket]
+ListenStream=1110
+
+[Install]
+WantedBy=graphical.target

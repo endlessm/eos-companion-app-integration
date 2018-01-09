@@ -38,10 +38,16 @@ AS_IF([test "$GLIB_MKENUMS" == ""],[
   AC_MSG_ERROR([glib-mkenums not found])
 ])
 
+systemdsystemunitdir="$($PKG_CONFIG systemd --variable=systemdsystemunitdir)"
+dnl Allow overriding systemdsystemunitdir during distcheck in order to trick
+dnl Automake into allowing an install outside of $prefix
+AC_ARG_WITH([systemdsystemunitdir],
+    [AS_HELP_STRING([--with-systemdsystemunitdir=PATH], [directory for systemd service files])],
+    [systemdsystemunitdir="$withval"])
+AC_SUBST([systemdsystemunitdir])
+
 GLIB_GSETTINGS
 PKG_CHECK_MODULES([EOS_COMPANION_APP], [
-  avahi-glib
-  avahi-gobject
   eos-knowledge-content-0
   eos-shard-0
   gdk-pixbuf-2.0
