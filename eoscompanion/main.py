@@ -231,6 +231,43 @@ def yield_models_that_have_thumbnails(models):
         yield (thumbnail, model)
 
 
+# This tag is used by everything that should end up on the homepage
+_GLOBAL_SET_INDICATOR_STRING = 'EknHomePageTag'
+
+
+def application_sets_or_global_set(models, device_uuid, application_id):
+    '''Yield JSON formatted application sets or an entry for the global set.'''
+    application_sets_response = [
+        {
+            'setId': model.get_property('title'),
+            'contentType': 'application/x-ekncontent-set',
+            'thumbnail': format_uri_with_querystring(
+                '/content_data',
+                deviceUUID=device_uuid,
+                applicationId=application_id,
+                contentId=urllib.parse.urlparse(thumbnail_uri).path[1:]
+            ),
+            'id': urllib.parse.urlparse(model.get_property('ekn-id')).path[1:],
+            'global': False
+        }
+        for thumbnail_uri, model in
+        yield_models_that_have_thumbnails(models)
+    ]
+
+    if application_sets_response:
+        return application_sets_response
+
+    return [
+        {
+            'setId': _GLOBAL_SET_INDICATOR_STRING,
+            'contentType': 'application/x-ekncontent-set',
+            'thumbnail': None,
+            'id': '',
+            'global': True
+        }
+    ]
+
+
 # For now a limit parameter is required for queries
 _SENSIBLE_QUERY_LIMIT = 500
 
@@ -247,21 +284,9 @@ def companion_app_server_list_application_sets_route(server, msg, path, query, *
 
            json_response(msg, {
                'status': 'ok',
-               'payload': [
-                   {
-                       'setId': model.get_property('title'),
-                       'contentType': 'application/x-ekncontent-set',
-                       'thumbnail': format_uri_with_querystring(
-                           '/content_data',
-                           deviceUUID=query['deviceUUID'],
-                           applicationId=query['applicationId'],
-                           contentId=urllib.parse.urlparse(thumbnail_uri).path[1:]
-                       ),
-                       'id': urllib.parse.urlparse(model.get_property('ekn-id')).path[1:]
-                   }
-                   for thumbnail_uri, model in
-                   yield_models_that_have_thumbnails(models)
-               ]
+               'payload': application_sets_or_global_set(models,
+                                                         query['deviceUUID'],
+                                                         query['applicationId'])
            })
        except GLib.Error as error:
            json_response(msg, {
