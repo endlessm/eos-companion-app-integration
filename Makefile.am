@@ -16,6 +16,7 @@
 # All rights reserved.
 
 lib_LTLIBRARIES =
+libexec_PROGRAMS =
 libexec_SCRIPTS =
 bin_SCRIPTS =
 
@@ -179,6 +180,26 @@ libeoscompanion_1_la_CPPFLAGS = \
 	$(NULL)
 
 libeoscompanion_1_la_LIBADD = \
+	$(EOS_COMPANION_APP_LIBS) \
+	$(NULL)
+
+# Configuration Manager
+libexec_PROGRAMS += eos-companion-app-configuration-manager
+
+eos_companion_app_configuration_manager_SOURCES = \
+	configuration-manager/main.c \
+	$(NULL)
+
+eos_companion_app_configuration_manager_CPPFLAGS = \
+	-DDATADIR="\"$(datadir)\"" \
+	-DLOCALSTATEDIR="\"$(localstatedir)\"" \
+	-DSYSCONFDIR="\"$(sysconfdir)\"" \
+	$(NULL)
+
+eos_companion_app_configuration_manager_CFLAGS = \
+	$(EOS_COMPANION_APP_CFLAGS) \
+	$(NULL)
+eos_companion_app_configuration_manager_LDADD = \
 	$(EOS_COMPANION_APP_LIBS) \
 	$(NULL)
 
