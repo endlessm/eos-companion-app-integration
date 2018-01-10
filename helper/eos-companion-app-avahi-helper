@@ -43,7 +43,7 @@ import sys
 _AVAHI_SERVICE_METADATA = '''
 <service-group>
 
-  <name replace-wildcards="yes">{name} %h</name>
+  <name replace-wildcards="yes">%h</name>
 
   <service>
     <type>_eoscompanion._tcp</type>
@@ -84,11 +84,10 @@ def _read_machine_id():
     return open('/etc/machine-id').read().strip()
 
 
-def _write_service_metadata(name, machine_id):
+def _write_service_metadata(machine_id):
     '''Write the service metadata, formatting with name and machine_id.'''
     with open(_COMPANION_APP_SERVICE, 'w') as f:
-        f.write(_AVAHI_SERVICE_METADATA.format(name=name,
-                                               uuid=machine_id))
+        f.write(_AVAHI_SERVICE_METADATA.format(uuid=machine_id))
 
 
 def _remove_avahi_service_file():
@@ -112,12 +111,12 @@ class CompanionAppAvahiHelperSkeleton(EosCompanionAppAvahiHelper.AvahiHelperSkel
         super().__init__()
         self.set_property('discoverable', os.path.exists(_COMPANION_APP_SERVICE))
 
-    def do_handle_enter_discoverable_mode(self, invocation, timeout, name):
+    def do_handle_enter_discoverable_mode(self, invocation):
 
         '''Discoverable mode entered. Enable if supported.'''
         try:
             if _can_enable_avahi_discoverability():
-                _write_service_metadata(name, _read_machine_id())
+                _write_service_metadata(_read_machine_id())
 
                 # XXX: It seems like we have to explicitly set the property
                 # here in order for the PropertiesChanged signal to be emitted
