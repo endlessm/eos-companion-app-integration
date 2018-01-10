@@ -90,6 +90,14 @@ def _write_service_metadata(machine_id):
         f.write(_AVAHI_SERVICE_METADATA.format(uuid=machine_id))
 
 
+def _write_config_file(state):
+    '''Write the config file so that we do not change it on the next boot.'''
+    keyfile = GLib.KeyFile()
+    keyfile.set_boolean('Companion App', 'enabled', state)
+    os.makedirs('/etc/eos-companion-app', exist_ok=True)
+    keyfile.save_to_file('/etc/eos-companion-app/config.ini')
+
+
 def _remove_avahi_service_file():
     '''Unconditionally remove the avahi service file.
 
@@ -117,6 +125,7 @@ class CompanionAppAvahiHelperSkeleton(EosCompanionAppAvahiHelper.AvahiHelperSkel
         try:
             if _can_enable_avahi_discoverability():
                 _write_service_metadata(_read_machine_id())
+                _write_config_file(True)
 
                 # XXX: It seems like we have to explicitly set the property
                 # here in order for the PropertiesChanged signal to be emitted
@@ -153,6 +162,7 @@ class CompanionAppAvahiHelperSkeleton(EosCompanionAppAvahiHelper.AvahiHelperSkel
         '''Exit discoverable mode by removing the file.'''
         try:
             _remove_avahi_service_file()
+            _write_config_file(False)
             self.set_property('discoverable', False)
             self.notify('discoverable')
             self.complete_exit_discoverable_mode(invocation)
