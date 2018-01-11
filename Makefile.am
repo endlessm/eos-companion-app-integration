@@ -22,6 +22,8 @@ bin_SCRIPTS =
 
 appdir = $(pythondir)/eoscompanion
 app_PYTHON = 
+configdir = $(datadir)/eos-companion-app
+config_DATA = 
 dbusservicedir = $(datadir)/dbus-1/services
 dbusservice_DATA = 
 dbussystemservicedir = $(datadir)/dbus-1/system-services
@@ -204,6 +206,13 @@ eos_companion_app_configuration_manager_CFLAGS = \
 eos_companion_app_configuration_manager_LDADD = \
 	$(EOS_COMPANION_APP_LIBS) \
 	$(NULL)
+
+# Configuration File Default
+config_DATA += \
+	data/config.ini \
+	$(NULL)
+
+EXTRA_DIST += data/config.ini
 
 # Wrapper script
 bin/eos-companion-app-service: bin/eos-companion-app-service.in
