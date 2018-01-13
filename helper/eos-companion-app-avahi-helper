@@ -47,7 +47,7 @@ _AVAHI_SERVICE_METADATA = '''
 
   <service>
     <type>_eoscompanion._tcp</type>
-    <port>1100</port>
+    <port>1110</port>
     <txt-record value-format="text">ServerUUID={uuid}</txt-record>
   </service>
 
