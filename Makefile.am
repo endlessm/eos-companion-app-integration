@@ -16,11 +16,14 @@
 # All rights reserved.
 
 lib_LTLIBRARIES =
+libexec_PROGRAMS =
 libexec_SCRIPTS =
 bin_SCRIPTS =
 
 appdir = $(pythondir)/eoscompanion
 app_PYTHON = 
+configdir = $(datadir)/eos-companion-app
+config_DATA = 
 dbusservicedir = $(datadir)/dbus-1/services
 dbusservice_DATA = 
 dbussystemservicedir = $(datadir)/dbus-1/system-services
@@ -90,9 +93,11 @@ EXTRA_DIST += \
 	data/com.endlessm.CompanionAppServiceAvahiHelper.conf \
 	$(NULL)
 
-# systemd service for the Avahi Helper and the Companion App Service
+# systemd service for the Avahi Helper, Companion App Service and Configuration
+# Manager
 systemdsystemunit_DATA += \
 	data/eos-companion-app-avahi-helper.service \
+	data/eos-companion-app-configuration-manager.service \
 	data/eos-companion-app.service \
 	data/eos-companion-app.socket \
 	$(NULL)
@@ -182,6 +187,33 @@ libeoscompanion_1_la_LIBADD = \
 	$(EOS_COMPANION_APP_LIBS) \
 	$(NULL)
 
+# Configuration Manager
+libexec_PROGRAMS += eos-companion-app-configuration-manager
+
+eos_companion_app_configuration_manager_SOURCES = \
+	configuration-manager/main.c \
+	$(NULL)
+
+eos_companion_app_configuration_manager_CPPFLAGS = \
+	-DDATADIR="\"$(datadir)\"" \
+	-DLOCALSTATEDIR="\"$(localstatedir)\"" \
+	-DSYSCONFDIR="\"$(sysconfdir)\"" \
+	$(NULL)
+
+eos_companion_app_configuration_manager_CFLAGS = \
+	$(EOS_COMPANION_APP_CFLAGS) \
+	$(NULL)
+eos_companion_app_configuration_manager_LDADD = \
+	$(EOS_COMPANION_APP_LIBS) \
+	$(NULL)
+
+# Configuration File Default
+config_DATA += \
+	data/config.ini \
+	$(NULL)
+
+EXTRA_DIST += data/config.ini
+
 # Wrapper script
 bin/eos-companion-app-service: bin/eos-companion-app-service.in
 	$(AM_V_GEN) mkdir -p `dirname $@` && sed -e 's|@libdir[@]|${libdir}|g;s|@pkgdatadir[@]|${pkgdatadir}|g;s|@pythonminorversion[@]|${pythonminorversion}|g' $< > $@.tmp && mv $@.tmp $@
@@ -209,11 +241,16 @@ EXTRA_DIST += \
 data/eos-companion-app-avahi-helper.service: data/eos-companion-app-avahi-helper.service.in
 	$(AM_V_GEN) mkdir -p `dirname $@` && sed -e 's|@libexecdir[@]|${libexecdir}|g' $< > $@.tmp && mv $@.tmp $@
 
+data/eos-companion-app-configuration-manager.service: data/eos-companion-app-configuration-manager.service.in
+	$(AM_V_GEN) mkdir -p `dirname $@` && sed -e 's|@libexecdir[@]|${libexecdir}|g' $< > $@.tmp && mv $@.tmp $@
+
 CLEANFILES += \
 	data/eos-companion-app-avahi-helper.service \
+	data/eos-companion-app-configuration-manager.service \
 	$(NULL)
 EXTRA_DIST += \
 	data/eos-companion-app-avahi-helper.service.in \
+	data/eos-companion-app-configuration-manager.service.in \
 	$(NULL)
 
 # # # D-BUS CODEGEN # # #

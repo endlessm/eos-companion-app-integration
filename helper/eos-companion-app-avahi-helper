@@ -43,7 +43,7 @@ import sys
 _AVAHI_SERVICE_METADATA = '''
 <service-group>
 
-  <name replace-wildcards="yes">{name} %h</name>
+  <name replace-wildcards="yes">%h</name>
 
   <service>
     <type>_eoscompanion._tcp</type>
@@ -84,11 +84,18 @@ def _read_machine_id():
     return open('/etc/machine-id').read().strip()
 
 
-def _write_service_metadata(name, machine_id):
+def _write_service_metadata(machine_id):
     '''Write the service metadata, formatting with name and machine_id.'''
     with open(_COMPANION_APP_SERVICE, 'w') as f:
-        f.write(_AVAHI_SERVICE_METADATA.format(name=name,
-                                               uuid=machine_id))
+        f.write(_AVAHI_SERVICE_METADATA.format(uuid=machine_id))
+
+
+def _write_config_file(state):
+    '''Write the config file so that we do not change it on the next boot.'''
+    keyfile = GLib.KeyFile()
+    keyfile.set_boolean('Companion App', 'enabled', state)
+    os.makedirs('/etc/eos-companion-app', exist_ok=True)
+    keyfile.save_to_file('/etc/eos-companion-app/config.ini')
 
 
 def _remove_avahi_service_file():
@@ -112,12 +119,13 @@ class CompanionAppAvahiHelperSkeleton(EosCompanionAppAvahiHelper.AvahiHelperSkel
         super().__init__()
         self.set_property('discoverable', os.path.exists(_COMPANION_APP_SERVICE))
 
-    def do_handle_enter_discoverable_mode(self, invocation, timeout, name):
+    def do_handle_enter_discoverable_mode(self, invocation):
 
         '''Discoverable mode entered. Enable if supported.'''
         try:
             if _can_enable_avahi_discoverability():
-                _write_service_metadata(name, _read_machine_id())
+                _write_service_metadata(_read_machine_id())
+                _write_config_file(True)
 
                 # XXX: It seems like we have to explicitly set the property
                 # here in order for the PropertiesChanged signal to be emitted
@@ -135,12 +143,17 @@ class CompanionAppAvahiHelperSkeleton(EosCompanionAppAvahiHelper.AvahiHelperSkel
                 self.set_property('discoverable', True)
                 self.notify('discoverable')
                 self.complete_enter_discoverable_mode(invocation)
+                print('Successfully entered discoverable mode', file=sys.stderr)
                 return True
 
+            print('Companion App Services not installed, cannot enter discoverable mode',
+                  file=sys.stderr)
             invocation.return_error_literal(Gio.dbus_error_quark(),
                                             Gio.DBusError.FAILED,
                                             'The com.endlessm.CompanionAppService flatpak is not installed.')
         except Exception as error:
+            print('Error attempting to enter discoverable mode: {}'.format(error),
+                  file=sys.stderr)
             invocation.return_error_literal(Gio.dbus_error_quark(),
                                             Gio.DBusError.FAILED,
                                             str(error))
@@ -154,10 +167,14 @@ class CompanionAppAvahiHelperSkeleton(EosCompanionAppAvahiHelper.AvahiHelperSkel
         '''Exit discoverable mode by removing the file.'''
         try:
             _remove_avahi_service_file()
+            _write_config_file(False)
             self.set_property('discoverable', False)
             self.notify('discoverable')
             self.complete_exit_discoverable_mode(invocation)
+            print('Successfully left discoverable mode', file=sys.stderr)
         except Exception as error:
+            print('Error attempting to leave discoverable mode: {}'.format(error),
+                  file=sys.stderr)
             invocation.return_error_literal(Gio.dbus_error_quark(),
                                             Gio.DBusError.FAILED,
                                             str(error))

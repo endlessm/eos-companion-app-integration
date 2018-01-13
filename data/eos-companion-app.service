@@ -1,7 +1,7 @@
 [Unit]
 Description=EOS Companion App Service
 After=network.target
-ConditionPathExists=/var/lib/eos-companion-app/enabled
+ConditionPathExists=/etc/avahi/services/companion-app.service
 
 [Service]
 ExecStart=/usr/bin/flatpak run --no-desktop com.endlessm.CompanionAppService
