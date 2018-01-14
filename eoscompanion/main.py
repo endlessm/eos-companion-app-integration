@@ -180,12 +180,29 @@ def application_listing_from_app_info(app_info):
                               language)
 
 
-@require_query_string_param('deviceUUID')
-def companion_app_server_list_applications_route(server, msg, path, query, *args):
-    '''List all applications that are available on the system.'''
+def list_all_applications(callback):
+    '''Convenience function to pass list of ApplicationListening to callback.'''
     def _callback(src, result):
         '''Callback function that gets called when we are done.'''
         infos = EosCompanionAppService.finish_list_application_infos(result)
+        callback([
+            ApplicationListing(app_info.get_string('Desktop Entry',
+                                                   'X-Flatpak'),
+                               app_info.get_string('Desktop Entry',
+                                                   'Name'),
+                               app_info.get_string('Desktop Entry',
+                                                   'Icon'))
+            for app_info in infos
+        ])
+
+    EosCompanionAppService.list_application_infos(None, _callback)
+
+
+@require_query_string_param('deviceUUID')
+def companion_app_server_list_applications_route(server, msg, path, query, *args):
+    '''List all applications that are available on the system.'''
+    def _callback(applications):
+        '''Callback function that gets called when we are done.'''
         json_response(msg, {
             'status': 'ok',
             'payload': [
@@ -199,10 +216,7 @@ def companion_app_server_list_applications_route(server, msg, path, query, *args
                     ),
                     'language': a.language
                 }
-                for a in [
-                    application_listing_from_app_info(app_info)
-                    for app_info in infos
-                ]
+                for a in applications
             ]
         })
         server.unpause_message(msg)
@@ -210,7 +224,7 @@ def companion_app_server_list_applications_route(server, msg, path, query, *args
     print('List applications: clientId={clientId}'.format(
         clientId=query['deviceUUID'])
     )
-    EosCompanionAppService.list_application_infos(None, _callback)
+    list_all_applications(_callback)
     server.pause_message(msg)
 
 
