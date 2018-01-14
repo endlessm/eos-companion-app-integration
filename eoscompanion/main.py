@@ -895,6 +895,39 @@ def companion_app_server_content_metadata_route(server, msg, path, query, *args)
     })
 
 
+def all_asynchronous_function_calls_closure(calls, done_callback):
+    '''Wait for each function call in calls to complete, then pass results.
+
+    Call each single-argument function in calls, storing the resulting
+    tuple of arguments in the corresponding array entry and passing the entire
+    array back to done_callback.
+
+    The single-argument to each member of calls is expected to be a callback
+    function that the caller can pass to determine when the asynchronous
+    operation is complete.
+    '''
+    def callback_thunk(index):
+        '''A thunk to keep track of the index of a given call.'''
+        def callback(*args):
+            '''A callback for the asynchronous function, packing *args.'''
+            nonlocal remaining
+
+            results[index] = args
+
+            remaining -= 1
+            if remaining == 0:
+                done_callback(results)
+
+        return callback
+
+    # Some state we will need to keep track of whilst the calls are ongoing
+    remaining = len(calls)
+    results = [None for c in calls]
+
+    for i, call in enumerate(calls):
+        call(callback_thunk(i))
+
+
 def application_hold_middleware(application, handler):
     '''Middleware function to put a hold on the application.
 
