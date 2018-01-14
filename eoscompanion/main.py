@@ -240,6 +240,7 @@ def application_sets_or_global_set(models, device_uuid, application_id):
     application_sets_response = [
         {
             'setId': model.get_property('title'),
+            'title': model.get_property('title'),
             'contentType': 'application/x-ekncontent-set',
             'thumbnail': format_uri_with_querystring(
                 '/content_data',
@@ -260,6 +261,10 @@ def application_sets_or_global_set(models, device_uuid, application_id):
     return [
         {
             'setId': _GLOBAL_SET_INDICATOR_STRING,
+            # XXX: It would be nice if we had the name of the application here
+            # but that would require yet another roundtrip, so lets just use
+            # 'All Items' for now.
+            'title': 'All Items',
             'contentType': 'application/x-ekncontent-set',
             'thumbnail': None,
             'id': '',
