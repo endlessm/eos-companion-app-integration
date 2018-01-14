@@ -204,27 +204,34 @@ gchar * eos_companion_app_service_get_runtime_name_for_app_id (const gchar  *app
                                                                GError      **error);
 
 /**
- * eos_companion_app_service_get_stream_at_offset_for_blob
- * @blob: (transfer none): An #EosShardBlob to seek
+ * eos_companion_app_service_fast_skip_stream_async
+ * @stream: (transfer none): An #GInputStream to seek
  * @offset: offset in bytes to seek to
  * @cancellable: (transfer none): A #GCancellable
  * @callback: A callback that will be invoked on success or failure once
  *            seeking is complete.
  * @user_data: The closure for @callback
  *
- * Do whatever is necessary to seek the underlying data stream for the
- * given @blob to the position specified by @offset. For compressed
- * streams this will mean unpacking the stream contents until we get to
- * the desired point - an O(N) operation.
+ * A wrapper around g_input_stream_skip that runs in a separate thread. The
+ * default implementation of g_input_stream_skip_async, which EosShardBlob
+ * uses will always attempt to read the entire stream up until a point in
+ * a separate thread, whereas the synchronous version, g_input_stream_skip will
+ * use the underlying GSeekable if it is available. Since the stream could
+ * be compressed, we don't really know if it is skippable in O(1), so we need
+ * to use g_input_stream_skip to account for the fact that we might have
+ * to do it in the background to avoid blocking the main thread. And obviously,
+ * we want to use the underlying GSeekable if it is available, hence having
+ * to wrap g_input_stream_skip as opposed to using g_input_stream_skip_async
+ * directly.
  */
-void eos_companion_app_service_get_stream_at_offset_for_blob (EosShardBlob        *blob,
-                                                              goffset              offset,
-                                                              GCancellable        *cancellable,
-                                                              GAsyncReadyCallback  callback,
-                                                              gpointer             user_data);
+void eos_companion_app_service_fast_skip_stream_async (GInputStream        *stream,
+                                                       goffset              offset,
+                                                       GCancellable        *cancellable,
+                                                       GAsyncReadyCallback  callback,
+                                                       gpointer             user_data);
 
 /**
- * eos_companion_app_service_finish_get_stream_at_offset_for_blob
+ * eos_companion_app_service_finish_fast_skip_stream
  * @result: A #GAsyncResult
  * @error: A #GError
  *
@@ -233,8 +240,8 @@ void eos_companion_app_service_get_stream_at_offset_for_blob (EosShardBlob      
  *
  * Returns: (transfer none): a #GInputStream seeked to a given offset
  */
-GInputStream * eos_companion_app_service_finish_get_stream_at_offset_for_blob (GAsyncResult  *result,
-                                                                               GError       **error);
+GInputStream * eos_companion_app_service_finish_fast_skip_stream (GAsyncResult  *result,
+                                                                  GError       **error);
 
 G_END_DECLS
 
