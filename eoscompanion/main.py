@@ -181,17 +181,12 @@ def application_listing_from_app_info(app_info):
 
 
 def list_all_applications(callback):
-    '''Convenience function to pass list of ApplicationListening to callback.'''
+    '''Convenience function to pass list of ApplicationListing to callback.'''
     def _callback(src, result):
         '''Callback function that gets called when we are done.'''
         infos = EosCompanionAppService.finish_list_application_infos(result)
         callback([
-            ApplicationListing(app_info.get_string('Desktop Entry',
-                                                   'X-Flatpak'),
-                               app_info.get_string('Desktop Entry',
-                                                   'Name'),
-                               app_info.get_string('Desktop Entry',
-                                                   'Icon'))
+            application_listing_from_app_info(app_info)
             for app_info in infos
         ])
 
@@ -928,6 +923,380 @@ def all_asynchronous_function_calls_closure(calls, done_callback):
         call(callback_thunk(i))
 
 
+def search_single_application(app_id=None,
+                              set_ids=None,
+                              limit=None,
+                              offset=None,
+                              search_term=None,
+                              callback=None):
+    '''Use EkncEngine.Query to run a query on a single application.
+
+    If :set_ids: is not passed, then we search over the default subset of
+    all articles and media objects. Otherwise we search over those
+    sets.
+    '''
+    query_kwargs = {
+        'app_id': app_id,
+        'tags_match_any': GLib.Variant('as', set_ids or [
+            'EknArticleObject',
+            'EknSetObject'
+        ]),
+        'limit': limit or _SENSIBLE_QUERY_LIMIT,
+        'offset': offset or 0
+    }
+
+    # XXX: Only add 'query' if it was actually defined. Adding it otherwise
+    # triggers a warning from within eknc_query_object_get_query_parser_strings.
+    #
+    # Since the API is being changed in the near future, just work around
+    # this for now and re-evaluate later whether or not this still occurrs
+    # when using search-terms once apps are rebuilt.
+    if search_term:
+        query_kwargs['query'] = search_term
+
+    query = Eknc.QueryObject(**query_kwargs)
+    Eknc.Engine.get_default().query(query, None, callback)
+
+
+ApplicationModel = namedtuple('ApplicationModel', 'app_id model')
+
+
+def render_result_payload_for_set(app_id, model, device_uuid):
+    '''Render a result payload for a set search model.'''
+    return {
+        'applicationId': app_id,
+        'tags': model.get_child_tags().unpack(),
+        'thumbnail': format_uri_with_querystring(
+            '/content_data',
+            deviceUUID=device_uuid,
+            applicationId=app_id,
+            contentId=urllib.parse.urlparse(model.get_property('thumbnail-uri')).path[1:]
+        )
+    }
+
+
+def render_result_payload_for_content(app_id, model, device_uuid):
+    '''Render a result payload for a content search model.'''
+    return {
+        'applicationId': app_id,
+        'contentType': model.get_property('content-type'),
+        'id': urllib.parse.urlparse(model.get_property('ekn-id')).path[1:],
+        'tags': model.get_property('tags').unpack(),
+        'thumbnail': format_uri_with_querystring(
+            '/content_data',
+            deviceUUID=device_uuid,
+            applicationId=app_id,
+            contentId=urllib.parse.urlparse(model.get_property('thumbnail-uri')).path[1:]
+        )
+    }
+
+
+_MODEL_PAYLOAD_RENDERER_FOR_TYPE = {
+    'set': render_result_payload_for_set,
+    'content': render_result_payload_for_content
+}
+
+SearchModel = namedtuple('SearchModel', 'app_id display_name model model_type model_payload_renderer')
+
+
+def search_models_from_application_models(application_models):
+    '''Yield a SearchModel or each ApplicationModel in application_models.
+
+    This basically just unpacks the relevant fields into SearchModel
+    so that they can be accessed directly instead of being constantly
+    re-unpacked.
+    '''
+    for app_id, model in application_models:
+        display_name = model.get_property('title')
+        tags = model.get_property('tags').unpack()
+        model_type = (
+            'set' if 'EknSetObject' in tags else 'content'
+        )
+        model_payload_renderer = _MODEL_PAYLOAD_RENDERER_FOR_TYPE[model_type]
+
+        yield SearchModel(app_id=app_id,
+                          display_name=display_name,
+                          model=model,
+                          model_type=model_type,
+                          model_payload_renderer=model_payload_renderer)
+                          
+
+
+@require_query_string_param('deviceUUID')
+def companion_app_server_search_content_route(server, msg, path, query, *args):
+    '''Return application/json of search results.
+
+    Search the system for content matching certain predicates, returning
+    a list of all content that matches those predicates, along with their
+    thumbnail and associated application.
+
+    The following parameters MAY appear at the end of the URL, and will
+    limit the scope of the search:
+    “applicationId”: [machine readable application ID, returned
+                      by /list_applications],
+    “setIds”: [machine readable set IDs, semicolon delimited,
+               returned by /list_application_sets],
+    “limit”: [machine readable limit integer, default 50],
+    “offset”: [machine readable offset integer, default 0],
+    “searchTerm”: [search term, string]
+    '''
+    def _on_received_results_list(truncated_models_for_applications,
+                                  applications,
+                                  remaining):
+        '''Called when we receive all models as a part of this search.
+
+        truncated_models_for_applications should be a list of
+        ApplicationModel.
+
+        truncated_models_for_applications is guaranteed to be truncated to
+        "limit", if one was specified and offsetted by "offset", if one was
+        specified, at this point.
+
+        applications should be a list of ApplicationListing.
+
+        remaining is the number of models which have not been served as a
+        part of this query.
+        '''
+        json_response(msg, {
+            'status': 'success',
+            'payload': {
+                'remaining': remaining,
+                'applications': [
+                    {
+                        'applicationId': a.app_id,
+                        'displayName': a.display_name,
+                        'icon': format_uri_with_querystring(
+                            '/application_icon',
+                            deviceUUID=query['deviceUUID'],
+                            iconName=a.icon
+                        ),
+                        'language': a.language
+                    }
+                    for a in applications
+                ],
+                'results': [
+                    {
+                        'displayName': display_name,
+                        'payload': model_payload_renderer(app_id,
+                                                          model,
+                                                          query['deviceUUID']),
+                        'type': model_type
+                    }
+                    for app_id, display_name, model, model_type, model_payload_renderer in
+                    search_models_from_application_models(
+                        truncated_models_for_applications
+                    )
+                ]
+            }
+        })
+        server.unpause_message(msg)
+
+    def _on_all_searches_complete_for_applications(applications,
+                                                   global_limit,
+                                                   global_offset):
+        '''A thunk to preserve the list of applications.
+
+        Note that each result is guaranteed to come back in the same order
+        that requests were added to all_asynchronous_function_calls_closure,
+        so if applications is in the same order, we can look up the
+        corresponding application in applications for each index.
+        '''
+        def _on_all_searches_complete(search_results):
+            '''Called when we receive the result of all searches.
+
+            Examine the result of every search call for errors and if so,
+            immediately return the error to the client. Otherwise, take all
+            the models and marshal them into a single list, truncated by the
+            search limit and pass to _on_received_results_list.
+            '''
+            all_models = []
+
+            for index, args_tuple in enumerate(search_results):
+                engine, result = args_tuple
+
+                try:
+                    query_results = engine.query_finish(result)
+                    all_models.extend([
+                        ApplicationModel(app_id=applications[index].app_id,
+                                         model=m)
+                        for m in query_results.get_models()
+                    ])
+                except GLib.Error as error:
+                    json_response(msg, {
+                        'status': 'error',
+                        'error': serialize_error_as_json_object(
+                            EosCompanionAppService.error_quark(),
+                            EosCompanionAppService.Error.FAILED,
+                            detail={
+                                'server_error': str(error)
+                            }
+                        )
+                    })
+                    server.unpause_message(msg)
+                    return
+
+            remaining = (
+                max(0, len(all_models) - global_limit)
+                if global_limit is not None else 0
+            )
+
+            # An 'end' of None here essentially means that the list will not
+            # be truncated. This is the choice if global_limit is set to None
+            start = global_offset if global_offset is not None else 0
+            end = start + global_limit if global_limit is not None else None
+
+            _on_received_results_list(all_models[start:end],
+                                      applications,
+                                      remaining)
+
+        return _on_all_searches_complete
+
+    def _search_all_applications(applications,
+                                 global_limit,
+                                 global_offset,
+                                 local_limit,
+                                 local_offset):
+        '''Search all applications with the given limit and offset.
+
+        Search each application for our search term. This is done through
+        all_asynchronous_function_calls_closure which calls a list of
+        zero-argument asynchronous functions and marshals their results into a
+        list of tuples of (error, result), depending on whether an error
+        occurred. The _on_received_all_results callback is then called with
+        the overall list, where results are refined down into a list of
+        models, and then filtered accordingly.
+
+        :global_limit: refers to the limit on all results from all
+        applications.
+        :global_offset: is the offset into the the result set returned by
+        all applications.
+
+        :local_limit: refers to the per-application content limit.
+        :local_offset: refers to the offset within each application.
+        '''
+        def _search_application_thunk(application):
+            '''Partially applied function to search a single application.
+
+            We have to use this instead of a lambda, since lambda closure
+            semantics are such that a reference to the loop variable, rather
+            than the loop variable's value, will be captured.
+            '''
+            def _thunk(callback):
+                '''Thunk that gets called.'''
+                return search_single_application(app_id=application.app_id,
+                                                 set_ids=set_ids,
+                                                 limit=local_limit,
+                                                 offset=local_offset,
+                                                 search_term=search_term,
+                                                 callback=callback)
+
+            return _thunk
+
+        all_asynchronous_function_calls_closure([
+            _search_application_thunk(a) for a in applications
+        ], _on_all_searches_complete_for_applications(applications,
+                                                      global_limit,
+                                                      global_offset))
+
+    def _on_got_all_applications(applications):
+        '''Called when we get all applications.
+
+        When searching all applications, we do not apply a per-application
+        offset, but we do apply a per-application limit since the limit is
+        meant to be the upper bound.
+        '''
+        _search_all_applications(applications, limit, offset, limit, 0)
+
+
+    def _on_got_application_info(src, result):
+        '''Called when we receive info for a single application.
+
+        Once we confirm that the application exists and we got
+        info for it, we can proceed to listing content for that application
+        and wrapping each item with ApplicationModel.
+        '''
+        try:
+            info = EosCompanionAppService.finish_load_application_info(result)
+        except GLib.Error as error:
+            json_response(msg, {
+                'status': 'error',
+                'error': serialize_error_as_json_object(
+                    EosCompanionAppService.error_quark(),
+                    EosCompanionAppService.Error.FAILED,
+                    detail={
+                        'server_error': str(error)
+                    }
+                )
+            })
+            server.unpause_message(msg)
+            return
+
+        if not info:
+            json_response(msg, {
+                'status': 'error',
+                'error': serialize_error_as_json_object(
+                    EosCompanionAppService.error_quark(),
+                    EosCompanionAppService.Error.INVALID_APP_ID,
+                    detail={
+                        'applicationId': application_id
+                    }
+                )
+            })
+            server.unpause_message(msg)
+            return
+
+        # Now that we have our application info, we can do a search on this
+        # application (just do a search over all elements of our scalar-valued
+        # list of applications). Note here that we pass a local limit and
+        # offset, but not a global limit and offset. We are only searching
+        # a single application so we can allow Xapian to do the hard work for
+        # us.
+        _search_all_applications([application_listing_from_app_info(info)],
+                                 None,
+                                 None,
+                                 limit,
+                                 offset)
+
+    set_ids = query.get('setIds', None)
+    limit = query.get('limit', None)
+    offset = query.get('offset', None)
+
+    # Convert to int if defined, otherwise keep as None
+    try:
+        limit = int(limit) if limit else None
+        offset = int(offset) if offset else None
+        set_ids = set_ids.split(';') if set_ids else None
+    except ValueError as error:
+        # Client made an invalid request, return now
+        json_response(msg, {
+            'status': 'error',
+            'error': serialize_error_as_json_object(
+                EosCompanionAppService.error_quark(),
+                EosCompanionAppService.Error.INVALID_REQUEST,
+                detail={
+                    'error': str(error)
+                }
+            )
+        })
+        server.unpause_message(msg)
+        return
+
+    application_id = query.get('applicationId', None)
+    search_term = query.get('searchTerm', None)
+
+    # If we got an applicationId, the assumption is that the applicationId
+    # should match something so immediately list the contents of that
+    # application then marshal it into an ApplicationListing format that
+    # _on_received_results_list can use
+    if application_id:
+        EosCompanionAppService.load_application_info(application_id,
+                                                     None,
+                                                     _on_got_application_info)
+    else:
+        list_all_applications(_on_got_all_applications)
+    server.pause_message(msg)
+
+
 def application_hold_middleware(application, handler):
     '''Middleware function to put a hold on the application.
 
@@ -951,7 +1320,8 @@ COMPANION_APP_ROUTES = {
     '/list_application_sets': companion_app_server_list_application_sets_route,
     '/list_application_content_for_tags': companion_app_server_list_application_content_for_tags_route,
     '/content_data': companion_app_server_content_data_route,
-    '/content_metadata': companion_app_server_content_metadata_route
+    '/content_metadata': companion_app_server_content_metadata_route,
+    '/search_content': companion_app_server_search_content_route
 }
 
 def create_companion_app_webserver(application):
