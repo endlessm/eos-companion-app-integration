@@ -130,6 +130,37 @@ GBytes * eos_companion_app_service_finish_load_application_icon_data_async (GAsy
                                                                             GError       **error);
 
 
+
+/**
+ * eos_companion_app_service_load_application_info:
+ * @name: The name of the application to load info for
+ * @cancellable: A #GCancellable
+ * @callback: A #GAsyncReadyCallback
+ * @user_data: Closure for @callback
+ *
+ * Asynchronously load application info for the given application name, passing
+ * it as a #GKeyFile to the provided @callback
+ */
+void eos_companion_app_service_load_application_info (const gchar         *name,
+                                                      GCancellable        *cancellable,
+                                                      GAsyncReadyCallback  callback,
+                                                      gpointer             user_data);
+
+
+/**
+ * eos_companion_app_service_finish_load_application_info:
+ * @result: A #GAsyncResult
+ * @error: A #GError
+ *
+ * Complete the call to eos_companion_app_service_load_application_info by
+ * returning a #GKeyFile containing the application's desktop data.
+ *
+ * Returns: (transfer none): a #GKeyFile containing application desktop data
+ *                           or NULL if the desktop file did not exist.
+ */
+GKeyFile * eos_companion_app_service_finish_load_application_info (GAsyncResult  *result,
+                                                                   GError       **error);
+
 /**
  * eos_companion_app_service_load_all_in_stream_to_bytes:
  * @stream: A #GInputStream

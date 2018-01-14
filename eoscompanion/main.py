@@ -146,6 +146,16 @@ def desktop_id_to_app_id(desktop_id):
 ApplicationListing = namedtuple('ApplicationListing', 'app_id display_name icon')
 
 
+def application_listing_from_app_info(app_info):
+    '''Convert a GKeyFile app_info to an ApplicationListing.'''
+    return ApplicationListing(app_info.get_string('Desktop Entry',
+                                                  'X-Flatpak'),
+                              app_info.get_string('Desktop Entry',
+                                                  'Name'),
+                              app_info.get_string('Desktop Entry',
+                                                  'Icon'))
+
+
 @require_query_string_param('deviceUUID')
 def companion_app_server_list_applications_route(server, msg, path, query, *args):
     '''List all applications that are available on the system.'''
@@ -166,12 +176,7 @@ def companion_app_server_list_applications_route(server, msg, path, query, *args
                     'language': a.app_id.split('.')[-1]
                 }
                 for a in [
-                    ApplicationListing(app_info.get_string('Desktop Entry',
-                                                           'X-Flatpak'),
-                                       app_info.get_string('Desktop Entry',
-                                                           'Name'),
-                                       app_info.get_string('Desktop Entry',
-                                                           'Icon'))
+                    application_listing_from_app_info(app_info)
                     for app_info in infos
                 ]
             ]

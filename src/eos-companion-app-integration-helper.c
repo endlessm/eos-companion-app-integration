@@ -509,6 +509,50 @@ eos_companion_app_service_finish_load_application_icon_data_async (GAsyncResult 
   return g_task_propagate_pointer (G_TASK (result), error);
 }
 
+static void
+load_application_info_thread (GTask        *task,
+                              gpointer      source,
+                              gpointer      task_data,
+                              GCancellable *cancellable)
+{
+  g_autoptr(GError) local_error = NULL;
+  g_autoptr(GKeyFile) key_file = NULL;
+
+  if (!load_desktop_info_key_file_for_app_id ((const gchar *) task_data,
+                                              &key_file,
+                                              &local_error))
+    {
+      g_task_return_error (task, g_steal_pointer (&local_error));
+      return;
+    }
+
+  g_task_return_pointer (task,
+                         g_steal_pointer (&key_file),
+                         (GDestroyNotify) g_object_unref);
+}
+
+void
+eos_companion_app_service_load_application_info (const gchar         *name,
+                                                 GCancellable        *cancellable,
+                                                 GAsyncReadyCallback  callback,
+                                                 gpointer             user_data)
+{
+  g_autoptr(GTask) task = g_task_new (NULL, cancellable, callback, NULL);
+
+  g_task_set_return_on_cancel (task, TRUE);
+  g_task_set_task_data (task, g_strdup (name), g_free);
+  g_task_run_in_thread (task, load_application_info_thread);
+}
+
+GKeyFile *
+eos_companion_app_service_finish_load_application_info (GAsyncResult  *result,
+                                                        GError       **error)
+{
+  g_return_val_if_fail (g_task_is_valid (result, NULL), NULL);
+
+  return g_task_propagate_pointer (G_TASK (result), error);
+}
+
 /* Returns a GtkIconTheme * object, unique to this program.
  *
  * We have to do this instead of using gtk_icon_theme_get_default(), since
