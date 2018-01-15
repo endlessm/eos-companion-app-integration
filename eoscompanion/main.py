@@ -228,7 +228,49 @@ def yield_models_that_have_thumbnails(models):
         if not thumbnail:
             continue
 
-        yield (thumbnail, model)
+        yield model
+
+
+# This tag is used by everything that should end up on the homepage
+_GLOBAL_SET_INDICATOR_STRING = 'EknHomePageTag'
+
+
+def application_sets_or_global_set(models, device_uuid, application_id):
+    '''Yield JSON formatted application sets or an entry for the global set.'''
+    application_sets_response = [
+        {
+            'setId': model.get_property('title'),
+            'title': model.get_property('title'),
+            'contentType': 'application/x-ekncontent-set',
+            'thumbnail': format_uri_with_querystring(
+                '/content_data',
+                deviceUUID=device_uuid,
+                applicationId=application_id,
+                contentId=urllib.parse.urlparse(model.get_property('thumbnail-uri')).path[1:]
+            ),
+            'id': urllib.parse.urlparse(model.get_property('ekn-id')).path[1:],
+            'global': False
+        }
+        for model in
+        yield_models_that_have_thumbnails(models)
+    ]
+
+    if application_sets_response:
+        return application_sets_response
+
+    return [
+        {
+            'setId': _GLOBAL_SET_INDICATOR_STRING,
+            # XXX: It would be nice if we had the name of the application here
+            # but that would require yet another roundtrip, so lets just use
+            # 'All Items' for now.
+            'title': 'All Items',
+            'contentType': 'application/x-ekncontent-set',
+            'thumbnail': None,
+            'id': '',
+            'global': True
+        }
+    ]
 
 
 # For now a limit parameter is required for queries
@@ -247,21 +289,9 @@ def companion_app_server_list_application_sets_route(server, msg, path, query, *
 
            json_response(msg, {
                'status': 'ok',
-               'payload': [
-                   {
-                       'setId': model.get_property('title'),
-                       'contentType': 'application/x-ekncontent-set',
-                       'thumbnail': format_uri_with_querystring(
-                           '/content_data',
-                           deviceUUID=query['deviceUUID'],
-                           applicationId=query['applicationId'],
-                           contentId=urllib.parse.urlparse(thumbnail_uri).path[1:]
-                       ),
-                       'id': urllib.parse.urlparse(model.get_property('ekn-id')).path[1:]
-                   }
-                   for thumbnail_uri, model in
-                   yield_models_that_have_thumbnails(models)
-               ]
+               'payload': application_sets_or_global_set(models,
+                                                         query['deviceUUID'],
+                                                         query['applicationId'])
            })
        except GLib.Error as error:
            json_response(msg, {
@@ -291,6 +321,50 @@ def companion_app_server_list_application_sets_route(server, msg, path, query, *
     server.pause_message(msg)
 
 
+def values_in_object_for_keys(candidate_object, keys):
+    '''Yield values in candidate_object for each key.'''
+    for key in keys:
+        if key in candidate_object:
+            yield candidate_object[key]
+
+
+def yield_embedded_content_models(models, preferred_tags):
+    '''Prioritize embedded content over their embedding page.
+
+    Generally speaking this is tricky. There is no indication from the
+    metadata of a page that it is a page for a video, but for now we look
+    at the resources of an article and if it only refers to a single video,
+    we assume that the article is a stand-in for that video and add the 
+    '''
+    model_map = {
+        model.get_property('ekn-id'): model
+        for model in models
+    }
+
+    for model in model_map.values():
+        # Generally, only consider objects in the actual tag to start with
+        if preferred_tags in model.get_property('tags').unpack():
+            # Check what the model refers to. If it refers to one and only
+            # one EkncMediaObject with content type video/*, then we assume
+            # that this is actually a placeholder page for an EkncMediaObject
+            # yield that model instead (with the title of the embedding page)
+            media_resources = [
+                resource_model
+                for resource_model in values_in_object_for_keys(
+                    model_map,
+                    model.get_property('resources').unpack()
+                )
+                if 'video/' in resource_model.get_property('content-type')
+            ] if model.get_property('resources') else []
+
+            print('Corresponding resources {} {}'.format(media_resources, model.get_property('resources')))
+
+            if len(media_resources) == 1:
+                yield model.get_property('title'), media_resources[0]
+            else:
+                yield model.get_property('title'), model
+
+
 @require_query_string_param('deviceUUID')
 @require_query_string_param('applicationId')
 @require_query_string_param('setId')
@@ -306,19 +380,21 @@ def companion_app_server_list_application_content_for_set_route(server, msg, pat
                'status': 'ok',
                'payload': [
                    {
-                       'displayName': model.get_property('title'),
+                       'displayName': title,
                        'contentType': model.get_property('content-type'),
                        'thumbnail': format_uri_with_querystring(
                            '/content_data',
                            deviceUUID=query['deviceUUID'],
                            applicationId=query['applicationId'],
-                           contentId=urllib.parse.urlparse(thumbnail_uri).path[1:]
+                           contentId=urllib.parse.urlparse(model.get_property('thumbnail-uri')).path[1:]
                        ),
                        'id': urllib.parse.urlparse(model.get_property('ekn-id')).path[1:],
                        'tags': model.get_property('tags').unpack()
                    }
-                   for thumbnail_uri, model in
-                   yield_models_that_have_thumbnails(models)
+                   for title, model in yield_embedded_content_models(
+                       yield_models_that_have_thumbnails(models),
+                       query['setId']
+                   )
                ]
            })
        except GLib.Error as error:
@@ -341,8 +417,14 @@ def companion_app_server_list_application_content_for_set_route(server, msg, pat
     app_id = query['applicationId']
     engine = Eknc.Engine.get_default()
 
+    # We have to include both our desired tag and EknMediaObject in
+    # the query, since we might want to replace articles in the tagged
+    # collection with their EknMediaObject counterparts later
     engine.query(Eknc.QueryObject(app_id=app_id,
-                                  tags_match_all=GLib.Variant('as', [query['setId']]),
+                                  tags_match_any=GLib.Variant('as', [
+                                      query['setId'],
+                                      'EknMediaObject'
+                                  ]),
                                   limit=_SENSIBLE_QUERY_LIMIT),
                  cancellable=None,
                  callback=_callback)
