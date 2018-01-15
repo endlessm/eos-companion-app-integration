@@ -232,14 +232,14 @@ def yield_models_that_have_thumbnails(models):
 
 
 # This tag is used by everything that should end up on the homepage
-_GLOBAL_SET_INDICATOR_STRING = 'EknHomePageTag'
+_GLOBAL_SET_INDICATOR_TAG = ['EknHomePageTag']
 
 
 def application_sets_or_global_set(models, device_uuid, application_id):
     '''Yield JSON formatted application sets or an entry for the global set.'''
     application_sets_response = [
         {
-            'setId': model.get_property('title'),
+            'tags': model.get_child_tags(),
             'title': model.get_property('title'),
             'contentType': 'application/x-ekncontent-set',
             'thumbnail': format_uri_with_querystring(
@@ -260,7 +260,7 @@ def application_sets_or_global_set(models, device_uuid, application_id):
 
     return [
         {
-            'setId': _GLOBAL_SET_INDICATOR_STRING,
+            'tags': _GLOBAL_SET_INDICATOR_TAG,
             # XXX: It would be nice if we had the name of the application here
             # but that would require yet another roundtrip, so lets just use
             # 'All Items' for now.
@@ -367,8 +367,8 @@ def yield_embedded_content_models(models, preferred_tags):
 
 @require_query_string_param('deviceUUID')
 @require_query_string_param('applicationId')
-@require_query_string_param('setId')
-def companion_app_server_list_application_content_for_set_route(server, msg, path, query, *args):
+@require_query_string_param('tags')
+def companion_app_server_list_application_content_for_tags_route(server, msg, path, query, *args):
     '''Return json listing of all application content in a set.'''
     def _callback(src, result):
        '''Callback function that gets called when we are done.'''
@@ -410,8 +410,8 @@ def companion_app_server_list_application_content_for_set_route(server, msg, pat
            })
        server.unpause_message(msg)
 
-    print('List application content for set: clientId={clientId}, applicationId={applicationId}, setId={setId}'.format(
-        setId=query['setId'], applicationId=query['applicationId'], clientId=query['deviceUUID'])
+    print('List application content for tags: clientId={clientId}, applicationId={applicationId}, tags={tags}'.format(
+        tags=query['tags'], applicationId=query['applicationId'], clientId=query['deviceUUID'])
     )
 
     app_id = query['applicationId']
@@ -420,11 +420,10 @@ def companion_app_server_list_application_content_for_set_route(server, msg, pat
     # We have to include both our desired tag and EknMediaObject in
     # the query, since we might want to replace articles in the tagged
     # collection with their EknMediaObject counterparts later
+    tags = query['tags'].split(';')
+    tags.append('EknMediaObject')
     engine.query(Eknc.QueryObject(app_id=app_id,
-                                  tags_match_any=GLib.Variant('as', [
-                                      query['setId'],
-                                      'EknMediaObject'
-                                  ]),
+                                  tags_match_any=GLib.Variant('as', tags),
                                   limit=_SENSIBLE_QUERY_LIMIT),
                  cancellable=None,
                  callback=_callback)
@@ -833,7 +832,7 @@ COMPANION_APP_ROUTES = {
     '/list_applications': companion_app_server_list_applications_route,
     '/application_icon': companion_app_server_application_icon_route,
     '/list_application_sets': companion_app_server_list_application_sets_route,
-    '/list_application_content_for_set': companion_app_server_list_application_content_for_set_route,
+    '/list_application_content_for_tags': companion_app_server_list_application_content_for_tags_route,
     '/content_data': companion_app_server_content_data_route,
     '/content_metadata': companion_app_server_content_metadata_route
 }
