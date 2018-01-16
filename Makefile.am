@@ -47,6 +47,18 @@ BUILT_SOURCES =
 CLEANFILES = 
 EXTRA_DIST = 
 
+# GObject Introspection setup
+include $(INTROSPECTION_MAKEFILE)
+INTROSPECTION_GIRS = $(NULL)
+INTROSPECTION_SCANNER_ARGS = --add-include-path=$(srcdir) --warn-all
+INTROSPECTION_COMPILER_ARGS = --includedir=$(srcdir)
+
+# Make sure to pass the enable/disable switches to distcheck
+AM_DISTCHECK_CONFIGURE_FLAGS = \
+	$(ADDITIONAL_DISTCHECK_CONFIGURE_FLAGS) \
+	$(NULL)
+
+# # BUILD RULES FOR COMPANION APP SERVICE FLATPAK (--enable-service) # #
 if EOS_COMPANION_APP_SERVICE_ENABLED
 # Python files
 app_PYTHON += \
@@ -64,8 +76,114 @@ lib_LTLIBRARIES += \
 	libeoscompanion-dbus-1.la \
 	libeoscompanion-1.la \
 	$(NULL)
+
+# DBus-activation
+dbusservice_DATA += \
+	data/com.endlessm.CompanionAppService.service
+
+enum_header_files = \
+	src/eos-companion-app-integration-helper.h \
+	$(NULL)
+enum_template_h_file = src/enums.h.in
+enum_template_c_file = src/enums.c.in
+enum_sources = \
+	src/enums.h \
+	src/enums.c \
+	$(NULL)
+
+# Companion App D-Bus Library
+gdbus_generated = \
+	eos-companion-app-service-dbus.c \
+	eos-companion-app-service-dbus.h \
+	$(NULL)
+
+nodist_libeoscompanion_dbus_1_la_SOURCES = \
+	$(gdbus_generated) \
+	$(NULL)
+
+libeoscompanion_dbus_1_la_CPPFLAGS = \
+	$(EOS_COMPANION_APP_SERVICE_CFLAGS) \
+	$(NULL)
+
+libeoscompanion_dbus_1_la_LIBADD = \
+	$(EOS_COMPANION_APP_SERVICE_LIBS) \
+	$(NULL)
+
+# Companion App Helper Library
+libeoscompanion_1_la_SOURCES = \
+	src/eos-companion-app-integration-helper.c \
+	src/eos-companion-app-integration-helper.h \
+	$(enum_sources) \
+	$(NULL)
+
+libeoscompanion_1_la_CPPFLAGS = \
+	$(EOS_COMPANION_APP_SERVICE_CFLAGS) \
+	$(NULL)
+
+libeoscompanion_1_la_LIBADD = \
+	$(EOS_COMPANION_APP_SERVICE_LIBS) \
+	$(NULL)
+
+# Wrapper script
+bin/eos-companion-app-service: bin/eos-companion-app-service.in
+	$(AM_V_GEN) mkdir -p `dirname $@` && sed -e 's|@libdir[@]|${libdir}|g;s|@pkgdatadir[@]|${pkgdatadir}|g;s|@pythonminorversion[@]|${pythonminorversion}|g' $< > $@.tmp && mv $@.tmp $@
+
+CLEANFILES += bin/eos-companion-app-service
+EXTRA_DIST += bin/eos-companion-app-service.in
+
+# # # D-BUS SERVICES # # #
+data/com.endlessm.CompanionAppService.service: data/com.endlessm.CompanionAppService.service.in
+	$(AM_V_GEN) mkdir -p `dirname $@` && sed -e 's|@bindir[@]|${bindir}|g' $< > $@.tmp && mv $@.tmp $@
+
+EXTRA_DIST += \
+	data/com.endlessm.CompanionAppService.service.in \
+	$(NULL)
+CLEANFILES += \
+	data/com.endlessm.CompanionAppService.service \
+	$(NULL)
+
+# # # D-BUS CODEGEN # # #
+eos-companion-app-service-dbus.c: data/com.endlessm.CompanionAppService.xml
+	$(AM_V_GEN)gdbus-codegen --generate-c-code eos-companion-app-service-dbus --c-namespace EosCompanionAppService --interface-prefix com.endlessm.CompanionApp. --output-directory=$(abs_top_builddir) $<
+
+eos-companion-app-service-dbus.h: eos-companion-app-service-dbus.c
+
+BUILT_SOURCES += $(gdbus_generated)
+CLEANFILES += $(gdbus_generated)
+EXTRA_DIST += data/com.endlessm.CompanionAppService.xml
+
+# XXX: We need to touch the output file first while
+# we wait for the version of glib that has https://github.com/endlessm/glib/commit/d8aee2cf5b150659928984de04c655dc06439b9c
+# is picked into the runtime.
+#
+# # # ENUM HEADER FILES # # #
+src/enums.h: $(enum_template_h_file) $(enum_header_files)
+	$(AM_V_GEN) mkdir -p `dirname $@` && touch $@ && $(GLIB_MKENUMS) --template=$(enum_template_h_file) $(enum_header_files) --output $(abs_top_builddir)/$@
+
+src/enums.c: $(enum_template_c_file) $(enum_header_files) src/enums.h
+	$(AM_V_GEN) mkdir -p `dirname $@` && touch $@ &&  $(GLIB_MKENUMS) --template=$(enum_template_c_file) $(enum_header_files) --output $(abs_top_builddir)/$@
+
+BUILT_SOURCES += $(enum_sources)
+CLEANFILES += $(enum_sources)
+EXTRA_DIST += $(enum_template_h_file) $(enum_template_c_file)
+
+if HAVE_INTROSPECTION
+introspection_sources = \
+	$(gdbus_generated) \
+	$(nodist_libeoscompanion_1_la_SOURCES) \
+	$(NULL)
+
+EosCompanionAppService-1.0.gir: libeoscompanion-dbus-1.la libeoscompanion-1.la
+EosCompanionAppService_1_0_gir_INCLUDES = EosShard-0 GObject-2.0 Gio-2.0 GLib-2.0 Soup-2.4
+EosCompanionAppService_1_0_gir_CFLAGS = $(EOS_COMPANION_APP_SERVICE_CFLAGS)
+EosCompanionAppService_1_0_gir_LIBS = libeoscompanion-dbus-1.la libeoscompanion-1.la
+EosCompanionAppService_1_0_gir_FILES = $(introspection_sources)
+INTROSPECTION_GIRS += EosCompanionAppService-1.0.gir
 endif
 
+endif
+
+# # BUILD RULES FOR COMPANION APP OS INTEGRATION (--enable-integration) # #
 if EOS_COMPANION_APP_INTEGRATION_ENABLED
 # GDBus library for avahi helper
 lib_LTLIBRARIES += \
@@ -81,15 +199,7 @@ libexec_SCRIPTS += \
 EXTRA_DIST += \
 	helper/eos-companion-app-avahi-helper \
 	$(NULL)
-endif
 
-if EOS_COMPANION_APP_SERVICE_ENABLED
-# DBus-activation
-dbusservice_DATA += \
-	data/com.endlessm.CompanionAppService.service
-endif
-
-if EOS_COMPANION_APP_INTEGRATION_ENABLED
 # DBus System Service for Avahi Helper
 dbussystemservice_DATA += \
 	data/com.endlessm.CompanionAppServiceAvahiHelper.service \
@@ -136,39 +246,7 @@ tmpfiles_DATA += \
 EXTRA_DIST += \
 	data/eos-companion-app-helper.conf \
 	$(NULL)
-endif
 
-if EOS_COMPANION_APP_SERVICE_ENABLED
-enum_header_files = \
-	src/eos-companion-app-integration-helper.h \
-	$(NULL)
-enum_template_h_file = src/enums.h.in
-enum_template_c_file = src/enums.c.in
-enum_sources = \
-	src/enums.h \
-	src/enums.c \
-	$(NULL)
-
-# Companion App D-Bus Library
-gdbus_generated = \
-	eos-companion-app-service-dbus.c \
-	eos-companion-app-service-dbus.h \
-	$(NULL)
-
-nodist_libeoscompanion_dbus_1_la_SOURCES = \
-	$(gdbus_generated) \
-	$(NULL)
-
-libeoscompanion_dbus_1_la_CPPFLAGS = \
-	$(EOS_COMPANION_APP_SERVICE_CFLAGS) \
-	$(NULL)
-
-libeoscompanion_dbus_1_la_LIBADD = \
-	$(EOS_COMPANION_APP_SERVICE_LIBS) \
-	$(NULL)
-endif
-
-if EOS_COMPANION_APP_INTEGRATION_ENABLED
 # Companion App Avahi Helper D-Bus Library
 avahi_helper_gdbus_generated = \
 	eos-companion-app-avahi-helper-dbus.c \
@@ -186,26 +264,7 @@ libeoscompanion_avahi_helper_dbus_1_la_CPPFLAGS = \
 libeoscompanion_avahi_helper_dbus_1_la_LIBADD = \
 	$(EOS_COMPANION_APP_INTEGRATION_LIBS) \
 	$(NULL)
-endif
 
-if EOS_COMPANION_APP_SERVICE_ENABLED
-# Companion App Helper Library
-libeoscompanion_1_la_SOURCES = \
-	src/eos-companion-app-integration-helper.c \
-	src/eos-companion-app-integration-helper.h \
-	$(enum_sources) \
-	$(NULL)
-
-libeoscompanion_1_la_CPPFLAGS = \
-	$(EOS_COMPANION_APP_SERVICE_CFLAGS) \
-	$(NULL)
-
-libeoscompanion_1_la_LIBADD = \
-	$(EOS_COMPANION_APP_SERVICE_LIBS) \
-	$(NULL)
-endif
-
-if EOS_COMPANION_APP_INTEGRATION_ENABLED
 # Configuration Manager
 libexec_PROGRAMS += eos-companion-app-configuration-manager
 
@@ -232,30 +291,7 @@ config_DATA += \
 	$(NULL)
 
 EXTRA_DIST += data/config.ini
-endif
 
-if EOS_COMPANION_APP_SERVICE_ENABLED
-# Wrapper script
-bin/eos-companion-app-service: bin/eos-companion-app-service.in
-	$(AM_V_GEN) mkdir -p `dirname $@` && sed -e 's|@libdir[@]|${libdir}|g;s|@pkgdatadir[@]|${pkgdatadir}|g;s|@pythonminorversion[@]|${pythonminorversion}|g' $< > $@.tmp && mv $@.tmp $@
-
-CLEANFILES += bin/eos-companion-app-service
-EXTRA_DIST += bin/eos-companion-app-service.in
-
-# # # D-BUS SERVICES # # #
-data/com.endlessm.CompanionAppService.service: data/com.endlessm.CompanionAppService.service.in
-	$(AM_V_GEN) mkdir -p `dirname $@` && sed -e 's|@bindir[@]|${bindir}|g' $< > $@.tmp && mv $@.tmp $@
-
-EXTRA_DIST += \
-	data/com.endlessm.CompanionAppService.service.in \
-	$(NULL)
-CLEANFILES += \
-	data/com.endlessm.CompanionAppService.service \
-	$(NULL)
-
-endif
-
-if EOS_COMPANION_APP_INTEGRATION_ENABLED
 data/com.endlessm.CompanionAppServiceAvahiHelper.service: data/com.endlessm.CompanionAppServiceAvahiHelper.service.in
 	$(AM_V_GEN) mkdir -p `dirname $@` && sed -e 's|@libexecdir[@]|${libexecdir}|g' $< > $@.tmp && mv $@.tmp $@
 
@@ -281,21 +317,7 @@ EXTRA_DIST += \
 	data/eos-companion-app-avahi-helper.service.in \
 	data/eos-companion-app-configuration-manager.service.in \
 	$(NULL)
-endif
 
-if EOS_COMPANION_APP_SERVICE_ENABLED
-# # # D-BUS CODEGEN # # #
-eos-companion-app-service-dbus.c: data/com.endlessm.CompanionAppService.xml
-	$(AM_V_GEN)gdbus-codegen --generate-c-code eos-companion-app-service-dbus --c-namespace EosCompanionAppService --interface-prefix com.endlessm.CompanionApp. --output-directory=$(abs_top_builddir) $<
-
-eos-companion-app-service-dbus.h: eos-companion-app-service-dbus.c
-
-BUILT_SOURCES += $(gdbus_generated)
-CLEANFILES += $(gdbus_generated)
-EXTRA_DIST += data/com.endlessm.CompanionAppService.xml
-endif
-
-if EOS_COMPANION_APP_INTEGRATION_ENABLED
 # # # D-BUS CODEGEN FOR AVAHI HELPER # # #
 eos-companion-app-avahi-helper-dbus.c: data/com.endlessm.CompanionAppAvahiHelper.xml
 	$(AM_V_GEN)gdbus-codegen --generate-c-code eos-companion-app-avahi-helper-dbus --c-namespace EosCompanionAppAvahiHelper --interface-prefix com.endlessm.CompanionApp. --output-directory=$(abs_top_builddir) $<
@@ -305,47 +327,8 @@ eos-companion-app-avahi-helper-dbus.h: eos-companion-app-avahi-helper-dbus.c
 BUILT_SOURCES += $(avahi_helper_gdbus_generated)
 CLEANFILES += $(avahi_helper_gdbus_generated)
 EXTRA_DIST += data/com.endlessm.CompanionAppAvahiHelper.xml
-endif
-
-if EOS_COMPANION_APP_SERVICE_ENABLED
-# XXX: We need to touch the output file first while
-# we wait for the version of glib that has https://github.com/endlessm/glib/commit/d8aee2cf5b150659928984de04c655dc06439b9c
-# is picked into the runtime.
-#
-# # # ENUM HEADER FILES # # #
-src/enums.h: $(enum_template_h_file) $(enum_header_files)
-	$(AM_V_GEN) mkdir -p `dirname $@` && touch $@ && $(GLIB_MKENUMS) --template=$(enum_template_h_file) $(enum_header_files) --output $(abs_top_builddir)/$@
-
-src/enums.c: $(enum_template_c_file) $(enum_header_files) src/enums.h
-	$(AM_V_GEN) mkdir -p `dirname $@` && touch $@ &&  $(GLIB_MKENUMS) --template=$(enum_template_c_file) $(enum_header_files) --output $(abs_top_builddir)/$@
-
-BUILT_SOURCES += $(enum_sources)
-CLEANFILES += $(enum_sources)
-EXTRA_DIST += $(enum_template_h_file) $(enum_template_c_file)
-endif
-
-# # # GOBJECT_INTROSPECTION # # #
-include $(INTROSPECTION_MAKEFILE)
-INTROSPECTION_GIRS = $(NULL)
-INTROSPECTION_SCANNER_ARGS = --add-include-path=$(srcdir) --warn-all
-INTROSPECTION_COMPILER_ARGS = --includedir=$(srcdir)
 
 if HAVE_INTROSPECTION
-if EOS_COMPANION_APP_SERVICE_ENABLED
-introspection_sources = \
-	$(gdbus_generated) \
-	$(libeoscompanion_1_la_SOURCES) \
-	$(NULL)
-
-EosCompanionAppService-1.0.gir: libeoscompanion-dbus-1.la libeoscompanion-1.la
-EosCompanionAppService_1_0_gir_INCLUDES = EosShard-0 GObject-2.0 Gio-2.0 GLib-2.0 Soup-2.4
-EosCompanionAppService_1_0_gir_CFLAGS = $(EOS_COMPANION_APP_SERVICE_CFLAGS)
-EosCompanionAppService_1_0_gir_LIBS = libeoscompanion-dbus-1.la libeoscompanion-1.la
-EosCompanionAppService_1_0_gir_FILES = $(introspection_sources)
-INTROSPECTION_GIRS += EosCompanionAppService-1.0.gir
-endif
-
-if EOS_COMPANION_APP_INTEGRATION_ENABLED
 avahi_helper_introspection_sources = \
 	$(avahi_helper_gdbus_generated) \
 	$(NULL)
@@ -362,14 +345,7 @@ gir_DATA += $(INTROSPECTION_GIRS)
 typelib_DATA += $(INTROSPECTION_GIRS:.gir=.typelib)
 
 CLEANFILES += $(gir_DATA) $(typelib_DATA)
-endif
 
-# Make sure to pass the enable/disable switches to distcheck
-AM_DISTCHECK_CONFIGURE_FLAGS = \
-	$(ADDITIONAL_DISTCHECK_CONFIGURE_FLAGS) \
-	$(NULL)
-
-if EOS_COMPANION_APP_INTEGRATION_ENABLED
 # Install systemd unit files to the specified
 # directory when doing 'make distcheck'.
 AM_DISTCHECK_CONFIGURE_FLAGS += \
