@@ -23,6 +23,7 @@
     "modules": [
         {
             "name": "eos-companion-app-service",
+            "config-opts": ["--disable-integration", "--enable-service"],
             "sources": [
                 {
                     "type": "git",
