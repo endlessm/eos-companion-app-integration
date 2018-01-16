@@ -46,17 +46,51 @@ AC_ARG_WITH([systemdsystemunitdir],
     [systemdsystemunitdir="$withval"])
 AC_SUBST([systemdsystemunitdir])
 
-GLIB_GSETTINGS
-PKG_CHECK_MODULES([EOS_COMPANION_APP], [
-  eos-knowledge-content-0
-  eos-shard-0
-  gdk-pixbuf-2.0
-  glib-2.0
-  gio-2.0
-  gio-unix-2.0
-  gtk+-3.0
-  libsoup-2.4
+ADDITIONAL_DISTCHECK_CONFIGURE_FLAGS=""
+
+AC_ARG_ENABLE([service], [companion app HTTP service], [
+  EOS_COMPANION_APP_SERVICE_ENABLED=$enableval
+], [
+  EOS_COMPANION_APP_SERVICE_ENABLED=yes
 ])
+
+AC_ARG_ENABLE([integration], [companion app OS integration], [
+  EOS_COMPANION_APP_INTEGRATION_ENABLED=$enableval
+], [
+  EOS_COMPANION_APP_INTEGRATION_ENABLED=no
+])
+
+GLIB_GSETTINGS
+AS_IF([test "x$EOS_COMPANION_APP_SERVICE_ENABLED" = "xyes"], [
+  PKG_CHECK_MODULES([EOS_COMPANION_APP_SERVICE], [
+    eos-knowledge-content-0
+    eos-shard-0
+    gdk-pixbuf-2.0
+    glib-2.0
+    gio-2.0
+    gio-unix-2.0
+    gtk+-3.0
+    libsoup-2.4
+  ])
+  ADDITIONAL_DISTCHECK_CONFIGURE_FLAGS="$ADDITIONAL_DISTCHECK_CONFIGURE_FLAGS --enable-service"
+], [
+  ADDITIONAL_DISTCHECK_CONFIGURE_FLAGS="$ADDITIONAL_DISTCHECK_CONFIGURE_FLAGS --disable-service"
+])
+AM_CONDITIONAL([EOS_COMPANION_APP_SERVICE_ENABLED], [test "x$EOS_COMPANION_APP_SERVICE_ENABLED" = "xyes"])
+
+AS_IF([test "x$EOS_COMPANION_APP_INTEGRATION_ENABLED" = "xyes"], [
+  PKG_CHECK_MODULES([EOS_COMPANION_APP_INTEGRATION], [
+    glib-2.0
+    gio-2.0
+    gio-unix-2.0
+  ])
+  ADDITIONAL_DISTCHECK_CONFIGURE_FLAGS="$ADDITIONAL_DISTCHECK_CONFIGURE_FLAGS --enable-integration"
+], [
+  ADDITIONAL_DISTCHECK_CONFIGURE_FLAGS="$ADDITIONAL_DISTCHECK_CONFIGURE_FLAGS --disable-integration"
+])
+AM_CONDITIONAL([EOS_COMPANION_APP_INTEGRATION_ENABLED], [test "x$EOS_COMPANION_APP_INTEGRATION_ENABLED" = "xyes"])
+AC_SUBST([ADDITIONAL_DISTCHECK_CONFIGURE_FLAGS])
+
 
 AC_CONFIG_FILES([
   Makefile
