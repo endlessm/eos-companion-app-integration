@@ -167,6 +167,7 @@ BUILT_SOURCES += $(enum_sources)
 CLEANFILES += $(enum_sources)
 EXTRA_DIST += $(enum_template_h_file) $(enum_template_c_file)
 
+# # # GOBJECT INTROSPECTION FOR COMPANION APP SERVICE # # #
 if HAVE_INTROSPECTION
 introspection_sources = \
 	$(gdbus_generated) \
@@ -328,6 +329,7 @@ BUILT_SOURCES += $(avahi_helper_gdbus_generated)
 CLEANFILES += $(avahi_helper_gdbus_generated)
 EXTRA_DIST += data/com.endlessm.CompanionAppAvahiHelper.xml
 
+# # # GOBJECT INTROSPECTION FOR AVAHI HELPER GDBUS GLUE # # #
 if HAVE_INTROSPECTION
 avahi_helper_introspection_sources = \
 	$(avahi_helper_gdbus_generated) \
