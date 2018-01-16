@@ -190,7 +190,7 @@ endif
 
 if EOS_COMPANION_APP_SERVICE_ENABLED
 # Companion App Helper Library
-nodist_libeoscompanion_1_la_SOURCES = \
+libeoscompanion_1_la_SOURCES = \
 	src/eos-companion-app-integration-helper.c \
 	src/eos-companion-app-integration-helper.h \
 	$(enum_sources) \
@@ -352,7 +352,7 @@ avahi_helper_introspection_sources = \
 
 EosCompanionAppAvahiHelper-1.0.gir: libeoscompanion-avahi-helper-dbus-1.la
 EosCompanionAppAvahiHelper_1_0_gir_INCLUDES = GObject-2.0 Gio-2.0 GLib-2.0
-EosCompanionAppAvahiHelper_1_0_gir_CFLAGS = $(INCLUDES)
+EosCompanionAppAvahiHelper_1_0_gir_CFLAGS = $(EOS_COMPANION_APP_SERVICE_CFLAGS)
 EosCompanionAppAvahiHelper_1_0_gir_LIBS = libeoscompanion-avahi-helper-dbus-1.la
 EosCompanionAppAvahiHelper_1_0_gir_FILES = $(avahi_helper_introspection_sources)
 INTROSPECTION_GIRS += EosCompanionAppAvahiHelper-1.0.gir
