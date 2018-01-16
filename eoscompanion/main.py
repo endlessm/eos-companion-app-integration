@@ -239,7 +239,7 @@ def application_sets_or_global_set(models, device_uuid, application_id):
     '''Yield JSON formatted application sets or an entry for the global set.'''
     application_sets_response = [
         {
-            'tags': model.get_child_tags(),
+            'tags': model.get_child_tags().unpack(),
             'title': model.get_property('title'),
             'contentType': 'application/x-ekncontent-set',
             'thumbnail': format_uri_with_querystring(
