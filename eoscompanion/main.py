@@ -343,7 +343,7 @@ def yield_embedded_content_models(models, preferred_tags):
 
     for model in model_map.values():
         # Generally, only consider objects in the actual tag to start with
-        if preferred_tags in model.get_property('tags').unpack():
+        if all([t in model.get_property('tags').unpack() for t in preferred_tags]):
             # Check what the model refers to. If it refers to one and only
             # one EkncMediaObject with content type video/*, then we assume
             # that this is actually a placeholder page for an EkncMediaObject
@@ -393,7 +393,7 @@ def companion_app_server_list_application_content_for_tags_route(server, msg, pa
                    }
                    for title, model in yield_embedded_content_models(
                        yield_models_that_have_thumbnails(models),
-                       query['setId']
+                       query['tags']
                    )
                ]
            })
