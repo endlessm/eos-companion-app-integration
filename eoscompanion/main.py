@@ -371,15 +371,9 @@ def companion_app_server_list_application_content_for_tags_route(server, msg, pa
     engine = Eknc.Engine.get_default()
     tags = query['tags'].split(';')
 
-    # Explicitly exclude EknMediaObject - we want the article that wraps
-    # the media, not the media itself
-    #
-    # See https://phabricator.endlessm.com/T20760 an
-    # https://phabricator.endlessm.com/T20761 for an explanation on why
     engine.query(Eknc.QueryObject(app_id=app_id,
                                   tags_match_any=GLib.Variant('as', tags),
                                   tags_match_all=GLib.Variant('as', ['EknArticleObject']),
-                                  excluded_tags=GLib.Variant('as', ['EknMediaObject']),
                                   limit=_SENSIBLE_QUERY_LIMIT),
                  cancellable=None,
                  callback=_callback)
