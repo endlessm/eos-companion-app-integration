@@ -556,6 +556,36 @@ def define_content_range_from_headers_and_size(request_headers, content_size):
     return ranges[0].start, ranges[0].end, ranges[0].end - ranges[0].start + 1
 
 
+def conditionally_wrap_blob_stream(blob, content_type, query, callback):
+    '''Inspect content_type and adjust blob stream content.'''
+    def _read_stream_callback(src, result):
+        '''Callback once we have finished loading the stream to bytes.'''
+        try:
+            content_bytes = EosCompanionAppService.finish_load_all_in_stream_to_bytes(result)
+        except GLib.Error as error:
+            callback(error, None)
+            return
+
+        adjusted = adjust_content(content_type, content_bytes, query)
+        memory_stream = Gio.MemoryInputStream.new_from_bytes(adjusted)
+        callback(None, (memory_stream, adjusted.get_size()))
+
+
+    if content_type in CONTENT_TYPE_ADJUSTERS:
+        EosCompanionAppService.load_all_in_stream_to_bytes(blob.get_stream(),
+                                                           chunk_size=_BYTE_CHUNK_SIZE,
+                                                           cancellable=None,
+                                                           callback=_read_stream_callback)
+        return
+
+    # We call callback here on idle so as to ensure that both invocations
+    # are asynchronous (mixing asynchronous with synchronous disguised as
+    # asynchronous is a bad idea)
+    GLib.idle_add(lambda: callback(None,
+                                   (blob.get_stream(),
+                                    blob.get_content_size())))
+
+
 @require_query_string_param('deviceUUID')
 @require_query_string_param('applicationId')
 @require_query_string_param('contentId')
@@ -573,10 +603,10 @@ def companion_app_server_content_data_route(server, msg, path, query, context):
     flow looks something like this:
 
     Request -> Lookup record -> Load metadata -> Load content type ->
-    Lookup blob -> Set Content-Length -> Maybe set Content-Range ->
-    Set Response Status -> Seek blob -> Send headers and wait ->
-    Splice blob stream onto response -> Wait for all data to be sent ->
-    Report on status
+    Lookup blob -> Conditionally wrap -> Set Content-Length
+    Maybe set Content-Range -> Set Response Status ->
+    Seek blob -> Send headers and wait -> Splice blob stream onto response ->
+    Wait for all data to be sent -> Report on status
 
     Note that a lot of fighting with browsers occurred in the implementation
     of this method. If you intend to modify it, pay special attention
@@ -616,7 +646,7 @@ def companion_app_server_content_data_route(server, msg, path, query, context):
 
             # Now that we have the offseted stream, we can continue writing
             # the message body and insert our spliced stream in place
-            istream = EosCompanionAppService.finish_get_stream_at_offset_for_blob(result)
+            istream = EosCompanionAppService.finish_fast_skip_stream(result)
             msg.connect('wrote-headers', on_wrote_headers)
 
             server.unpause_message(msg)
@@ -651,55 +681,85 @@ def companion_app_server_content_data_route(server, msg, path, query, context):
             server.unpause_message(msg)
             return
 
-        # Now that we have the blob, we can post back with how big the
-        # content is
-        response_headers = msg.get_property('response-headers')
-        request_headers = msg.get_property('request-headers')
+        def _on_got_wrapped_stream(error, result):
+            '''Take the wrapped stream, then go to an offset in it.
 
-        total_content_size = blob.get_content_size()
-        start, end, length = define_content_range_from_headers_and_size(request_headers,
-                                                                        total_content_size)
+            Note that this is not a GAsyncReadyCallback, we instead get
+            a tuple of an error or a stream and length.
+            '''
+            if error != None:
+                print(
+                    'Stream wrapping failed {error}'.format(error),
+                    file=sys.stderr
+                )
+                json_response(msg, {
+                    'status': 'error',
+                    'error': serialize_error_as_json_object(
+                        EosCompanionAppService.error_quark(),
+                        EosCompanionAppService.Error.FAILED
+                    )
+                })
+                server.unpause_message(msg)
+                return
 
-        # Note that the length we set here is the number of bytes that will
-        # be contained in the payload, but this is different from the
-        # 'total' that is sent in the Content-Range header
-        #
-        # Essentially, it is end - start + 1, taking into account the
-        # requirements for the end marker below.
-        response_headers.set_content_length(length)
-        response_headers.set_content_type(content_type)
-        response_headers.replace('Connection', 'keep-alive')
+            stream, total_content_size = result
 
-        # If we did not get a Range header, then we do not want to set Content-Range,
-        # nor do we want to respond with PARTIAL_CONTENT as the status code. If
-        # we do that, browsers like Firefox will handle it fine, but Chrome
-        # and VLC just choke. Note that we do not even want to send
-        # Accept-Ranges unless the client requested a Range.
-        if request_headers.get_one('Range'):
-            response_headers.replace('Accept-Ranges', 'bytes')
+            # Now that we have the stream, we can post back with how big the
+            # content is
+            response_headers = msg.get_property('response-headers')
+            request_headers = msg.get_property('request-headers')
 
-            # The format of this must be
+            start, end, length = define_content_range_from_headers_and_size(request_headers,
+                                                                            total_content_size)
+
+            # Note that the length we set here is the number of bytes that will
+            # be contained in the payload, but this is different from the
+            # 'total' that is sent in the Content-Range header
             #
-            #   'bytes start-end/total'
-            #
-            # The 'end' marker must be one byte less than 'total' and
-            # all bytes up to 'end' must be sent by the implementation. Browsers
-            # like Chrome will, upon seeking, attempt to load the last 6524
-            # bytes of the stream and won't continue until all of those
-            # bytes have been sent by the client (at which point it actually
-            # loads from the correct place).
-            response_headers.replace('Content-Range',
-                                     'bytes {start}-{end}/{total}'.format(start=start,
-                                                                          end=end,
-                                                                          total=total_content_size))
-            msg.set_status(Soup.Status.PARTIAL_CONTENT)
-        else:
-            msg.set_status(Soup.Status.OK)
+            # Essentially, it is end - start + 1, taking into account the
+            # requirements for the end marker below.
+            response_headers.set_content_length(length)
+            response_headers.set_content_type(content_type)
+            response_headers.replace('Connection', 'keep-alive')
 
-        EosCompanionAppService.get_stream_at_offset_for_blob(blob,
-                                                             start,
-                                                             None,
-                                                             on_got_offsetted_stream)
+            # If we did not get a Range header, then we do not want to set
+            # Content-Range, nor do we want to respond with PARTIAL_CONTENT as
+            # the status code. If we do that, browsers like Firefox will
+            # handle it fine, but Chrome and VLC just choke. Note that we
+            # not even want to send Accept-Ranges unless the
+            # requested a Range.
+            if request_headers.get_one('Range'):
+                response_headers.replace('Accept-Ranges', 'bytes')
+
+                # The format of this must be
+                #
+                #   'bytes start-end/total'
+                #
+                # The 'end' marker must be one byte less than 'total' and
+                # all bytes up to 'end' must be sent by the implementation.
+                # Browsers like Chrome will, upon seeking, attempt to load
+                # last 6524 bytes of the stream and won't continue until all of
+                # those bytes have been sent by the client (at which point
+                # it actually loads from the correct place).
+                response_headers.replace('Content-Range',
+                                         'bytes {start}-{end}/{total}'.format(start=start,
+                                                                              end=end,
+                                                                              total=total_content_size))
+                msg.set_status(Soup.Status.PARTIAL_CONTENT)
+            else:
+                msg.set_status(Soup.Status.OK)
+
+            EosCompanionAppService.fast_skip_stream_async(stream,
+                                                          start,
+                                                          None,
+                                                          on_got_offsetted_stream)
+
+        # Need to conditionally wrap the blob in another stream
+        # depending on whether it needs to be converted.
+        conditionally_wrap_blob_stream(blob,
+                                       content_type,
+                                       query,
+                                       _on_got_wrapped_stream)
 
     print('Get content stream: clientId={clientId}, applicationId={applicationId}, contentId={contentId}'.format(
         contentId=query['contentId'], applicationId=query['applicationId'], clientId=query['deviceUUID'])

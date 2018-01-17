@@ -711,62 +711,48 @@ eos_companion_app_service_string_to_bytes (const gchar *string)
   return g_bytes_new (string, strlen (string));
 }
 
-typedef struct _SlowSeekData
+typedef struct _FastSeekData
 {
-  EosShardBlob *blob;
+  GInputStream *stream;
   goffset       seek_point;
-} SlowSeekData;
+} FastSeekData;
 
-static SlowSeekData *
-slow_seek_data_new (EosShardBlob *blob,
+static FastSeekData *
+fast_seek_data_new (GInputStream *stream,
                     goffset       seek_point)
 {
-  SlowSeekData *data = g_slice_new0 (SlowSeekData);
+  FastSeekData *data = g_slice_new0 (FastSeekData);
 
-  data->blob = eos_shard_blob_ref (blob);
+  data->stream = g_object_ref (stream);
   data->seek_point = seek_point;
 
   return data;
 }
 
 static void
-slow_seek_data_free (SlowSeekData *data)
+fast_seek_data_free (FastSeekData *data)
 {
-  g_clear_pointer (&data->blob, eos_shard_blob_unref);
+  g_clear_object (&data->stream);
 
-  g_slice_free (SlowSeekData, data);
+  g_slice_free (FastSeekData, data);
 }
 
 static void
-get_stream_offset_for_blob_thread_func (GTask        *task,
-                                        gpointer      source,
-                                        gpointer      task_data,
-                                        GCancellable *cancellable)
+get_stream_offset_thread_func (GTask        *task,
+                               gpointer      source,
+                               gpointer      task_data,
+                               GCancellable *cancellable)
 {
-  SlowSeekData *data = task_data;
-  GInputStream *stream = eos_shard_blob_get_stream (data->blob);
+  FastSeekData *data = task_data;
+  GInputStream *stream = data->stream;
   g_autoptr(GError) local_error = NULL;
 
-  /* In this case, we will need to do a little bit more work, since it is not
-   * possible to seek a compressed stream in O(1) time. */
-  if (eos_shard_blob_get_flags (data->blob) & EOS_SHARD_BLOB_FLAG_COMPRESSED_ZLIB)
-    {
-      g_input_stream_skip (stream,
+  /* Depending on whether or not the stream is seekable, this will be done
+   * in either O(1) or O(N) */
+  if (g_input_stream_skip (stream,
                            data->seek_point,
                            cancellable,
-                           &local_error);
-    }
-  else
-    {
-      /* We can just seek if we get to here */
-      g_seekable_seek (G_SEEKABLE (stream),
-                       data->seek_point,
-                       G_SEEK_SET,
-                       cancellable,
-                       &local_error);
-    }
-
-  if (local_error)
+                           &local_error) == -1)
     {
       g_task_return_error (task, g_steal_pointer (&local_error));
       return;
@@ -777,23 +763,22 @@ get_stream_offset_for_blob_thread_func (GTask        *task,
 }
 
 void
-eos_companion_app_service_get_stream_at_offset_for_blob (EosShardBlob        *blob,
-                                                         goffset              offset,
-                                                         GCancellable        *cancellable,
-                                                         GAsyncReadyCallback  callback,
-                                                         gpointer             user_data)
+eos_companion_app_service_fast_skip_stream_async (GInputStream        *stream,
+                                                  goffset              offset,
+                                                  GCancellable        *cancellable,
+                                                  GAsyncReadyCallback  callback,
+                                                  gpointer             user_data)
 {
   g_autoptr(GTask) task = g_task_new (NULL, cancellable, callback, user_data);
   g_task_set_task_data (task,
-                        slow_seek_data_new (blob,
-                                            offset),
-                       (GDestroyNotify) slow_seek_data_free);
-  g_task_run_in_thread (task, get_stream_offset_for_blob_thread_func);
+                        fast_seek_data_new (stream, offset),
+                        (GDestroyNotify) fast_seek_data_free);
+  g_task_run_in_thread (task, get_stream_offset_thread_func);
 }
 
 GInputStream *
-eos_companion_app_service_finish_get_stream_at_offset_for_blob (GAsyncResult  *result,
-                                                                GError       **error)
+eos_companion_app_service_finish_fast_skip_stream (GAsyncResult  *result,
+                                                   GError       **error)
 {
   g_return_val_if_fail (g_task_is_valid (G_TASK (result), NULL), NULL);
 
