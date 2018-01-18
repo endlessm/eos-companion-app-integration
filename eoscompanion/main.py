@@ -321,50 +321,6 @@ def companion_app_server_list_application_sets_route(server, msg, path, query, *
     server.pause_message(msg)
 
 
-def values_in_object_for_keys(candidate_object, keys):
-    '''Yield values in candidate_object for each key.'''
-    for key in keys:
-        if key in candidate_object:
-            yield candidate_object[key]
-
-
-def yield_embedded_content_models(models, preferred_tags):
-    '''Prioritize embedded content over their embedding page.
-
-    Generally speaking this is tricky. There is no indication from the
-    metadata of a page that it is a page for a video, but for now we look
-    at the resources of an article and if it only refers to a single video,
-    we assume that the article is a stand-in for that video and add the 
-    '''
-    model_map = {
-        model.get_property('ekn-id'): model
-        for model in models
-    }
-
-    for model in model_map.values():
-        # Generally, only consider objects in the actual tag to start with
-        if all([t in model.get_property('tags').unpack() for t in preferred_tags]):
-            # Check what the model refers to. If it refers to one and only
-            # one EkncMediaObject with content type video/*, then we assume
-            # that this is actually a placeholder page for an EkncMediaObject
-            # yield that model instead (with the title of the embedding page)
-            media_resources = [
-                resource_model
-                for resource_model in values_in_object_for_keys(
-                    model_map,
-                    model.get_property('resources').unpack()
-                )
-                if 'video/' in resource_model.get_property('content-type')
-            ] if model.get_property('resources') else []
-
-            print('Corresponding resources {} {}'.format(media_resources, model.get_property('resources')))
-
-            if len(media_resources) == 1:
-                yield model.get_property('title'), media_resources[0]
-            else:
-                yield model.get_property('title'), model
-
-
 @require_query_string_param('deviceUUID')
 @require_query_string_param('applicationId')
 @require_query_string_param('tags')
@@ -380,7 +336,7 @@ def companion_app_server_list_application_content_for_tags_route(server, msg, pa
                'status': 'ok',
                'payload': [
                    {
-                       'displayName': title,
+                       'displayName': model.get_property('title'),
                        'contentType': model.get_property('content-type'),
                        'thumbnail': format_uri_with_querystring(
                            '/content_data',
@@ -391,10 +347,7 @@ def companion_app_server_list_application_content_for_tags_route(server, msg, pa
                        'id': urllib.parse.urlparse(model.get_property('ekn-id')).path[1:],
                        'tags': model.get_property('tags').unpack()
                    }
-                   for title, model in yield_embedded_content_models(
-                       yield_models_that_have_thumbnails(models),
-                       query['tags']
-                   )
+                   for model in yield_models_that_have_thumbnails(models)
                ]
            })
        except GLib.Error as error:
@@ -416,14 +369,11 @@ def companion_app_server_list_application_content_for_tags_route(server, msg, pa
 
     app_id = query['applicationId']
     engine = Eknc.Engine.get_default()
-
-    # We have to include both our desired tag and EknMediaObject in
-    # the query, since we might want to replace articles in the tagged
-    # collection with their EknMediaObject counterparts later
     tags = query['tags'].split(';')
-    tags.append('EknMediaObject')
+
     engine.query(Eknc.QueryObject(app_id=app_id,
                                   tags_match_any=GLib.Variant('as', tags),
+                                  tags_match_all=GLib.Variant('as', ['EknArticleObject']),
                                   limit=_SENSIBLE_QUERY_LIMIT),
                  cancellable=None,
                  callback=_callback)
