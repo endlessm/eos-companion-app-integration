@@ -58,7 +58,6 @@ CLEANFILES =
 EXTRA_DIST = 
 
 # GObject Introspection setup
-include $(INTROSPECTION_MAKEFILE)
 INTROSPECTION_GIRS = $(NULL)
 INTROSPECTION_SCANNER_ARGS = --add-include-path=$(srcdir) --warn-all
 INTROSPECTION_COMPILER_ARGS = --includedir=$(srcdir)
