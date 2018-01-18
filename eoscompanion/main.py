@@ -217,20 +217,6 @@ def companion_app_server_application_icon_route(server, msg, path, query, *args)
     server.pause_message(msg)
 
 
-def yield_models_that_have_thumbnails(models):
-    '''Yield (thumbnail, EknContentObject) tuples if there is a bijection.'''
-    for model in models:
-        try:
-            thumbnail = model.get_property('thumbnail-uri')
-        except GLib.Error as error:
-            continue
-
-        if not thumbnail:
-            continue
-
-        yield model
-
-
 # This tag is used by everything that should end up on the homepage
 _GLOBAL_SET_INDICATOR_TAG = ['EknHomePageTag']
 
@@ -247,12 +233,11 @@ def application_sets_or_global_set(models, device_uuid, application_id):
                 deviceUUID=device_uuid,
                 applicationId=application_id,
                 contentId=urllib.parse.urlparse(model.get_property('thumbnail-uri')).path[1:]
-            ),
+            ) if model.get_property('thumbnail-uri') else None,
             'id': urllib.parse.urlparse(model.get_property('ekn-id')).path[1:],
             'global': False
         }
-        for model in
-        yield_models_that_have_thumbnails(models)
+        for model in models
     ]
 
     if application_sets_response:
@@ -343,11 +328,11 @@ def companion_app_server_list_application_content_for_tags_route(server, msg, pa
                            deviceUUID=query['deviceUUID'],
                            applicationId=query['applicationId'],
                            contentId=urllib.parse.urlparse(model.get_property('thumbnail-uri')).path[1:]
-                       ),
+                       ) if model.get_property('thumbnail-uri') else None,
                        'id': urllib.parse.urlparse(model.get_property('ekn-id')).path[1:],
                        'tags': model.get_property('tags').unpack()
                    }
-                   for model in yield_models_that_have_thumbnails(models)
+                   for model in models
                ]
            })
        except GLib.Error as error:
