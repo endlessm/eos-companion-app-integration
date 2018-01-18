@@ -17,7 +17,7 @@
 #
 # Note that this file includes Makefile.am.integration.inc for the Companion App
 # OS Integration, which is installed as part of the base OS image and includes
-# things like systemd services and Makefile.am.service.inc forthe Companion App
+# things like systemd services, and Makefile.am.service.inc for the Companion App
 # Service, which is installed separately as a Flatpak.
 #
 # We define all automake variables first and then include the parts of the
