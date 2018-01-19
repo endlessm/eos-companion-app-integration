@@ -126,10 +126,10 @@ EXTRA_DIST += data/com.endlessm.CompanionAppService.xml
 #
 # # # ENUM HEADER FILES # # #
 src/enums.h: $(enum_template_h_file) $(enum_header_files)
-	$(AM_V_GEN) mkdir -p `dirname $@` && touch $@ && $(GLIB_MKENUMS) --template=$(enum_template_h_file) $(enum_header_files) --output $(abs_top_builddir)/$@
+	$(AM_V_GEN) mkdir -p `dirname $@` && touch $@ && $(GLIB_MKENUMS) --template=$(abs_top_srcdir)/$(enum_template_h_file) $(enum_header_files) --output $(abs_top_builddir)/$@
 
 src/enums.c: $(enum_template_c_file) $(enum_header_files) src/enums.h
-	$(AM_V_GEN) mkdir -p `dirname $@` && touch $@ &&  $(GLIB_MKENUMS) --template=$(enum_template_c_file) $(enum_header_files) --output $(abs_top_builddir)/$@
+	$(AM_V_GEN) mkdir -p `dirname $@` && touch $@ &&  $(GLIB_MKENUMS) --template=$(abs_top_srcdir)/$(enum_template_c_file) $(enum_header_files) --output $(abs_top_builddir)/$@
 
 BUILT_SOURCES += $(enum_sources)
 CLEANFILES += $(enum_sources)
