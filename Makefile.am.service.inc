@@ -144,6 +144,7 @@ EosCompanionAppService_1_0_gir_INCLUDES = EosShard-0 GObject-2.0 Gio-2.0 GLib-2.
 EosCompanionAppService_1_0_gir_CFLAGS = $(EOS_COMPANION_APP_SERVICE_CFLAGS)
 EosCompanionAppService_1_0_gir_LIBS = libeoscompanion-dbus-1.la libeoscompanion-1.la
 EosCompanionAppService_1_0_gir_FILES = $(introspection_sources)
+
 INTROSPECTION_GIRS += EosCompanionAppService-1.0.gir
 endif
 
