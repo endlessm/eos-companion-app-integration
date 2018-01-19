@@ -75,9 +75,12 @@ libeoscompanion_dbus_1_la_LIBADD = \
 	$(NULL)
 
 # Companion App Helper Library
-libeoscompanion_1_la_SOURCES = \
+dist_libeoscompanion_1_la_SOURCES = \
 	src/eos-companion-app-integration-helper.c \
 	src/eos-companion-app-integration-helper.h \
+	$(NULL)
+
+nodist_libeoscompanion_1_la_SOURCES = \
 	$(enum_sources) \
 	$(NULL)
 
@@ -136,7 +139,8 @@ EXTRA_DIST += $(enum_template_h_file) $(enum_template_c_file)
 if HAVE_INTROSPECTION
 introspection_sources = \
 	$(gdbus_generated) \
-	$(libeoscompanion_1_la_SOURCES) \
+	$(dist_libeoscompanion_1_la_SOURCES) \
+	$(nodist_libeoscompanion_1_la_SOURCES) \
 	$(NULL)
 
 EosCompanionAppService-1.0.gir: libeoscompanion-dbus-1.la libeoscompanion-1.la
