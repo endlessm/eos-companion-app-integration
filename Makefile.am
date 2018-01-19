@@ -71,3 +71,8 @@ AM_DISTCHECK_CONFIGURE_FLAGS = \
 include $(top_srcdir)/Makefile.am.service.inc
 include $(top_srcdir)/Makefile.am.integration.inc
 
+# Add GObject Introspection files to the build
+gir_DATA += $(INTROSPECTION_GIRS)
+typelib_DATA += $(INTROSPECTION_GIRS:.gir=.typelib)
+
+CLEANFILES += $(gir_DATA) $(typelib_DATA)

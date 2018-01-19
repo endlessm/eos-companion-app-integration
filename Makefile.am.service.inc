@@ -75,9 +75,12 @@ libeoscompanion_dbus_1_la_LIBADD = \
 	$(NULL)
 
 # Companion App Helper Library
-libeoscompanion_1_la_SOURCES = \
+dist_libeoscompanion_1_la_SOURCES = \
 	src/eos-companion-app-integration-helper.c \
 	src/eos-companion-app-integration-helper.h \
+	$(NULL)
+
+nodist_libeoscompanion_1_la_SOURCES = \
 	$(enum_sources) \
 	$(NULL)
 
@@ -123,10 +126,10 @@ EXTRA_DIST += data/com.endlessm.CompanionAppService.xml
 #
 # # # ENUM HEADER FILES # # #
 src/enums.h: $(enum_template_h_file) $(enum_header_files)
-	$(AM_V_GEN) mkdir -p `dirname $@` && touch $@ && $(GLIB_MKENUMS) --template=$(enum_template_h_file) $(enum_header_files) --output $(abs_top_builddir)/$@
+	$(AM_V_GEN) mkdir -p `dirname $@` && touch $@ && $(GLIB_MKENUMS) --template=$(abs_top_srcdir)/$(enum_template_h_file) $(enum_header_files) --output $(abs_top_builddir)/$@
 
 src/enums.c: $(enum_template_c_file) $(enum_header_files) src/enums.h
-	$(AM_V_GEN) mkdir -p `dirname $@` && touch $@ &&  $(GLIB_MKENUMS) --template=$(enum_template_c_file) $(enum_header_files) --output $(abs_top_builddir)/$@
+	$(AM_V_GEN) mkdir -p `dirname $@` && touch $@ &&  $(GLIB_MKENUMS) --template=$(abs_top_srcdir)/$(enum_template_c_file) $(enum_header_files) --output $(abs_top_builddir)/$@
 
 BUILT_SOURCES += $(enum_sources)
 CLEANFILES += $(enum_sources)
@@ -136,7 +139,8 @@ EXTRA_DIST += $(enum_template_h_file) $(enum_template_c_file)
 if HAVE_INTROSPECTION
 introspection_sources = \
 	$(gdbus_generated) \
-	$(libeoscompanion_1_la_SOURCES) \
+	$(dist_libeoscompanion_1_la_SOURCES) \
+	$(nodist_libeoscompanion_1_la_SOURCES) \
 	$(NULL)
 
 EosCompanionAppService-1.0.gir: libeoscompanion-dbus-1.la libeoscompanion-1.la
@@ -144,6 +148,7 @@ EosCompanionAppService_1_0_gir_INCLUDES = EosShard-0 GObject-2.0 Gio-2.0 GLib-2.
 EosCompanionAppService_1_0_gir_CFLAGS = $(EOS_COMPANION_APP_SERVICE_CFLAGS)
 EosCompanionAppService_1_0_gir_LIBS = libeoscompanion-dbus-1.la libeoscompanion-1.la
 EosCompanionAppService_1_0_gir_FILES = $(introspection_sources)
+
 INTROSPECTION_GIRS += EosCompanionAppService-1.0.gir
 endif
 
