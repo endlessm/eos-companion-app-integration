@@ -143,17 +143,41 @@ def desktop_id_to_app_id(desktop_id):
     return os.path.splitext(desktop_id)[0]
 
 
-ApplicationListing = namedtuple('ApplicationListing', 'app_id display_name icon')
+ApplicationListing = namedtuple('ApplicationListing',
+                                'app_id display_name icon language')
+
+
+def maybe_get_app_info_string(app_info, name):
+    '''Conditionally get the locale-independent string for name.
+
+    Return None if the operation fails due to the entry not being present
+    in the app_info.
+    '''
+    try:
+        return app_info.get_string(name)
+    except GLib.Error as error:
+        # XXX: See above
+        return None
 
 
 def application_listing_from_app_info(app_info):
-    '''Convert a GKeyFile app_info to an ApplicationListing.'''
-    return ApplicationListing(app_info.get_string('Desktop Entry',
-                                                  'X-Flatpak'),
-                              app_info.get_string('Desktop Entry',
-                                                  'Name'),
-                              app_info.get_string('Desktop Entry',
-                                                  'Icon'))
+    '''Convert a GDesktopAppInfo app_info to an ApplicationListing.'''
+    display_name = app_info.get_display_name ()
+    app_id = app_info.get_string('X-Flatpak')
+    icon = app_info.get_string('Icon')
+
+    # Fall back to using the last component of the
+    # app name if that doesn't work
+    language = (
+        maybe_get_app_info_string(app_info,
+                                  'X-Endless-Content-Language') or
+        app_id.split('.')[-1]
+    )
+
+    return ApplicationListing(app_id,
+                              display_name,
+                              icon,
+                              language)
 
 
 @require_query_string_param('deviceUUID')
@@ -173,7 +197,7 @@ def companion_app_server_list_applications_route(server, msg, path, query, *args
                         deviceUUID=query['deviceUUID'],
                         iconName=a.icon
                     ),
-                    'language': a.app_id.split('.')[-1]
+                    'language': a.language
                 }
                 for a in [
                     application_listing_from_app_info(app_info)

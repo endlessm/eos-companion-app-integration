@@ -337,13 +337,33 @@ eos_companion_app_service_get_runtime_name_for_app_id (const gchar  *app_id,
 
 static const gchar *flatpak_applications_directory_path = "/var/lib/flatpak/app";
 
+/* This function is required in order to be able to create a GDesktopAppInfo
+ * out of Desktop Entry Key File within the Flatpak sandbox. We cannot use
+ * g_desktop_app_info_new or g_desktop_app_info_new_from_keyfile directly,
+ * since GIO will examine the Exec= line and and notice that /usr/bin/flatpak
+ * does not exist. Obviously we cannot make it exist inside the sandbox since
+ * it is not possible to mount /usr. nor would want want to vendor-bundle
+ * flatpak for this purpose.
+ *
+ * Since we'll never actually be launching the application (this runs as
+ * a system-level service), set the "Exec=" line to /bin/true so that
+ * the binary-check always succeeds and we can continue to use the
+ * GDesktopAppInfo interface for reading the keyfile.
+ */
+static GDesktopAppInfo *
+key_file_to_desktop_app_info_in_sandbox (GKeyFile *key_file)
+{
+  g_key_file_set_string (key_file, "Desktop Entry", "Exec", "/bin/true");
+  return g_desktop_app_info_new_from_keyfile (key_file);
+}
+
 /* Try and load directly from the flatpak directory first, if that fails,
  * fallback to using GDesktopAppInfo and loading from that (in case an
  * app was installed systemwide) */
 static gboolean
-load_desktop_info_key_file_for_app_id (const gchar  *app_id,
-                                       GKeyFile    **out_keyfile,
-                                       GError      **error)
+load_desktop_info_key_file_for_app_id (const gchar      *app_id,
+                                       GDesktopAppInfo **out_app_info,
+                                       GError          **error)
 {
   g_autofree gchar *desktop_id = NULL;
   g_autofree gchar *flatpak_desktop_file_path = NULL;
@@ -351,7 +371,7 @@ load_desktop_info_key_file_for_app_id (const gchar  *app_id,
   g_autoptr(GKeyFile) key_file = NULL;
   g_autoptr(GError) local_error = NULL;
 
-  g_return_val_if_fail (out_keyfile != NULL, FALSE);
+  g_return_val_if_fail (out_app_info != NULL, FALSE);
 
   desktop_id = g_strdup_printf ("%s.desktop", app_id);
   flatpak_desktop_file_path = g_build_filename ("/",
@@ -378,22 +398,15 @@ load_desktop_info_key_file_for_app_id (const gchar  *app_id,
 
       g_clear_error (&local_error);
 
-      desktop_info = g_desktop_app_info_new (desktop_id);
+      *out_app_info = g_desktop_app_info_new (desktop_id);
 
-      /* Couldn't find anything. Just return TRUE */
-      if (desktop_info == NULL)
-        return TRUE;
-
-      /* Try and load from the desktop file. Any errors are fatal, since
-       * the file should exist. */
-      if (!g_key_file_load_from_file (key_file,
-                                      g_desktop_app_info_get_filename (desktop_info),
-                                      G_KEY_FILE_NONE,
-                                      error))
-        return FALSE;
+      /* This function only returns FALSE on error and not finding the
+       * GDesktopAppInfo here using g_desktop_app_info_new is not
+       * an error. Return TRUE now. */
+      return TRUE;
     }
 
-  *out_keyfile = g_steal_pointer (&key_file);
+  *out_app_info = key_file_to_desktop_app_info_in_sandbox (key_file);
   return TRUE;
 }
 
@@ -421,7 +434,7 @@ list_application_infos (GCancellable  *cancellable,
       g_autofree gchar *flatpak_directory = NULL;
       g_autofree gchar *runtime_name = NULL;
       g_autofree gchar *app_name = NULL;
-      g_autoptr(GKeyFile) app_info = NULL;
+      g_autoptr(GDesktopAppInfo) app_info = NULL;
       gboolean is_compatible_app = FALSE;
 
       if (!g_file_enumerator_iterate (enumerator, &info, &child, cancellable, error))
@@ -516,10 +529,10 @@ load_application_info_thread (GTask        *task,
                               GCancellable *cancellable)
 {
   g_autoptr(GError) local_error = NULL;
-  g_autoptr(GKeyFile) key_file = NULL;
+  g_autoptr(GDesktopAppInfo) app_info = NULL;
 
   if (!load_desktop_info_key_file_for_app_id ((const gchar *) task_data,
-                                              &key_file,
+                                              &app_info,
                                               &local_error))
     {
       g_task_return_error (task, g_steal_pointer (&local_error));
@@ -527,7 +540,7 @@ load_application_info_thread (GTask        *task,
     }
 
   g_task_return_pointer (task,
-                         g_steal_pointer (&key_file),
+                         g_steal_pointer (&app_info),
                          (GDestroyNotify) g_object_unref);
 }
 
@@ -537,14 +550,14 @@ eos_companion_app_service_load_application_info (const gchar         *name,
                                                  GAsyncReadyCallback  callback,
                                                  gpointer             user_data)
 {
-  g_autoptr(GTask) task = g_task_new (NULL, cancellable, callback, NULL);
+  g_autoptr(GTask) task = g_task_new (NULL, cancellable, callback, user_data);
 
   g_task_set_return_on_cancel (task, TRUE);
   g_task_set_task_data (task, g_strdup (name), g_free);
   g_task_run_in_thread (task, load_application_info_thread);
 }
 
-GKeyFile *
+GDesktopAppInfo *
 eos_companion_app_service_finish_load_application_info (GAsyncResult  *result,
                                                         GError       **error)
 {

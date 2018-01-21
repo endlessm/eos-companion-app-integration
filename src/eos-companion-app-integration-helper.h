@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <gio/gdesktopappinfo.h>
 #include <glib-object.h>
 
 #include <eos-shard/eos-shard-blob.h>
@@ -85,18 +86,16 @@ void eos_companion_app_service_list_application_infos (GCancellable        *canc
  * @error: A #GErrror
  *
  * Complete the call to eos_companion_app_service_list_application_infos by returning
- * a pointer array of #GKeyFile with entries from the application's .desktop file.
+ * a pointer array of #GDesktopAppInfo with entries from the application's .desktop file.
  *
- * Note that we cannot return a GDesktopAppInfo since the application's binary
- * will not be in PATH in the sandbox.
  *
  * XXX: For some very strange reason, transferring the container to PyGI causes
  * it to immediately crash since it tries to unref the container straight away,
  * even though g_task_propagate_pointer is meant to be transfer full. Leak it
  * for now.
  *
- * Returns: (transfer none) (element-type GKeyFile): a #GPtrArray
-            of #GKeyFile
+ * Returns: (transfer none) (element-type GDesktopAppInfo): a #GPtrArray
+            of #GDesktopAppInfo
  */
 GPtrArray * eos_companion_app_service_finish_list_application_infos (GAsyncResult  *result,
                                                                      GError       **error);
@@ -139,7 +138,7 @@ GBytes * eos_companion_app_service_finish_load_application_icon_data_async (GAsy
  * @user_data: Closure for @callback
  *
  * Asynchronously load application info for the given application name, passing
- * it as a #GKeyFile to the provided @callback
+ * it as a #GDesktopAppInfo to the provided @callback
  */
 void eos_companion_app_service_load_application_info (const gchar         *name,
                                                       GCancellable        *cancellable,
@@ -153,13 +152,13 @@ void eos_companion_app_service_load_application_info (const gchar         *name,
  * @error: A #GError
  *
  * Complete the call to eos_companion_app_service_load_application_info by
- * returning a #GKeyFile containing the application's desktop data.
+ * returning a #GDesktopAppInfo containing the application's desktop data.
  *
- * Returns: (transfer none): a #GKeyFile containing application desktop data
+ * Returns: (transfer none): a #GDesktopAppInfo containing application desktop data
  *                           or NULL if the desktop file did not exist.
  */
-GKeyFile * eos_companion_app_service_finish_load_application_info (GAsyncResult  *result,
-                                                                   GError       **error);
+GDesktopAppInfo * eos_companion_app_service_finish_load_application_info (GAsyncResult  *result,
+                                                                          GError       **error);
 
 /**
  * eos_companion_app_service_load_all_in_stream_to_bytes:
