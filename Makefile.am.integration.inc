@@ -69,7 +69,6 @@ systemdsystemunit_DATA += \
 	$(NULL)
 
 EXTRA_DIST += \
-	data/eos-companion-app-avahi-helper.service \
 	data/eos-companion-app.service \
 	data/eos-companion-app.socket \
 	$(NULL)
