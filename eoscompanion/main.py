@@ -119,6 +119,16 @@ def format_app_icon_uri(icon_name, device_uuid):
     )
 
 
+def format_thumbnail_uri(application_id, model, device_uuid):
+    '''Format a uri to get an icon for an app.'''
+    return format_uri_with_querystring(
+        '/content_data',
+        deviceUUID=device_uuid,
+        applicationId=application_id,
+        contentId=urllib.parse.urlparse(model.get_property('thumbnail-uri')).path[1:]
+    ) if model.get_property('thumbnail-uri') else None
+
+
 def companion_app_server_root_route(_, msg, *args):
     '''Not a documented route, just show the user somewhere more useful.'''
     del args
@@ -296,12 +306,9 @@ def ascertain_application_sets_from_models(models,
                 'tags': model.get_child_tags().unpack(),
                 'title': model.get_property('title'),
                 'contentType': 'application/x-ekncontent-set',
-                'thumbnail': format_uri_with_querystring(
-                    '/content_data',
-                    deviceUUID=device_uuid,
-                    applicationId=application_id,
-                    contentId=urllib.parse.urlparse(model.get_property('thumbnail-uri')).path[1:]
-                ) if model.get_property('thumbnail-uri') else None,
+                'thumbnail': format_thumbnail_uri(application_id,
+                                                  model,
+                                                  device_uuid),
                 'id': urllib.parse.urlparse(model.get_property('ekn-id')).path[1:],
                 'global': False
             }
@@ -408,12 +415,9 @@ def companion_app_server_list_application_content_for_tags_route(server, msg, pa
                    {
                        'displayName': model.get_property('title'),
                        'contentType': model.get_property('content-type'),
-                       'thumbnail': format_uri_with_querystring(
-                           '/content_data',
-                           deviceUUID=query['deviceUUID'],
-                           applicationId=query['applicationId'],
-                           contentId=urllib.parse.urlparse(model.get_property('thumbnail-uri')).path[1:]
-                       ) if model.get_property('thumbnail-uri') else None,
+                       'thumbnail': format_thumbnail_uri(query['applicationId'],
+                                                         model,
+                                                         query['deviceUUID']),
                        'id': urllib.parse.urlparse(model.get_property('ekn-id')).path[1:],
                        'tags': model.get_property('tags').unpack()
                    }
@@ -967,12 +971,9 @@ def render_result_payload_for_set(app_id, model, device_uuid):
     return {
         'applicationId': app_id,
         'tags': model.get_child_tags().unpack(),
-        'thumbnail': format_uri_with_querystring(
-            '/content_data',
-            deviceUUID=device_uuid,
-            applicationId=app_id,
-            contentId=urllib.parse.urlparse(model.get_property('thumbnail-uri')).path[1:]
-        )
+        'thumbnail': format_thumbnail_uri(app_id,
+                                          model,
+                                          device_uuid)
     }
 
 
@@ -983,12 +984,9 @@ def render_result_payload_for_content(app_id, model, device_uuid):
         'contentType': model.get_property('content-type'),
         'id': urllib.parse.urlparse(model.get_property('ekn-id')).path[1:],
         'tags': model.get_property('tags').unpack(),
-        'thumbnail': format_uri_with_querystring(
-            '/content_data',
-            deviceUUID=device_uuid,
-            applicationId=app_id,
-            contentId=urllib.parse.urlparse(model.get_property('thumbnail-uri')).path[1:]
-        )
+        'thumbnail': format_thumbnail_uri(app_id,
+                                          model,
+                                          device_uuid)
     }
 
 
