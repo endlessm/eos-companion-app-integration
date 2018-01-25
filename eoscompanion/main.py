@@ -143,7 +143,41 @@ def desktop_id_to_app_id(desktop_id):
     return os.path.splitext(desktop_id)[0]
 
 
-ApplicationListing = namedtuple('ApplicationListing', 'app_id display_name icon')
+ApplicationListing = namedtuple('ApplicationListing',
+                                'app_id display_name icon language')
+
+
+def maybe_get_app_info_string(app_info, name):
+    '''Conditionally get the locale-independent string for name.
+
+    Return None if the operation fails due to the entry not being present
+    in the app_info.
+    '''
+    try:
+        return app_info.get_string(name)
+    except GLib.Error as error:
+        # XXX: See above
+        return None
+
+
+def application_listing_from_app_info(app_info):
+    '''Convert a GDesktopAppInfo app_info to an ApplicationListing.'''
+    display_name = app_info.get_display_name ()
+    app_id = app_info.get_string('X-Flatpak')
+    icon = app_info.get_string('Icon')
+
+    # Fall back to using the last component of the
+    # app name if that doesn't work
+    language = (
+        maybe_get_app_info_string(app_info,
+                                  'X-Endless-Content-Language') or
+        app_id.split('.')[-1]
+    )
+
+    return ApplicationListing(app_id,
+                              display_name,
+                              icon,
+                              language)
 
 
 @require_query_string_param('deviceUUID')
@@ -163,15 +197,10 @@ def companion_app_server_list_applications_route(server, msg, path, query, *args
                         deviceUUID=query['deviceUUID'],
                         iconName=a.icon
                     ),
-                    'language': a.app_id.split('.')[-1]
+                    'language': a.language
                 }
                 for a in [
-                    ApplicationListing(app_info.get_string('Desktop Entry',
-                                                           'X-Flatpak'),
-                                       app_info.get_string('Desktop Entry',
-                                                           'Name'),
-                                       app_info.get_string('Desktop Entry',
-                                                           'Icon'))
+                    application_listing_from_app_info(app_info)
                     for app_info in infos
                 ]
             ]
@@ -221,41 +250,63 @@ def companion_app_server_application_icon_route(server, msg, path, query, *args)
 _GLOBAL_SET_INDICATOR_TAG = ['EknHomePageTag']
 
 
-def application_sets_or_global_set(models, device_uuid, application_id):
-    '''Yield JSON formatted application sets or an entry for the global set.'''
-    application_sets_response = [
-        {
-            'tags': model.get_child_tags().unpack(),
-            'title': model.get_property('title'),
-            'contentType': 'application/x-ekncontent-set',
-            'thumbnail': format_uri_with_querystring(
-                '/content_data',
-                deviceUUID=device_uuid,
-                applicationId=application_id,
-                contentId=urllib.parse.urlparse(model.get_property('thumbnail-uri')).path[1:]
-            ) if model.get_property('thumbnail-uri') else None,
-            'id': urllib.parse.urlparse(model.get_property('ekn-id')).path[1:],
-            'global': False
-        }
-        for model in models
-    ]
+def ascertain_application_sets_from_models(models,
+                                           device_uuid,
+                                           application_id,
+                                           done_callback):
+    '''Pass application sets or an entry for the global set to callback.'''
+    def _on_received_application_info(src, result):
+        '''Called when we receive requested application info.'''
+        try:
+            listing = application_listing_from_app_info(
+                EosCompanionAppService.finish_load_application_info(result)
+            )
+        except Exception as error:
+            done_callback(error, None)
+            return
 
-    if application_sets_response:
-        return application_sets_response
+        done_callback(None, [
+            {
+                'tags': _GLOBAL_SET_INDICATOR_TAG,
+                'title': listing.display_name,
+                'contentType': 'application/x-ekncontent-set',
+                'thumbnail': format_uri_with_querystring(
+                    '/application_icon',
+                    deviceUUID=device_uuid,
+                    iconName=listing.icon
+                ),
+                'id': '',
+                'global': True
+            }
+        ])
 
-    return [
-        {
-            'tags': _GLOBAL_SET_INDICATOR_TAG,
-            # XXX: It would be nice if we had the name of the application here
-            # but that would require yet another roundtrip, so lets just use
-            # 'All Items' for now.
-            'title': 'All Items',
-            'contentType': 'application/x-ekncontent-set',
-            'thumbnail': None,
-            'id': '',
-            'global': True
-        }
-    ]
+    try:
+        application_sets_response = [
+            {
+                'tags': model.get_child_tags().unpack(),
+                'title': model.get_property('title'),
+                'contentType': 'application/x-ekncontent-set',
+                'thumbnail': format_uri_with_querystring(
+                    '/content_data',
+                    deviceUUID=device_uuid,
+                    applicationId=application_id,
+                    contentId=urllib.parse.urlparse(model.get_property('thumbnail-uri')).path[1:]
+                ) if model.get_property('thumbnail-uri') else None,
+                'id': urllib.parse.urlparse(model.get_property('ekn-id')).path[1:],
+                'global': False
+            }
+            for model in models
+        ]
+
+        if application_sets_response:
+            GLib.idle_add(done_callback, None, application_sets_response)
+            return
+
+        EosCompanionAppService.load_application_info(application_id,
+                                                     cancellable=None,
+                                                     callback=_on_received_application_info)
+    except Exception as error:
+        GLib.idle_add(done_callback, error, None)
 
 
 # For now a limit parameter is required for queries
@@ -266,18 +317,43 @@ _SENSIBLE_QUERY_LIMIT = 500
 @require_query_string_param('applicationId')
 def companion_app_server_list_application_sets_route(server, msg, path, query, *args):
     '''Return json listing of all sets in an application.'''
-    def _callback(src, result):
-       '''Callback function that gets called when we are done.'''
+    def _on_ascertained_sets(error, sets):
+        '''Callback function for when we ascertain the true sets.
+
+        In some cases an application may not have an EknSetObject entries
+        in its database. In that case, we need to create a set using
+        EknHomePageTag with the same application title. Determining
+        the application title is an asynchronous operation, so we need
+        a callback here once it is done.'''
+        if error:
+            json_response(msg, {
+                'status': 'error',
+                'error': serialize_error_as_json_object(
+                    EosCompanionAppService.error_quark(),
+                    EosCompanionAppService.Error.FAILED,
+                    detail={
+                        'server_error': str(error)
+                   }
+                )
+            })
+        else:
+            json_response(msg, {
+               'status': 'ok',
+               'payload': sets
+            })
+
+        server.unpause_message(msg)
+
+    def _on_queried_sets(src, result):
+       '''Callback function that gets called when we are done querying.'''
        try:
            query_results = engine.query_finish(result)
            models = query_results.get_models()
 
-           json_response(msg, {
-               'status': 'ok',
-               'payload': application_sets_or_global_set(models,
-                                                         query['deviceUUID'],
-                                                         query['applicationId'])
-           })
+           ascertain_application_sets_from_models(models,
+                                                  query['deviceUUID'],
+                                                  query['applicationId'],
+                                                  _on_ascertained_sets)
        except GLib.Error as error:
            json_response(msg, {
                'status': 'error',
@@ -289,7 +365,6 @@ def companion_app_server_list_application_sets_route(server, msg, path, query, *
                    }
                )
            })
-       server.unpause_message(msg)
 
     print('List application sets: clientId={clientId}, applicationId={applicationId}'.format(
         applicationId=query['applicationId'], clientId=query['deviceUUID'])
@@ -302,7 +377,7 @@ def companion_app_server_list_application_sets_route(server, msg, path, query, *
                                   tags_match_all=GLib.Variant('as', ['EknSetObject']),
                                   limit=_SENSIBLE_QUERY_LIMIT),
                  cancellable=None,
-                 callback=_callback)
+                 callback=_on_queried_sets)
     server.pause_message(msg)
 
 
