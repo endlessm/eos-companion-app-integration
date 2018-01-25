@@ -110,6 +110,15 @@ def format_uri_with_querystring(uri, **params):
                                    params=urllib.parse.urlencode(params))
 
 
+def format_app_icon_uri(icon_name, device_uuid):
+    '''Format a uri to get an icon for an app.'''
+    return format_uri_with_querystring(
+        '/application_icon',
+        deviceUUID=device_uuid,
+        iconName=icon_name
+    )
+
+
 def companion_app_server_root_route(_, msg, *args):
     '''Not a documented route, just show the user somewhere more useful.'''
     del args
@@ -204,11 +213,7 @@ def companion_app_server_list_applications_route(server, msg, path, query, *args
                 {
                     'applicationId': a.app_id,
                     'displayName': a.display_name,
-                    'icon': format_uri_with_querystring(
-                        '/application_icon',
-                        deviceUUID=query['deviceUUID'],
-                        iconName=a.icon
-                    ),
+                    'icon': format_app_icon_uri(a.icon, query['deviceUUID']),
                     'language': a.language
                 }
                 for a in applications
@@ -279,11 +284,7 @@ def ascertain_application_sets_from_models(models,
                 'tags': _GLOBAL_SET_INDICATOR_TAG,
                 'title': listing.display_name,
                 'contentType': 'application/x-ekncontent-set',
-                'thumbnail': format_uri_with_querystring(
-                    '/application_icon',
-                    deviceUUID=device_uuid,
-                    iconName=listing.icon
-                ),
+                'thumbnail': format_app_icon_uri(listing.icon, device_uuid),
                 'id': '',
                 'global': True
             }
@@ -1065,11 +1066,7 @@ def companion_app_server_search_content_route(server, msg, path, query, *args):
                     {
                         'applicationId': a.app_id,
                         'displayName': a.display_name,
-                        'icon': format_uri_with_querystring(
-                            '/application_icon',
-                            deviceUUID=query['deviceUUID'],
-                            iconName=a.icon
-                        ),
+                        'icon': format_app_icon_uri(a.icon, query['deviceUUID']),
                         'language': a.language
                     }
                     for a in applications
