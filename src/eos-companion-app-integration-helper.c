@@ -252,13 +252,13 @@ app_is_compatible (const gchar  *app_id,
   if (!parse_runtime_spec (runtime_spec, &runtime_name, &runtime_version, error))
     return FALSE;
 
-  if (g_strcmp0 (runtime_name, "com.endlessm.apps.Platform") != 0)
+  if (g_strcmp0 (runtime_name, SUPPORTED_RUNTIME_NAME) != 0)
     {
       *out_app_is_compatible = record_application_is_supported_cache (app_id, FALSE);
       return TRUE;
     }
 
-  if (g_strcmp0 (runtime_version, "2") != 0)
+  if (g_strcmp0 (runtime_version, SUPPORTED_RUNTIME_BRANCH) != 0)
     {
       *out_app_is_compatible = record_application_is_supported_cache (app_id, FALSE);
       return TRUE;
