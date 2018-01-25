@@ -27,6 +27,7 @@ ProtectKernelTunables=yes
 ProtectSystem=true
 RestrictAddressFamilies=AF_UNIX
 RestrictRealtime=yes
+SystemCallArchitectures=native
 SystemCallErrorNumber=EPERM
 # network-io seems to be required in order for journald to work
 SystemCallFilter=~@resources @obsolete @mount @module @keyring @privileged
