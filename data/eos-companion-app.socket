@@ -1,7 +1,7 @@
 [Unit]
 Description=EOS Companion App Service
 Wants=network.target
-ConditionPathExists=/var/lib/eos-companion-app/enabled
+ConditionPathExists=/etc/avahi/services/companion-app.service
 
 [Socket]
 ListenStream=1110
