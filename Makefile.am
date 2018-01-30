@@ -44,6 +44,7 @@ girdir = $(datadir)/gir-1.0
 gir_DATA = 
 typelibdir = $(libdir)/girepository-1.0
 typelib_DATA =
+rulesdir = $(datadir)/polkit-1/rules.d
 systemdserviceunitdir = $(libdir)/systemd/system/
 systemdserviceunit_DATA = 
 # systemsystemunitdir is defined by configure.ac

@@ -59,6 +59,15 @@ EXTRA_DIST += \
 	data/com.endlessm.CompanionAppServiceAvahiHelper.conf \
 	$(NULL)
 
+# PolicyKit Rules
+rules_DATA = \
+	data/com.endlessm.CompanionAppServiceAvahiHelper.rules \
+	$(NULL)
+
+EXTRA_DIST += \
+	data/com.endlessm.CompanionAppServiceAvahiHelper.rules \
+	$(NULL)
+
 # systemd service for the Avahi Helper, Companion App Service and Configuration
 # Manager
 systemdsystemunit_DATA += \
