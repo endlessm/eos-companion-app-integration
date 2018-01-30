@@ -32,7 +32,7 @@
 #define SYSTEMD_SOCKET_ACTIVATION_LISTEN_FDS_START 3
 
 #define SUPPORTED_RUNTIME_NAME "com.endlessm.apps.Platform"
-#define SUPPORTED_RUNTIME_BRANCH "2"
+#define SUPPORTED_RUNTIME_BRANCH "3"
 
 GQuark
 eos_companion_app_service_error (void)
