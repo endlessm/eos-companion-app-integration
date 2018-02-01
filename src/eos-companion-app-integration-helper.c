@@ -15,6 +15,10 @@
  * <http://www.gnu.org/licenses/>.
  */
 
+#include <errno.h>
+#include <string.h>
+#include <sys/prctl.h>
+
 #include <gdk-pixbuf/gdk-pixbuf.h>
 #include <glib.h>
 #include <gio/gdesktopappinfo.h>
@@ -842,6 +846,20 @@ eos_companion_app_service_finish_fast_skip_stream (GAsyncResult  *result,
   g_return_val_if_fail (g_task_is_valid (G_TASK (result), NULL), NULL);
 
   return g_task_propagate_pointer (G_TASK (result), error);
+}
+
+gboolean
+eos_companion_app_service_set_traceable (GError **error)
+{
+  g_return_val_if_fail (error != NULL, FALSE);
+
+  if (prctl (PR_SET_PTRACER, PR_SET_PTRACER_ANY, 0, 0, 0) == -1)
+    {
+      g_set_error (error, G_IO_ERROR, G_IO_ERROR_FAILED, strerror (errno));
+      return FALSE;
+    }
+
+  return TRUE;
 }
 
 G_DEFINE_QUARK (eos-companion-app-service-error-quark, eos_companion_app_service_error)

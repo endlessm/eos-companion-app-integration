@@ -273,5 +273,16 @@ void eos_companion_app_service_fast_skip_stream_async (GInputStream        *stre
 GInputStream * eos_companion_app_service_finish_fast_skip_stream (GAsyncResult  *result,
                                                                   GError       **error);
 
+
+/**
+ * eos_companion_app_service_set_traceable:
+ * @error: A #GError
+ *
+ * Make this process traceable with ptrace.
+ *
+ * Returns: %TRUE if making the process traceable succeeded, FALSE otherwise.
+ */
+gboolean eos_companion_app_service_set_traceable (GError **error);
+
 G_END_DECLS
 

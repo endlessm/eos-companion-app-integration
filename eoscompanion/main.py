@@ -1392,5 +1392,6 @@ class CompanionAppApplication(Gio.Application):
 
 def main(args=None):
     '''Entry point function.'''
+    EosCompanionAppService.set_traceable()
     CompanionAppApplication().run(args or sys.argv)
 
