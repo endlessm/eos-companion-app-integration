@@ -7,6 +7,7 @@
     "finish-args": [
         "--share=ipc",
         "--system-talk-name=org.freedesktop.Avahi",
+        "--system-talk-name=org.freedesktop.login1",
         "--filesystem=xdg-run/dconf", "--filesystem=~/.config/dconf:ro",
         "--filesystem=/var/lib/flatpak:ro",
         "--talk-name=ca.desrt.dconf", "--env=DCONF_USER_CONFIG_DIR=.config/dconf",

@@ -61,10 +61,12 @@ EXTRA_DIST += \
 
 # PolicyKit Rules
 rules_DATA = \
+	data/com.endlessm.CompanionAppService.rules \
 	data/com.endlessm.CompanionAppServiceAvahiHelper.rules \
 	$(NULL)
 
 EXTRA_DIST += \
+	data/com.endlessm.CompanionAppService.rules \
 	data/com.endlessm.CompanionAppServiceAvahiHelper.rules \
 	$(NULL)
 
