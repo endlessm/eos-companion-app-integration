@@ -1,0 +1,7 @@
+polkit.addRule(function(action, subject) {
+    if (action.id == "org.freedesktop.login1.inhibit-block-idle" &&
+        subject.user == "companion-app-helper") {
+            polkit.log('Allowing companion-app-helper to block idle');
+            return polkit.Result.YES;
+    }
+});

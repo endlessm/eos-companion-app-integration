@@ -42,6 +42,10 @@ from gi.repository import (
 )
 
 
+# Five minute inactivity timeout
+_INACTIVITY_TIMEOUT = 1000 * 60 * 5
+
+
 def serialize_error_as_json_object(domain, code, detail={}):
     '''Serialize a GLib.Error as a JSON object.'''
     return {
@@ -1292,15 +1296,37 @@ def companion_app_server_search_content_route(server, msg, path, query, *args):
     server.pause_message(msg)
 
 
+def heartbeat_route(server, msg, *args):
+    '''A no-op heartbeat route.
+
+    All this does is keep the server alive by extending its inactivity
+    timeout. It always returns the same response and takes no parameters. It
+    should be invoked in the background if the client is in the foreground
+    and does not want the server to go away.
+    '''
+    json_response(msg, {
+        "status": "ok"
+    })
+
+
 def application_hold_middleware(application, handler):
     '''Middleware function to put a hold on the application.
 
     This ensures that the application does not go away whilst we're handling
     HTTP traffic.
+
+    Because we call org.freedesktop.login1.Inhibit at startup, the computer
+    is guaranteed to be alive for _INACTIVITY_TIMEOUT milliseconds after
+    the response completes. In order to tell the client that, we take
+    embed this information in a reponse header indicating that the
+    server will be alive for a further _INACTIVITY_TIMEOUT milliseconds
+    after the response completes.
     '''
     def _handler(server, msg, *args, **kwargs):
         '''Middleware function.'''
         application.hold()
+        msg.get_property('response-headers').replace('X-Endless-Alive-For-Further',
+                                                     str(_INACTIVITY_TIMEOUT))
         msg.connect('finished', lambda _: application.release())
         return handler(server, msg, *args, **kwargs)
 
@@ -1309,6 +1335,7 @@ def application_hold_middleware(application, handler):
 
 COMPANION_APP_ROUTES = {
     '/': companion_app_server_root_route,
+    '/heartbeat': heartbeat_route,
     '/device_authenticate': companion_app_server_device_authenticate_route,
     '/list_applications': companion_app_server_list_applications_route,
     '/application_icon': companion_app_server_application_icon_route,
@@ -1353,6 +1380,47 @@ class CompanionAppService(GObject.Object):
         self._server.disconnect()
 
 
+def _inhibit_auto_idle(connection, fd_callback):
+    '''Use logind's D-Bus API to inhibit idle mode.
+
+    Note that the inhibit lock is automatically released when the service
+    shuts down.
+
+    Once the method completes, fd_callback will be called with
+    (error, fd). The passed fd will remain open until it is closed
+    (for instance on process termination or on os.close()).
+    '''
+    def _on_inhibit_reply(src, result):
+        '''Received a reply from logind, check if it succeeded.'''
+        try:
+            _, fd_list = src.call_with_unix_fd_list_finish(result)
+        except GLib.Error as error:
+            fd_callback(error, None)
+            return
+
+        # Now that we have the reply, get the passed fds and return
+        # the first one to the caller through fd_callback
+        fd_callback(None, fd_list.get(0))
+
+    connection.call_with_unix_fd_list('org.freedesktop.login1',
+                                      '/org/freedesktop/login1',
+                                      'org.freedesktop.login1.Manager',
+                                      'Inhibit',
+                                      # XXX: These strings will need to be
+                                      # localized at some point
+                                      GLib.Variant('(ssss)',
+                                                   ('idle',
+                                                    'Content Sharing',
+                                                    'Content is being shared with another device',
+                                                    'block')),
+                                      GLib.VariantType('(h)'),
+                                      Gio.DBusCallFlags.NONE,
+                                      -1,
+                                      None,
+                                      None,
+                                      _on_inhibit_reply)
+
+
 class CompanionAppApplication(Gio.Application):
     '''Subclass of GApplication for controlling the companion app.'''
 
@@ -1361,7 +1429,7 @@ class CompanionAppApplication(Gio.Application):
         kwargs.update({
             'application_id': 'com.endlessm.CompanionAppService',
             'flags': Gio.ApplicationFlags.IS_SERVICE,
-            'inactivity_timeout': 20000
+            'inactivity_timeout': _INACTIVITY_TIMEOUT
         })
         super(CompanionAppApplication, self).__init__(*args, **kwargs)
 
@@ -1372,16 +1440,47 @@ class CompanionAppApplication(Gio.Application):
         if os.environ.get('EOS_COMPANION_APP_SERVICE_PERSIST', None):
           self.hold()
 
+        Gio.bus_get(Gio.BusType.SYSTEM, None, self._on_got_system_bus)
         self._service = CompanionAppService(self, 1110)
+
+    def _on_got_inhibit_fd(self, error, fd):
+        '''Report inhibit error or store returned fd.
+
+        The returned fd is never closed explicitly, this process will
+        hang on to it until it quits, where it will be closed implicitly
+        and the inhibit lock released.
+        '''
+        if error is not None:
+            print('Received error when attempting to take idle inhibit '
+                  'lock. Ensure that this user has sufficient permissions '
+                  '(eg, through org.freedesktop.login1.inhibit-block-idle). '
+                  'The error was: {}'.format(str(error)))
+            return
+
+        # Hang on to the fd so that we don't lose track of it, even though
+        # this is strictly-speaking unused for now.
+        self._inhibit_fd = fd
+
+    def _on_got_system_bus(self, src, result):
+        '''Called when we get a system D-Bus connection.'''
+        try:
+            connection = Gio.bus_get_finish(result)
+        except GLib.Error as error:
+            print('Error getting the system bus: {}'.format(str(error)))
+            self.quit()
+            return
+
+        print('Got system d-bus connection')
+        _inhibit_auto_idle(connection, self._on_got_inhibit_fd)
 
     def do_dbus_register(self, connection, path):
         '''Invoked when we get a D-Bus connection.'''
-        print('Got d-bus connection at {path}'.format(path=path))
+        print('Got session d-bus connection at {path}'.format(path=path))
         return Gio.Application.do_dbus_register(self, connection, path)
 
     def do_dbus_unregister(self, connection, path):
         '''Invoked when we lose a D-Bus connection.'''
-        print('Lost d-bus connection at {path}'.format(path=path))
+        print('Lost session d-bus connection at {path}'.format(path=path))
         return Gio.Application.do_dbus_unregister(self, connection, path)
 
     def do_activate(self):
