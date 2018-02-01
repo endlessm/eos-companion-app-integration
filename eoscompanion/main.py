@@ -303,7 +303,7 @@ def ascertain_application_sets_from_models(models,
     try:
         application_sets_response = [
             {
-                'tags': model.get_child_tags().unpack(),
+                'tags': model.get_child_tags(),
                 'title': model.get_property('title'),
                 'contentType': 'application/x-ekncontent-set',
                 'thumbnail': format_thumbnail_uri(application_id,
@@ -391,7 +391,7 @@ def companion_app_server_list_application_sets_route(server, msg, path, query, *
     engine = Eknc.Engine.get_default()
 
     engine.query(Eknc.QueryObject(app_id=app_id,
-                                  tags_match_all=GLib.Variant('as', ['EknSetObject']),
+                                  tags_match_all=['EknSetObject'],
                                   limit=_SENSIBLE_QUERY_LIMIT),
                  cancellable=None,
                  callback=_on_queried_sets)
@@ -419,7 +419,7 @@ def companion_app_server_list_application_content_for_tags_route(server, msg, pa
                                                          model,
                                                          query['deviceUUID']),
                        'id': urllib.parse.urlparse(model.get_property('ekn-id')).path[1:],
-                       'tags': model.get_property('tags').unpack()
+                       'tags': model.get_property('tags')
                    }
                    for model in models
                ]
@@ -446,8 +446,8 @@ def companion_app_server_list_application_content_for_tags_route(server, msg, pa
     tags = query['tags'].split(';')
 
     engine.query(Eknc.QueryObject(app_id=app_id,
-                                  tags_match_any=GLib.Variant('as', tags),
-                                  tags_match_all=GLib.Variant('as', ['EknArticleObject']),
+                                  tags_match_any=tags,
+                                  tags_match_all=['EknArticleObject'],
                                   limit=_SENSIBLE_QUERY_LIMIT),
                  cancellable=None,
                  callback=_callback)
@@ -942,10 +942,10 @@ def search_single_application(app_id=None,
     '''
     query_kwargs = {
         'app_id': app_id,
-        'tags_match_any': GLib.Variant('as', set_ids or [
+        'tags_match_any': set_ids or [
             'EknArticleObject',
             'EknSetObject'
-        ]),
+        ],
         'limit': limit or _SENSIBLE_QUERY_LIMIT,
         'offset': offset or 0
     }
@@ -970,7 +970,7 @@ def render_result_payload_for_set(app_id, model, device_uuid):
     '''Render a result payload for a set search model.'''
     return {
         'applicationId': app_id,
-        'tags': model.get_child_tags().unpack(),
+        'tags': model.get_child_tags(),
         'thumbnail': format_thumbnail_uri(app_id,
                                           model,
                                           device_uuid)
@@ -983,7 +983,7 @@ def render_result_payload_for_content(app_id, model, device_uuid):
         'applicationId': app_id,
         'contentType': model.get_property('content-type'),
         'id': urllib.parse.urlparse(model.get_property('ekn-id')).path[1:],
-        'tags': model.get_property('tags').unpack(),
+        'tags': model.get_property('tags'),
         'thumbnail': format_thumbnail_uri(app_id,
                                           model,
                                           device_uuid)
@@ -1007,7 +1007,7 @@ def search_models_from_application_models(application_models):
     '''
     for app_id, model in application_models:
         display_name = model.get_property('title')
-        tags = model.get_property('tags').unpack()
+        tags = model.get_property('tags')
         model_type = (
             'set' if 'EknSetObject' in tags else 'content'
         )
