@@ -1296,6 +1296,19 @@ def companion_app_server_search_content_route(server, msg, path, query, *args):
     server.pause_message(msg)
 
 
+def heartbeat_route(server, msg, *args):
+    '''A no-op heartbeat route.
+
+    All this does is keep the server alive by extending its inactivity
+    timeout. It always returns the same response and takes no parameters. It
+    should be invoked in the background if the client is in the foreground
+    and does not want the server to go away.
+    '''
+    json_response(msg, {
+        "status": "ok"
+    })
+
+
 def application_hold_middleware(application, handler):
     '''Middleware function to put a hold on the application.
 
@@ -1313,6 +1326,7 @@ def application_hold_middleware(application, handler):
 
 COMPANION_APP_ROUTES = {
     '/': companion_app_server_root_route,
+    '/heartbeat': heartbeat_route,
     '/device_authenticate': companion_app_server_device_authenticate_route,
     '/list_applications': companion_app_server_list_applications_route,
     '/application_icon': companion_app_server_application_icon_route,
