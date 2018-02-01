@@ -126,6 +126,7 @@ eos_companion_app_service_soup_server_listen_on_sd_fd_or_port (SoupServer       
 {
   g_autoptr(GError) local_error = NULL;
 
+  g_message ("Trying to listen on file descriptor 3");
   if (!soup_server_listen_fd (server,
                               SYSTEMD_SOCKET_ACTIVATION_LISTEN_FDS_START,
                               options,
@@ -139,6 +140,7 @@ eos_companion_app_service_soup_server_listen_on_sd_fd_or_port (SoupServer       
           return FALSE;
         }
 
+      g_message ("Failed to listen on FD 3. Listening on port 1110 instead");
       return soup_server_listen_all (server, port, options, error);
     }
 
