@@ -42,6 +42,10 @@ from gi.repository import (
 )
 
 
+# Five minute inactivity timeout
+_INACTIVITY_TIMEOUT = 1000 * 60 * 5
+
+
 def serialize_error_as_json_object(domain, code, detail={}):
     '''Serialize a GLib.Error as a JSON object.'''
     return {
@@ -1361,7 +1365,7 @@ class CompanionAppApplication(Gio.Application):
         kwargs.update({
             'application_id': 'com.endlessm.CompanionAppService',
             'flags': Gio.ApplicationFlags.IS_SERVICE,
-            'inactivity_timeout': 20000
+            'inactivity_timeout': _INACTIVITY_TIMEOUT
         })
         super(CompanionAppApplication, self).__init__(*args, **kwargs)
 
