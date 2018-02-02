@@ -954,14 +954,14 @@ def search_single_application(app_id=None,
         'offset': offset or 0
     }
 
-    # XXX: Only add 'query' if it was actually defined. Adding it otherwise
+    # XXX: Only add 'search-terms' if it was actually defined. Adding it otherwise
     # triggers a warning from within eknc_query_object_get_query_parser_strings.
     #
     # Since the API is being changed in the near future, just work around
     # this for now and re-evaluate later whether or not this still occurrs
     # when using search-terms once apps are rebuilt.
     if search_term:
-        query_kwargs['query'] = search_term
+        query_kwargs['search-terms'] = search_term
 
     query = Eknc.QueryObject(**query_kwargs)
     Eknc.Engine.get_default().query(query, None, callback)
