@@ -1280,6 +1280,19 @@ def companion_app_server_search_content_route(server, msg, path, query, *args):
     application_id = query.get('applicationId', None)
     search_term = query.get('searchTerm', None)
 
+    if not any([application_id, search_term, tags]):
+        json_response(msg, {
+            'status': 'error',
+            'error': serialize_error_as_json_object(
+                EosCompanionAppService.error_quark(),
+                EosCompanionAppService.Error.INVALID_REQUEST,
+                detail={
+                    'error': 'One of "applicationId", "searchTerm", or "tags" must be specified'
+                }
+            )
+        })
+        return
+
     # If we got an applicationId, the assumption is that the applicationId
     # should match something so immediately list the contents of that
     # application then marshal it into an ApplicationListing format that
