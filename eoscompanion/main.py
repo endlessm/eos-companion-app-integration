@@ -1275,7 +1275,6 @@ def companion_app_server_search_content_route(server, msg, path, query, *args):
                 }
             )
         })
-        server.unpause_message(msg)
         return
 
     application_id = query.get('applicationId', None)
