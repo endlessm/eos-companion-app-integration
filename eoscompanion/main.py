@@ -944,26 +944,14 @@ def search_single_application(app_id=None,
     all articles and media objects. Otherwise we search over those
     sets.
     '''
-    query_kwargs = {
-        'app_id': app_id,
-        'tags_match_any': set_ids or [
-            'EknArticleObject',
-            'EknSetObject'
-        ],
-        'limit': limit or _SENSIBLE_QUERY_LIMIT,
-        'offset': offset or 0
-    }
-
-    # XXX: Only add 'query' if it was actually defined. Adding it otherwise
-    # triggers a warning from within eknc_query_object_get_query_parser_strings.
-    #
-    # Since the API is being changed in the near future, just work around
-    # this for now and re-evaluate later whether or not this still occurrs
-    # when using search-terms once apps are rebuilt.
-    if search_term:
-        query_kwargs['query'] = search_term
-
-    query = Eknc.QueryObject(**query_kwargs)
+    query = Eknc.QueryObject(app_id=app_id,
+                             tags_match_any=set_ids or [
+			         'EknArticleObject',
+			         'EknSetObject'
+			     ],
+			     limit=limit or _SENSIBLE_QUERY_LIMIT,
+			     offset=offset or 0,
+			     search_terms=search_term)
     Eknc.Engine.get_default().query(query, None, callback)
 
 
