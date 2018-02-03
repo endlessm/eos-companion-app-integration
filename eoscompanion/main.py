@@ -1049,6 +1049,12 @@ def all_asynchronous_function_calls_closure(calls, done_callback):
 
     # Some state we will need to keep track of whilst the calls are ongoing
     remaining = len(calls)
+
+    # Nothing to do. Can return immediately:
+    if remaining == 0:
+        done_callback([])
+        return
+
     results = [None for c in calls]
 
     for i, call in enumerate(calls):
