@@ -1154,6 +1154,7 @@ def companion_app_server_search_content_route(server, msg, path, query, *args):
     “searchTerm”: [search term, string]
     '''
     def _on_received_results_list(truncated_models_for_applications,
+                                  matched_applications_ids,
                                   applications,
                                   remaining):
         '''Called when we receive all models as a part of this search.
@@ -1165,11 +1166,50 @@ def companion_app_server_search_content_route(server, msg, path, query, *args):
         "limit", if one was specified and offsetted by "offset", if one was
         specified, at this point.
 
-        applications should be a list of ApplicationListing.
+        matched_applications_ids is a list of application IDs
+        for which the application name actually matched the search term.
+
+        applications should be a list of ApplicationListing, which is
+        all applications that should be included in the "applications"
+        section of the response.
 
         remaining is the number of models which have not been served as a
         part of this query.
         '''
+        # We need to construct an in-memory hashtable of application
+        # IDs to names to at least get nlogn lookup
+        applications_hashtable = {
+            a.app_id: a.display_name for a in applications
+        }
+
+        # all_results is the application names that matched the search term,
+        # plus all the models that matched the search term
+        all_results = list(itertools.chain.from_iterable([
+            [
+                {
+                    'displayName': applications_hashtable[app_id],
+                    'payload': {
+                        'applicationId': app_id
+                    },
+                    'type': 'application'
+                }
+                for app_id in matched_applications_ids
+            ],
+            [
+                {
+                    'displayName': display_name,
+                    'payload': model_payload_renderer(app_id,
+                                                      model,
+                                                      query['deviceUUID']),
+                    'type': model_type
+                }
+                for app_id, display_name, model, model_type, model_payload_renderer in
+                search_models_from_application_models(
+                    truncated_models_for_applications
+                )
+            ]
+        ]))
+
         json_response(msg, {
             'status': 'ok',
             'payload': {
@@ -1183,19 +1223,7 @@ def companion_app_server_search_content_route(server, msg, path, query, *args):
                     }
                     for a in applications
                 ],
-                'results': [
-                    {
-                        'displayName': display_name,
-                        'payload': model_payload_renderer(app_id,
-                                                          model,
-                                                          query['deviceUUID']),
-                        'type': model_type
-                    }
-                    for app_id, display_name, model, model_type, model_payload_renderer in
-                    search_models_from_application_models(
-                        truncated_models_for_applications
-                    )
-                ]
+                'results': all_results
             }
         })
         server.unpause_message(msg)
@@ -1255,16 +1283,35 @@ def companion_app_server_search_content_route(server, msg, path, query, *args):
             end = start + global_limit if global_limit is not None else None
 
             # Determine which applications were seen in the truncated model
-            # set and then include them in the results list
+            # set or if their name matched the search query and then include
+            # them in the results list
             truncated_models = all_models[start:end]
-            seen_application_ids = set([
+
+            # Search for applications. The g_desktop_app_info_search function
+            # will search all applications using an in-memory index
+            # according to its own internal criteria. The returned
+            # arrays will be arrays of applications which each have
+            # identical scores. Since we don't actually know what the scores
+            # are, just chain all the arrays together and fold them into
+            # a set. Finally, we only care about content applications, so
+            # take the intersection between the returned results
+            matched_application_ids = set([
+                desktop_id.strip('.desktop') for desktop_id in
+                itertools.chain.from_iterable(Gio.DesktopAppInfo.search(search_term))
+            ]) if search_term else set([])
+            matched_application_ids &= set(
+                a.app_id for a in applications
+            )
+
+            seen_application_ids = set(itertools.chain.from_iterable([[
                 m.app_id for m in truncated_models
-            ])
+            ], [app_id for app_id in matched_application_ids]]))
             relevant_applications = [
                 a for a in applications if a.app_id in seen_application_ids
             ]
 
             _on_received_results_list(truncated_models,
+                                      matched_application_ids,
                                       relevant_applications,
                                       remaining)
 
