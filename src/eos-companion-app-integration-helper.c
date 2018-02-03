@@ -145,17 +145,26 @@ eos_companion_app_service_soup_server_listen_on_sd_fd_or_port (SoupServer       
   return TRUE;
 }
 
-static inline gboolean
-is_content_app_from_app_name (const gchar *app_name)
+static gboolean
+is_content_app (const gchar *app_id)
 {
-  const gchar *ptr = app_name;
-  gsize ndot = 0;
+  g_autofree gchar *path = g_build_filename ("/",
+                                             "var",
+                                             "lib",
+                                             "flatpak",
+                                             "app",
+                                             app_id,
+                                             "current",
+                                             "active",
+                                             "files",
+                                             "share",
+                                             "ekn",
+                                             "data",
+                                             app_id,
+                                             "EKN_VERSION",
+                                             NULL);
 
-  for (ptr = app_name; *ptr != '\0'; ++ptr)
-    if (*ptr == '.')
-      ++ndot;
-
-  return ndot == 3;
+  return g_file_test (path, G_FILE_TEST_EXISTS);
 }
 
 /* Do not manipulate these directly */
@@ -264,7 +273,7 @@ app_is_compatible (const gchar  *app_id,
       return TRUE;
     }
 
-  if (!is_content_app_from_app_name (app_id))
+  if (!is_content_app (app_id))
     {
       *out_app_is_compatible = record_application_is_supported_cache (app_id, FALSE);
       return TRUE;
