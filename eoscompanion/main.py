@@ -21,6 +21,7 @@
 from collections import namedtuple
 import errno
 import gi
+import itertools
 import json
 import os
 import re
