@@ -853,7 +853,7 @@ def companion_app_server_content_metadata_route(server, msg, path, query, *args)
             )
             msg.set_status(Soup.Status.OK)
             json_response(msg, {
-                'status': 'success',
+                'status': 'ok',
                 'payload': metadata_json
             })
         except GLib.Error as error:
