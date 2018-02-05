@@ -1049,7 +1049,7 @@ def companion_app_server_search_content_route(server, msg, path, query, *args):
         part of this query.
         '''
         json_response(msg, {
-            'status': 'success',
+            'status': 'ok',
             'payload': {
                 'remaining': remaining,
                 'applications': [
