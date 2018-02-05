@@ -1132,8 +1132,18 @@ def companion_app_server_search_content_route(server, msg, path, query, *args):
             start = global_offset if global_offset is not None else 0
             end = start + global_limit if global_limit is not None else None
 
-            _on_received_results_list(all_models[start:end],
-                                      applications,
+            # Determine which applications were seen in the truncated model
+            # set and then include them in the results list
+            truncated_models = all_models[start:end]
+            seen_application_ids = set([
+                m.app_id for m in truncated_models
+            ])
+            relevant_applications = [
+                a for a in applications if a.app_id in seen_application_ids
+            ]
+
+            _on_received_results_list(truncated_models,
+                                      relevant_applications,
                                       remaining)
 
         return _on_all_searches_complete
