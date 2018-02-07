@@ -933,19 +933,19 @@ def all_asynchronous_function_calls_closure(calls, done_callback):
 
 
 def search_single_application(app_id=None,
-                              set_ids=None,
+                              tags=None,
                               limit=None,
                               offset=None,
                               search_term=None,
                               callback=None):
     '''Use EkncEngine.Query to run a query on a single application.
 
-    If :set_ids: is not passed, then we search over the default subset of
+    If :tags: is not passed, then we search over the default subset of
     all articles and media objects. Otherwise we search over those
     sets.
     '''
     query = Eknc.QueryObject(app_id=app_id,
-                             tags_match_any=set_ids or [
+                             tags_match_any=tags or [
 			         'EknArticleObject',
 			         'EknSetObject'
 			     ],
@@ -1181,7 +1181,7 @@ def companion_app_server_search_content_route(server, msg, path, query, *args):
             def _thunk(callback):
                 '''Thunk that gets called.'''
                 return search_single_application(app_id=application.app_id,
-                                                 set_ids=set_ids,
+                                                 tags=tags,
                                                  limit=local_limit,
                                                  offset=local_offset,
                                                  search_term=search_term,
@@ -1254,7 +1254,7 @@ def companion_app_server_search_content_route(server, msg, path, query, *args):
                                  limit,
                                  offset)
 
-    set_ids = query.get('setIds', None)
+    tags = query.get('tags', None)
     limit = query.get('limit', None)
     offset = query.get('offset', None)
 
@@ -1262,7 +1262,7 @@ def companion_app_server_search_content_route(server, msg, path, query, *args):
     try:
         limit = int(limit) if limit else None
         offset = int(offset) if offset else None
-        set_ids = set_ids.split(';') if set_ids else None
+        tags = tags.split(';') if tags else None
     except ValueError as error:
         # Client made an invalid request, return now
         json_response(msg, {
@@ -1275,11 +1275,23 @@ def companion_app_server_search_content_route(server, msg, path, query, *args):
                 }
             )
         })
-        server.unpause_message(msg)
         return
 
     application_id = query.get('applicationId', None)
     search_term = query.get('searchTerm', None)
+
+    if not any([application_id, search_term, tags]):
+        json_response(msg, {
+            'status': 'error',
+            'error': serialize_error_as_json_object(
+                EosCompanionAppService.error_quark(),
+                EosCompanionAppService.Error.INVALID_REQUEST,
+                detail={
+                    'error': 'One of "applicationId", "searchTerm", or "tags" must be specified'
+                }
+            )
+        })
+        return
 
     # If we got an applicationId, the assumption is that the applicationId
     # should match something so immediately list the contents of that
