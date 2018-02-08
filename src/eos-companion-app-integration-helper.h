@@ -160,6 +160,36 @@ void eos_companion_app_service_load_application_info (const gchar         *name,
 GDesktopAppInfo * eos_companion_app_service_finish_load_application_info (GAsyncResult  *result,
                                                                           GError       **error);
 
+
+/**
+ * eos_companion_app_service_load_application_colors:
+ * @app_id: The app ID of the application to load colors for
+ * @cancellable: (nullable): A #GCancellable
+ * @callback: A #GAsyncReadyCallback
+ * @user_data: Closure for @callback
+ *
+ * Asynchronously load the application colors from the application's
+ * internal reosurce file for the given application name,
+ * passing back a GStrv to the provided @callback.
+ */
+void eos_companion_app_service_load_application_colors (const gchar         *app_id,
+                                                        GCancellable        *cancellable,
+                                                        GAsyncReadyCallback  callback,
+                                                        gpointer             user_data);
+
+/**
+ * eos_companion_app_service_finish_load_application_colors:
+ * @result: A #GAsyncResult
+ * @error: A #GError
+ *
+ * Complete the call to eos_companion_app_service_load_application_colors
+ * and return a #GStrv with the application colors in web-format.
+ *
+ * Returns: (transfer full): A #GStrv with the application colors
+ */
+GStrv eos_companion_app_service_finish_load_application_colors (GAsyncResult  *result,
+                                                                GError       **error);
+
 /**
  * eos_companion_app_service_load_all_in_stream_to_bytes:
  * @stream: A #GInputStream
