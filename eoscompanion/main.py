@@ -291,13 +291,13 @@ def companion_app_server_application_colors_route(server, msg, path, query, *arg
        except GLib.Error as error:
            json_response(msg, {
                'status': 'error',
-               'error': {
-                   'domain': GLib.quark_to_string(EosCompanionAppService.error_quark()),
-                   'code': EosCompanionAppService.Error.FAILED,
-                   'detail': {
+               'error': serialize_error_as_json_object(
+                   EosCompanionAppService.error_quark(),
+                   EosCompanionAppService.Error.FAILED,
+                   detail={
                        'server_error': str(error)
                    }
-               }
+               )
            })
        server.unpause_message(msg)
 
