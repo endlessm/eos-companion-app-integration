@@ -611,10 +611,24 @@ load_colors_for_gresource_file (const gchar  *app_id,
   if (regex == NULL)
     return NULL;
 
-  resource = g_resource_load (path, error);
+  resource = g_resource_load (path, &local_error);
 
   if (resource == NULL)
-    return NULL;
+    {
+      /* If the file wasn't found, it probably means this application
+       * does not exist. */
+      if (g_error_matches (local_error, G_FILE_ERROR, G_FILE_ERROR_NOENT))
+        {
+          g_set_error (error,
+                       EOS_COMPANION_APP_SERVICE_ERROR,
+                       EOS_COMPANION_APP_SERVICE_ERROR_INVALID_APP_ID,
+                       "Application %s is not installed", app_id);
+          return NULL;
+        }
+
+      g_propagate_error (error, g_steal_pointer (&local_error));
+      return NULL;
+    }
 
   css_stream = g_resource_open_stream (resource,
                                        "/app/overrides.scss",
