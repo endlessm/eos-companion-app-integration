@@ -22,6 +22,7 @@
 
 #include <eknc-utils.h>
 
+#include "config.h"
 #include "eos-companion-app-integration-helper.h"
 
 #include <string.h>
@@ -151,23 +152,28 @@ eos_companion_app_service_soup_server_listen_on_sd_fd_or_port (SoupServer       
 static gboolean
 is_content_app (const gchar *app_id)
 {
-  g_autofree gchar *path = g_build_filename ("/",
-                                             "var",
-                                             "lib",
-                                             "flatpak",
-                                             "app",
-                                             app_id,
-                                             "current",
-                                             "active",
-                                             "files",
-                                             "share",
-                                             "ekn",
-                                             "data",
-                                             app_id,
-                                             "EKN_VERSION",
-                                             NULL);
+  GStrv iter = eos_companion_app_service_flatpak_install_dirs ();
 
-  return g_file_test (path, G_FILE_TEST_EXISTS);
+  for (; *iter != NULL; ++iter)
+    {
+      g_autofree gchar *path = g_build_filename (*iter,
+                                                 "app",
+                                                 app_id,
+                                                 "current",
+                                                 "active",
+                                                 "files",
+                                                 "share",
+                                                 "ekn",
+                                                 "data",
+                                                 app_id,
+                                                 "EKN_VERSION",
+                                                 NULL);
+
+      if (g_file_test (path, G_FILE_TEST_EXISTS))
+        return TRUE;
+    }
+
+  return FALSE;
 }
 
 /* Do not manipulate these directly */
@@ -331,23 +337,42 @@ gchar *
 eos_companion_app_service_get_runtime_name_for_app_id (const gchar  *app_id,
                                                        GError      **error)
 {
-  g_autofree gchar *flatpak_directory = g_build_filename ("/",
-                                                          "var",
-                                                          "lib",
-                                                          "flatpak",
-                                                          "app",
-                                                          app_id,
-                                                          NULL);
-  g_autofree gchar *app_name = NULL;
-  g_autofree gchar *runtime_name = NULL;
+  GStrv iter = eos_companion_app_service_flatpak_install_dirs ();
 
-  if (!examine_flatpak_metadata (flatpak_directory, &app_name, &runtime_name, error))
-    return FALSE;
+  for (; *iter != NULL; ++iter)
+    {
+      g_autofree gchar *flatpak_directory = g_build_filename (*iter,
+                                                              "app",
+                                                              app_id,
+                                                              NULL);
+      g_autofree gchar *app_name = NULL;
+      g_autofree gchar *runtime_name = NULL;
+      g_autoptr(GError) local_error = NULL;
 
-  return g_steal_pointer (&runtime_name);
+      if (!examine_flatpak_metadata (flatpak_directory, &app_name, &runtime_name, &local_error))
+        {
+          /* App doesn't exist at that directory, try the other one */
+          if (g_error_matches (local_error, G_FILE_ERROR, G_FILE_ERROR_NOENT))
+            {
+              g_clear_error (&local_error);
+              continue;
+            }
+
+          g_propagate_error (error, g_steal_pointer (&local_error));
+          return NULL;
+        }
+
+      return g_steal_pointer (&runtime_name);
+    }
+
+  /* Not found in either, return INVALID_APP_ID */
+  g_set_error (error,
+               EOS_COMPANION_APP_SERVICE_ERROR,
+               EOS_COMPANION_APP_SERVICE_ERROR_INVALID_APP_ID,
+               "Application %s is not installed",
+               app_id);
+  return NULL;
 }
-
-static const gchar *flatpak_applications_directory_path = "/var/lib/flatpak/app";
 
 /* This function is required in order to be able to create a GDesktopAppInfo
  * out of Desktop Entry Key File within the Flatpak sandbox. We cannot use
@@ -369,7 +394,7 @@ key_file_to_desktop_app_info_in_sandbox (GKeyFile *key_file)
   return g_desktop_app_info_new_from_keyfile (key_file);
 }
 
-/* Try and load directly from the flatpak directory first, if that fails,
+/* Try and load directly from the flatpak directories first, if that fails,
  * fallback to using GDesktopAppInfo and loading from that (in case an
  * app was installed systemwide) */
 static gboolean
@@ -377,48 +402,46 @@ load_desktop_info_key_file_for_app_id (const gchar      *app_id,
                                        GDesktopAppInfo **out_app_info,
                                        GError          **error)
 {
-  g_autofree gchar *desktop_id = NULL;
-  g_autofree gchar *flatpak_desktop_file_path = NULL;
-  g_autoptr(GDesktopAppInfo) desktop_info = NULL;
-  g_autoptr(GKeyFile) key_file = NULL;
-  g_autoptr(GError) local_error = NULL;
+  g_autofree gchar *desktop_id = g_strdup_printf ("%s.desktop", app_id);
+  GStrv iter = eos_companion_app_service_flatpak_install_dirs ();
 
   g_return_val_if_fail (out_app_info != NULL, FALSE);
 
-  desktop_id = g_strdup_printf ("%s.desktop", app_id);
-  flatpak_desktop_file_path = g_build_filename ("/",
-                                                "var",
-                                                "lib",
-                                                "flatpak",
-                                                "exports",
-                                                "share",
-                                                "applications",
-                                                desktop_id,
-                                                NULL);
-  key_file = g_key_file_new ();
-
-  if (!g_key_file_load_from_file (key_file,
-                                  flatpak_desktop_file_path,
-                                  G_KEY_FILE_NONE,
-                                  &local_error))
+  for (; *iter != NULL; ++iter)
     {
-      if (!g_error_matches (local_error, G_FILE_ERROR, G_FILE_ERROR_NOENT))
+      g_autofree gchar *flatpak_desktop_file_path = g_build_filename (*iter,
+                                                                      "exports",
+                                                                      "share",
+                                                                      "applications",
+                                                                      desktop_id,
+                                                                      NULL);
+      g_autoptr(GKeyFile) key_file = g_key_file_new ();
+      g_autoptr(GError) local_error = NULL;
+
+      if (!g_key_file_load_from_file (key_file,
+                                      flatpak_desktop_file_path,
+                                      G_KEY_FILE_NONE,
+                                      &local_error))
         {
-          g_propagate_error (error, g_steal_pointer (&local_error));
-          return FALSE;
+          if (!g_error_matches (local_error, G_FILE_ERROR, G_FILE_ERROR_NOENT))
+            {
+              g_propagate_error (error, g_steal_pointer (&local_error));
+              return FALSE;
+            }
+
+          g_clear_error (&local_error);
+          continue;
         }
 
-      g_clear_error (&local_error);
-
-      *out_app_info = g_desktop_app_info_new (desktop_id);
-
-      /* This function only returns FALSE on error and not finding the
-       * GDesktopAppInfo here using g_desktop_app_info_new is not
-       * an error. Return TRUE now. */
+      *out_app_info = key_file_to_desktop_app_info_in_sandbox (key_file);
       return TRUE;
     }
 
-  *out_app_info = key_file_to_desktop_app_info_in_sandbox (key_file);
+  *out_app_info = g_desktop_app_info_new (desktop_id);
+
+  /* This function only returns FALSE on error and not finding the
+   * GDesktopAppInfo here using g_desktop_app_info_new is not
+   * an error. Return TRUE now. */
   return TRUE;
 }
 
@@ -426,59 +449,72 @@ static GPtrArray *
 list_application_infos (GCancellable  *cancellable,
                         GError       **error)
 {
-  g_autoptr(GFile) flatpak_applications_directory = g_file_new_for_path (flatpak_applications_directory_path);
-  g_autoptr(GFileEnumerator) enumerator = g_file_enumerate_children (flatpak_applications_directory,
-                                                                     G_FILE_ATTRIBUTE_STANDARD_NAME,
-                                                                     G_FILE_QUERY_INFO_NONE,
-                                                                     cancellable,
-                                                                     error);
-  g_autoptr(GPtrArray) app_infos = NULL;
+  g_autoptr(GPtrArray) app_infos = g_ptr_array_new_with_free_func (g_object_unref);
+  GStrv iter = eos_companion_app_service_flatpak_install_dirs ();
 
-  if (enumerator == NULL)
-    return NULL;
-
-  app_infos = g_ptr_array_new_with_free_func (g_object_unref);
-
-  while (TRUE)
+  for (; *iter != NULL; ++iter)
     {
-      GFile *child = NULL;
-      GFileInfo *info = NULL;
-      g_autofree gchar *flatpak_directory = NULL;
-      g_autofree gchar *runtime_name = NULL;
-      g_autofree gchar *app_name = NULL;
-      g_autoptr(GDesktopAppInfo) app_info = NULL;
-      gboolean is_compatible_app = FALSE;
+      g_autofree gchar *applications_directory_path = g_build_filename (*iter, "app", NULL);
+      g_autoptr(GFile) flatpak_applications_directory = g_file_new_for_path (applications_directory_path);
+      g_autoptr(GError) local_error = NULL;
+      g_autoptr(GFileEnumerator) enumerator = g_file_enumerate_children (flatpak_applications_directory,
+                                                                         G_FILE_ATTRIBUTE_STANDARD_NAME,
+                                                                         G_FILE_QUERY_INFO_NONE,
+                                                                         cancellable,
+                                                                         &local_error);
 
-      if (!g_file_enumerator_iterate (enumerator, &info, &child, cancellable, error))
-        return NULL;
+      if (enumerator == NULL)
+        {
+          /* Directory not being found is fine, just means that this is not
+           * a split system. */
+          if (g_error_matches (local_error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND))
+            continue;
 
-      if (!info)
-        break;
+          g_propagate_error (error, g_steal_pointer (&local_error));
+          return NULL;
+        }
 
-      flatpak_directory = g_build_filename (flatpak_applications_directory_path,
-                                            g_file_info_get_name (info),
-                                            NULL);
+      while (TRUE)
+        {
+          GFile *child = NULL;
+          GFileInfo *info = NULL;
+          g_autofree gchar *flatpak_directory = NULL;
+          g_autofree gchar *runtime_name = NULL;
+          g_autofree gchar *app_name = NULL;
+          g_autoptr(GDesktopAppInfo) app_info = NULL;
+          gboolean is_compatible_app = FALSE;
 
-      /* Look inside the metadata for each flatpak to work out what runtime
-       * it is using */
-      if (!examine_flatpak_metadata (flatpak_directory, &app_name, &runtime_name, error))
-        return NULL;
+          if (!g_file_enumerator_iterate (enumerator, &info, &child, cancellable, error))
+            return NULL;
 
-      /* Check if the application is an eligible content app */
-      if (!app_is_compatible (app_name, runtime_name, &is_compatible_app, error))
-        return NULL;
+          if (!info)
+            break;
 
-      if (!is_compatible_app)
-        continue;
+          flatpak_directory = g_build_filename (applications_directory_path,
+                                                g_file_info_get_name (info),
+                                                NULL);
 
-      if (!load_desktop_info_key_file_for_app_id (app_name, &app_info, error))
-        return NULL;
+          /* Look inside the metadata for each flatpak to work out what runtime
+           * it is using */
+          if (!examine_flatpak_metadata (flatpak_directory, &app_name, &runtime_name, error))
+            return NULL;
 
-      /* If nothing loaded, this app is not compatible, continue */
-      if (app_info == NULL)
-        continue;
+          /* Check if the application is an eligible content app */
+          if (!app_is_compatible (app_name, runtime_name, &is_compatible_app, error))
+            return NULL;
 
-      g_ptr_array_add (app_infos, g_steal_pointer (&app_info));
+          if (!is_compatible_app)
+            continue;
+
+          if (!load_desktop_info_key_file_for_app_id (app_name, &app_info, error))
+            return NULL;
+
+          /* If nothing loaded, this app is not compatible, continue */
+          if (app_info == NULL)
+            continue;
+
+          g_ptr_array_add (app_infos, g_steal_pointer (&app_info));
+        }
     }
 
   return g_steal_pointer (&app_infos);
@@ -579,27 +615,13 @@ eos_companion_app_service_finish_load_application_info (GAsyncResult  *result,
 }
 
 static GStrv
-load_colors_for_gresource_file (const gchar  *app_id,
-                                GError      **error)
+load_colors_from_gresource_file (GResource  *resource,
+                                 GError    **error)
 {
   /* Since we will be using g_ptr_array_free with free_segment = FALSE, we
    * can't use g_autoptr here */
   GPtrArray *color_strings = NULL;
   gchar *unowned_input_stream_line = NULL;
-  g_autofree gchar *path = g_build_filename ("/",
-                                             "var",
-                                             "lib",
-                                             "flatpak",
-                                             "app",
-                                             app_id,
-                                             "current",
-                                             "active",
-                                             "files",
-                                             "share",
-                                             app_id,
-                                             "app.gresource",
-                                             NULL);
-  g_autoptr(GResource) resource = NULL;
   g_autoptr(GInputStream) css_stream = NULL;
   g_autoptr(GDataInputStream) css_data_stream = NULL;
   g_autoptr(GRegex) regex = g_regex_new ("^\\s*\\$([a-z0-9\\-]+)\\:\\s*(#[0-9a-f]+);\\s*$",
@@ -611,29 +633,9 @@ load_colors_for_gresource_file (const gchar  *app_id,
   if (regex == NULL)
     return NULL;
 
-  resource = g_resource_load (path, &local_error);
-
-  if (resource == NULL)
-    {
-      /* If the file wasn't found, it probably means this application
-       * does not exist. */
-      if (g_error_matches (local_error, G_FILE_ERROR, G_FILE_ERROR_NOENT))
-        {
-          g_set_error (error,
-                       EOS_COMPANION_APP_SERVICE_ERROR,
-                       EOS_COMPANION_APP_SERVICE_ERROR_INVALID_APP_ID,
-                       "Application %s is not installed", app_id);
-          return NULL;
-        }
-
-      g_propagate_error (error, g_steal_pointer (&local_error));
-      return NULL;
-    }
-
   /* Pointer array allocated, remember to free it at every return point
    * post here */
   color_strings = g_ptr_array_new_with_free_func (g_free);
-
   css_stream = g_resource_open_stream (resource,
                                        "/app/overrides.scss",
                                        G_RESOURCE_LOOKUP_FLAGS_NONE,
@@ -706,6 +708,49 @@ load_colors_for_gresource_file (const gchar  *app_id,
   return (GStrv) g_ptr_array_free (color_strings, FALSE);
 }
 
+static GStrv
+load_colors_for_app_id (const gchar  *app_id,
+                        GError      **error)
+{
+  GStrv iter = eos_companion_app_service_flatpak_install_dirs ();
+
+  for (; *iter != NULL; ++iter)
+    {
+      g_autofree gchar *path = g_build_filename (*iter,
+                                                 "app",
+                                                 app_id,
+                                                 "current",
+                                                 "active",
+                                                 "files",
+                                                 "share",
+                                                 app_id,
+                                                 "app.gresource",
+                                                 NULL);
+      g_autoptr(GError) local_error = NULL;
+      g_autoptr(GResource) resource = g_resource_load (path, &local_error);
+
+      if (resource == NULL)
+        {
+          if (g_error_matches (local_error, G_FILE_ERROR, G_FILE_ERROR_NOENT))
+            continue;
+
+          g_propagate_error (error, g_steal_pointer (&local_error));
+          return NULL;
+        }
+
+      return load_colors_from_gresource_file (resource, error);
+    }
+
+  /* Could not find a GResource file to load from. Return
+   * EOS_COMPANION_APP_SERVICE_ERROR_INVALID_APP_ID */
+  g_set_error (error,
+               EOS_COMPANION_APP_SERVICE_ERROR,
+               EOS_COMPANION_APP_SERVICE_ERROR_INVALID_APP_ID,
+               "Application %s is not installed",
+               app_id);
+  return NULL;
+}
+
 static void
 load_application_colors_thread (GTask        *task,
                                 gpointer      source,
@@ -713,8 +758,8 @@ load_application_colors_thread (GTask        *task,
                                 GCancellable *cancellable)
 {
   g_autoptr(GError) local_error = NULL;
-  g_auto(GStrv) colors = load_colors_for_gresource_file ((const gchar *) task_data,
-                                                         &local_error);
+  g_auto(GStrv) colors = load_colors_for_app_id ((const gchar *) task_data,
+                                                 &local_error);
 
   if (colors == NULL)
     {
@@ -760,18 +805,22 @@ get_singleton_icon_theme ()
   static gsize initialization_value = 0;
   static GtkIconTheme *theme = NULL;
 
+  GStrv iter = eos_companion_app_service_flatpak_install_dirs ();
+
   if (g_once_init_enter (&initialization_value))
     {
-      g_autofree gchar *icons_path = g_build_filename ("/",
-                                                       "var",
-                                                       "lib",
-                                                       "flatpak",
-                                                       "exports",
-                                                       "share",
-                                                       "icons",
-                                                       NULL);
       theme = gtk_icon_theme_new ();
-      gtk_icon_theme_prepend_search_path (theme, icons_path);
+
+      for (; *iter != NULL; ++iter)
+        {
+          g_autofree gchar *icons_path = g_build_filename (*iter,
+                                                           "exports",
+                                                           "share",
+                                                           "icons",
+                                                           NULL);
+
+          gtk_icon_theme_prepend_search_path (theme, icons_path);
+        }
       g_once_init_leave (&initialization_value, 1);
     }
 
@@ -1023,6 +1072,18 @@ eos_companion_app_service_finish_fast_skip_stream (GAsyncResult  *result,
   g_return_val_if_fail (g_task_is_valid (G_TASK (result), NULL), NULL);
 
   return g_task_propagate_pointer (G_TASK (result), error);
+}
+
+GStrv
+eos_companion_app_service_flatpak_install_dirs (void)
+{
+  static const gchar *dirs[] = {
+    EOS_COMPANION_APP_SERVICE_SYSTEM_FLATPAK_INSTALL_DIR,
+    EOS_COMPANION_APP_SERVICE_EXTERNAL_FLATPAK_INSTALL_DIR,
+    NULL
+  };
+
+  return (GStrv) dirs;
 }
 
 G_DEFINE_QUARK (eos-companion-app-service-error-quark, eos_companion_app_service_error)

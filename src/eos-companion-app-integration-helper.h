@@ -303,5 +303,16 @@ void eos_companion_app_service_fast_skip_stream_async (GInputStream        *stre
 GInputStream * eos_companion_app_service_finish_fast_skip_stream (GAsyncResult  *result,
                                                                   GError       **error);
 
+/**
+ * eos_companion_app_service_flatpak_install_dirs
+ *
+ * List the directories where flatpaks are installed on the system. There
+ * may be more than one, as is the case on split systems. These directories
+ * may also be overridden by tests in the future.
+ *
+ * Returns: (transfer none): a #GStrv of Flatpak install directories.
+ */
+GStrv eos_companion_app_service_flatpak_install_dirs (void);
+
 G_END_DECLS
 
