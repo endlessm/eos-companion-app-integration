@@ -616,19 +616,35 @@ load_colors_for_gresource_file (const gchar  *app_id,
   if (resource == NULL)
     return NULL;
 
-  css_stream = g_resource_open_stream (resource,
-                                       "/app/overrides.scss",
-                                       G_RESOURCE_LOOKUP_FLAGS_NONE,
-                                       error);
-
-  if (css_stream == NULL)
-    return NULL;
-
-  css_data_stream = g_data_input_stream_new (css_stream);
-
   /* Pointer array allocated, remember to free it at every return point
    * post here */
   color_strings = g_ptr_array_new_with_free_func (g_free);
+
+  css_stream = g_resource_open_stream (resource,
+                                       "/app/overrides.scss",
+                                       G_RESOURCE_LOOKUP_FLAGS_NONE,
+                                       &local_error);
+
+  if (css_stream == NULL)
+    {
+      if (g_error_matches (local_error,
+                           G_RESOURCE_ERROR,
+                           G_RESOURCE_ERROR_NOT_FOUND))
+        {
+          /* No scss file found in the resource, assume that this
+           * application just has no colors to return and return the
+           * empty array */
+          g_ptr_array_add (color_strings, NULL);
+          return color_strings;
+        }
+
+      g_ptr_array_free (color_strings, TRUE);
+      g_propagate_error (error, g_steal_pointer (&local_error));
+      return NULL;
+    }
+
+  css_data_stream = g_data_input_stream_new (css_stream);
+
   while ((unowned_input_stream_line = g_data_input_stream_read_line (css_data_stream,
                                                                      NULL,
                                                                      NULL,
