@@ -1133,7 +1133,6 @@ def search_models_from_application_models(application_models):
                           model=model,
                           model_type=model_type,
                           model_payload_renderer=model_payload_renderer)
-                          
 
 
 @require_query_string_param('deviceUUID')
@@ -1624,6 +1623,18 @@ class CompanionAppApplication(Gio.Application):
 
 
 def main(args=None):
-    '''Entry point function.'''
+    '''Entry point function.
+
+    Since we're often running from within flatpak, make sure to override
+    XDG_DATA_DIRS to include the flatpak exports too, since they don't get
+    included by default.
+
+    We use GLib.setenv here, since os.environ is only visible to
+    Python code, but setting a variable in os.environ does not actually
+    update the 'environ' global variable on the C side.
+    '''
+    GLib.setenv('XDG_DATA_DIRS',
+                os.pathsep.join([GLib.getenv('XDG_DATA_DIRS') or '',
+                                 '/var/lib/flatpak/exports/share']), True)
     CompanionAppApplication().run(args or sys.argv)
 
