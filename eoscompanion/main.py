@@ -451,6 +451,8 @@ def companion_app_server_list_application_sets_route(server, msg, path, query, *
                    )
                })
 
+           server.unpause_message(msg)
+
     print('List application sets: clientId={clientId}, applicationId={applicationId}'.format(
         applicationId=query['applicationId'], clientId=query['deviceUUID'])
     )
