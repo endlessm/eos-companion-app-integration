@@ -87,6 +87,7 @@ nodist_libeoscompanion_1_la_SOURCES = \
 
 libeoscompanion_1_la_CPPFLAGS = \
 	$(EOS_COMPANION_APP_SERVICE_CFLAGS) \
+	-I$(abs_top_builddir)/src \
 	$(NULL)
 
 libeoscompanion_1_la_LIBADD = \
