@@ -1458,7 +1458,7 @@ def _inhibit_auto_idle(connection, fd_callback):
                                       # XXX: These strings will need to be
                                       # localized at some point
                                       GLib.Variant('(ssss)',
-                                                   ('idle',
+                                                   ('sleep',
                                                     'Content Sharing',
                                                     'Content is being shared with another device',
                                                     'block')),
