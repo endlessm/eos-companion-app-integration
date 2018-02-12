@@ -34,6 +34,9 @@
 #define SUPPORTED_RUNTIME_NAME "com.endlessm.apps.Platform"
 #define SUPPORTED_RUNTIME_BRANCH "3"
 
+/* Needed to get autocleanups of GResource files */
+G_DEFINE_AUTOPTR_CLEANUP_FUNC (GResource, g_resource_unref)
+
 GQuark
 eos_companion_app_service_error (void)
 {
@@ -569,6 +572,147 @@ eos_companion_app_service_load_application_info (const gchar         *name,
 GDesktopAppInfo *
 eos_companion_app_service_finish_load_application_info (GAsyncResult  *result,
                                                         GError       **error)
+{
+  g_return_val_if_fail (g_task_is_valid (result, NULL), NULL);
+
+  return g_task_propagate_pointer (G_TASK (result), error);
+}
+
+static GStrv
+load_colors_for_gresource_file (const gchar  *app_id,
+                                GError      **error)
+{
+  /* Since we will be using g_ptr_array_free with free_segment = FALSE, we
+   * can't use g_autoptr here */
+  GPtrArray *color_strings = NULL;
+  gchar *unowned_input_stream_line = NULL;
+  g_autofree gchar *path = g_build_filename ("/",
+                                             "var",
+                                             "lib",
+                                             "flatpak",
+                                             "app",
+                                             app_id,
+                                             "current",
+                                             "active",
+                                             "files",
+                                             "share",
+                                             app_id,
+                                             "app.gresource",
+                                             NULL);
+  g_autoptr(GResource) resource = NULL;
+  g_autoptr(GInputStream) css_stream = NULL;
+  g_autoptr(GDataInputStream) css_data_stream = NULL;
+  g_autoptr(GRegex) regex = g_regex_new ("^\\s*\\$([a-z0-9\\-]+)\\:\\s*(#[0-9a-f]+);\\s*$",
+                                         G_REGEX_CASELESS,
+                                         0,
+                                         error);
+  g_autoptr(GError) local_error = NULL;
+
+  if (regex == NULL)
+    return NULL;
+
+  resource = g_resource_load (path, error);
+
+  if (resource == NULL)
+    return NULL;
+
+  css_stream = g_resource_open_stream (resource,
+                                       "/app/overrides.scss",
+                                       G_RESOURCE_LOOKUP_FLAGS_NONE,
+                                       error);
+
+  if (css_stream == NULL)
+    return NULL;
+
+  css_data_stream = g_data_input_stream_new (css_stream);
+
+  /* Pointer array allocated, remember to free it at every return point
+   * post here */
+  color_strings = g_ptr_array_new_with_free_func (g_free);
+  while ((unowned_input_stream_line = g_data_input_stream_read_line (css_data_stream,
+                                                                     NULL,
+                                                                     NULL,
+                                                                     &local_error)) != NULL)
+    {
+      g_autofree gchar *line = unowned_input_stream_line;
+      g_autoptr(GMatchInfo) match_info = NULL;
+
+      g_regex_match (regex, line, 0, &match_info);
+      while (g_match_info_matches (match_info))
+        {
+          gchar *color_str = g_match_info_fetch (match_info, 2);
+
+          g_ptr_array_add (color_strings, g_strdup (color_str));
+
+          if (!g_match_info_next (match_info, &local_error))
+            {
+              /* Just because this function returned FALSE, does not
+               * necessarily mean that it failed, check the error first
+               * and propagate if necessary */
+              if (local_error != NULL)
+                {
+                  g_propagate_error (error, g_steal_pointer (&local_error));
+                  g_ptr_array_free (color_strings, TRUE);
+                  return NULL;
+                }
+            }
+        }
+    }
+
+  /* g_data_input_stream_read_line returns NULL either if it finished reading
+   * all lines from the stream or an error occurred - check the error now. */
+  if (local_error != NULL)
+    {
+      g_propagate_error (error, g_steal_pointer (&local_error));
+      g_ptr_array_free (color_strings, TRUE);
+      return NULL;
+    }
+
+  /* Need to append NULL to the end of the pointer array so that it
+   * is a valid strv */
+  g_ptr_array_add (color_strings, NULL);
+
+  /* Steal the underlying data. */
+  return (GStrv) g_ptr_array_free (color_strings, FALSE);
+}
+
+static void
+load_application_colors_thread (GTask        *task,
+                                gpointer      source,
+                                gpointer      task_data,
+                                GCancellable *cancellable)
+{
+  g_autoptr(GError) local_error = NULL;
+  g_auto(GStrv) colors = load_colors_for_gresource_file ((const gchar *) task_data,
+                                                         &local_error);
+
+  if (colors == NULL)
+    {
+      g_task_return_error (task, g_steal_pointer (&local_error));
+      return;
+    }
+
+  g_task_return_pointer (task,
+                         g_steal_pointer (&colors),
+                         (GDestroyNotify) g_strfreev);
+}
+
+void
+eos_companion_app_service_load_application_colors (const gchar         *app_id,
+                                                   GCancellable        *cancellable,
+                                                   GAsyncReadyCallback  callback,
+                                                   gpointer             user_data)
+{
+  g_autoptr(GTask) task = g_task_new (NULL, cancellable, callback, user_data);
+
+  g_task_set_return_on_cancel (task, TRUE);
+  g_task_set_task_data (task, g_strdup (app_id), g_free);
+  g_task_run_in_thread (task, load_application_colors_thread);
+}
+
+GStrv
+eos_companion_app_service_finish_load_application_colors (GAsyncResult  *result,
+                                                          GError       **error)
 {
   g_return_val_if_fail (g_task_is_valid (result, NULL), NULL);
 

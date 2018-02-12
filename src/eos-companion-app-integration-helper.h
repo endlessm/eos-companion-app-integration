@@ -69,7 +69,7 @@ gboolean eos_companion_app_service_soup_server_listen_on_sd_fd_or_port (SoupServ
 
 /**
  * eos_companion_app_service_list_application_infos:
- * @cancellable: A #GCancellable
+ * @cancellable: (nullable): A #GCancellable
  * @callback: A #GAsyncReadyCallback
  *
  * Asynchronously query for all available content applications installed
@@ -104,7 +104,7 @@ GPtrArray * eos_companion_app_service_finish_list_application_infos (GAsyncResul
 /**
  * eos_companion_app_service_load_application_icon_data_async:
  * @icon_name: The name of the icon
- * @cancellable: A #GCancellable
+ * @cancellable: (nullable): A #GCancellable
  * @callback: A #GAsyncReadyCallback
  *
  * Asynchronously load icon data for the given icon name and pass it as a
@@ -133,7 +133,7 @@ GBytes * eos_companion_app_service_finish_load_application_icon_data_async (GAsy
 /**
  * eos_companion_app_service_load_application_info:
  * @name: The name of the application to load info for
- * @cancellable: A #GCancellable
+ * @cancellable: (nullable): A #GCancellable
  * @callback: A #GAsyncReadyCallback
  * @user_data: Closure for @callback
  *
@@ -160,6 +160,36 @@ void eos_companion_app_service_load_application_info (const gchar         *name,
 GDesktopAppInfo * eos_companion_app_service_finish_load_application_info (GAsyncResult  *result,
                                                                           GError       **error);
 
+
+/**
+ * eos_companion_app_service_load_application_colors:
+ * @app_id: The app ID of the application to load colors for
+ * @cancellable: (nullable): A #GCancellable
+ * @callback: A #GAsyncReadyCallback
+ * @user_data: Closure for @callback
+ *
+ * Asynchronously load the application colors from the application's
+ * internal reosurce file for the given application name,
+ * passing back a GStrv to the provided @callback.
+ */
+void eos_companion_app_service_load_application_colors (const gchar         *app_id,
+                                                        GCancellable        *cancellable,
+                                                        GAsyncReadyCallback  callback,
+                                                        gpointer             user_data);
+
+/**
+ * eos_companion_app_service_finish_load_application_colors:
+ * @result: A #GAsyncResult
+ * @error: A #GError
+ *
+ * Complete the call to eos_companion_app_service_load_application_colors
+ * and return a #GStrv with the application colors in web-format.
+ *
+ * Returns: (transfer full): A #GStrv with the application colors
+ */
+GStrv eos_companion_app_service_finish_load_application_colors (GAsyncResult  *result,
+                                                                GError       **error);
+
 /**
  * eos_companion_app_service_load_all_in_stream_to_bytes:
  * @stream: A #GInputStream
@@ -168,7 +198,7 @@ GDesktopAppInfo * eos_companion_app_service_finish_load_application_info (GAsync
  *              to less overhead, but will also consume greater amounts
  *              of memory. The final buffer size will always be truncated to
  *              the size of the read data.
- * @cancellable: A #GCancellable,
+ * @cancellable: (nullable): A #GCancellable
  * @callback: A #GAsyncReadyCallback
  * @callback_data: Closure for @callback
  *
@@ -237,7 +267,7 @@ gchar * eos_companion_app_service_get_runtime_name_for_app_id (const gchar  *app
  * eos_companion_app_service_fast_skip_stream_async
  * @stream: (transfer none): An #GInputStream to seek
  * @offset: offset in bytes to seek to
- * @cancellable: (transfer none): A #GCancellable
+ * @cancellable: (nullable): A #GCancellable
  * @callback: A callback that will be invoked on success or failure once
  *            seeking is complete.
  * @user_data: The closure for @callback

@@ -274,6 +274,42 @@ def companion_app_server_application_icon_route(server, msg, path, query, *args)
     server.pause_message(msg)
 
 
+@require_query_string_param('deviceUUID')
+@require_query_string_param('applicationId')
+def companion_app_server_application_colors_route(server, msg, path, query, *args):
+    '''Return a list of web-format primary application colors.'''
+    def _callback(src, result):
+       '''Callback function that gets called when we are done.'''
+       try:
+           color_strings = EosCompanionAppService.finish_load_application_colors(result)
+           json_response(msg, {
+               'status': 'ok',
+               'payload': {
+                   'colors': list(color_strings)
+               }
+           })
+       except GLib.Error as error:
+           json_response(msg, {
+               'status': 'error',
+               'error': serialize_error_as_json_object(
+                   EosCompanionAppService.error_quark(),
+                   EosCompanionAppService.Error.FAILED,
+                   detail={
+                       'server_error': str(error)
+                   }
+               )
+           })
+       server.unpause_message(msg)
+
+    print('Get application colors: clientId={clientId}, applicationId={applicationId}'.format(
+        applicationId=query['applicationId'],
+        clientId=query['deviceUUID']
+    ))
+    EosCompanionAppService.load_application_colors(query['applicationId'],
+                                                   cancellable=None,
+                                                   callback=_callback)
+    server.pause_message(msg)
+
 # This tag is used by everything that should end up on the homepage
 _GLOBAL_SET_INDICATOR_TAG = ['EknHomePageTag']
 
@@ -479,8 +515,10 @@ def load_record_blob_from_engine(engine, app_id, content_id, attr):
     try:
         domain = engine.get_domain_for_app(app_id)
     except GLib.Error as error:
-        if error.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.FAILED):
+        if (error.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.FAILED) or
+            error.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.NOT_FOUND)):
             return _LOAD_FROM_ENGINE_NO_SUCH_APP, None
+        raise error
 
     shards = domain.get_shards()
 
@@ -1349,6 +1387,7 @@ COMPANION_APP_ROUTES = {
     '/device_authenticate': companion_app_server_device_authenticate_route,
     '/list_applications': companion_app_server_list_applications_route,
     '/application_icon': companion_app_server_application_icon_route,
+    '/application_colors': companion_app_server_application_colors_route,
     '/list_application_sets': companion_app_server_list_application_sets_route,
     '/list_application_content_for_tags': companion_app_server_list_application_content_for_tags_route,
     '/content_data': companion_app_server_content_data_route,
