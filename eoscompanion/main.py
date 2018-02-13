@@ -395,7 +395,35 @@ def companion_app_server_list_application_sets_route(server, msg, path, query, *
         in its database. In that case, we need to create a set using
         EknHomePageTag with the same application title. Determining
         the application title is an asynchronous operation, so we need
-        a callback here once it is done.'''
+        a callback here once it is done.
+
+        Note that we will still want to load the application colors
+        too, so we have do another asynchronous call to load them.
+        '''
+        def _on_loaded_application_colors(src, result):
+           '''Callback function that gets called when we have the colors.'''
+           try:
+               color_strings = EosCompanionAppService.finish_load_application_colors(result)
+               json_response(msg, {
+                   'status': 'ok',
+                   'payload': {
+                       'colors': list(color_strings),
+                       'sets': sets
+                   }
+               })
+           except GLib.Error as error:
+               json_response(msg, {
+                   'status': 'error',
+                   'error': serialize_error_as_json_object(
+                       EosCompanionAppService.error_quark(),
+                       EosCompanionAppService.Error.FAILED,
+                       detail={
+                           'server_error': str(error)
+                       }
+                   )
+               })
+           server.unpause_message(msg)
+
         if error:
             json_response(msg, {
                 'status': 'error',
@@ -408,12 +436,9 @@ def companion_app_server_list_application_sets_route(server, msg, path, query, *
                 )
             })
         else:
-            json_response(msg, {
-               'status': 'ok',
-               'payload': sets
-            })
-
-        server.unpause_message(msg)
+            EosCompanionAppService.load_application_colors(query['applicationId'],
+                                                           cancellable=None,
+                                                           callback=_on_loaded_application_colors)
 
     def _on_queried_sets(src, result):
        '''Callback function that gets called when we are done querying.'''
