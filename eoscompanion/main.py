@@ -289,16 +289,30 @@ def companion_app_server_application_colors_route(server, msg, path, query, *arg
                }
            })
        except GLib.Error as error:
-           json_response(msg, {
-               'status': 'error',
-               'error': serialize_error_as_json_object(
-                   EosCompanionAppService.error_quark(),
-                   EosCompanionAppService.Error.FAILED,
-                   detail={
-                       'server_error': str(error)
-                   }
-               )
-           })
+           if error.matches(EosCompanionAppService.error_quark(),
+                            EosCompanionAppService.Error.INVALID_APP_ID):
+               json_response(msg, {
+                   'status': 'error',
+                   'error': serialize_error_as_json_object(
+                       EosCompanionAppService.error_quark(),
+                       EosCompanionAppService.Error.INVALID_APP_ID,
+                       detail={
+                           'app_id': query['applicationId']
+                       }
+                   )
+               })
+           else:
+               json_response(msg, {
+                   'status': 'error',
+                   'error': serialize_error_as_json_object(
+                       EosCompanionAppService.error_quark(),
+                       EosCompanionAppService.Error.FAILED,
+                       detail={
+                           'server_error': str(error)
+                       }
+                   )
+               })
+
        server.unpause_message(msg)
 
     print('Get application colors: clientId={clientId}, applicationId={applicationId}'.format(
@@ -412,16 +426,32 @@ def companion_app_server_list_application_sets_route(server, msg, path, query, *
                                                   query['applicationId'],
                                                   _on_ascertained_sets)
        except GLib.Error as error:
-           json_response(msg, {
-               'status': 'error',
-               'error': serialize_error_as_json_object(
-                   EosCompanionAppService.error_quark(),
-                   EosCompanionAppService.Error.FAILED,
-                   detail={
-                       'server_error': str(error)
-                   }
-               )
-           })
+           # File not found, means that the app ID is not an installed
+           # app ID.
+           if error.matches(Gio.io_error_quark(), Gio.IOErrorEnum.NOT_FOUND):
+               json_response(msg, {
+                   'status': 'error',
+                   'error': serialize_error_as_json_object(
+                       EosCompanionAppService.error_quark(),
+                       EosCompanionAppService.Error.INVALID_APP_ID,
+                       detail={
+                           'app_id': query['applicationId']
+                       }
+                   )
+               })
+           else:
+               json_response(msg, {
+                   'status': 'error',
+                   'error': serialize_error_as_json_object(
+                       EosCompanionAppService.error_quark(),
+                       EosCompanionAppService.Error.FAILED,
+                       detail={
+                           'server_error': str(error)
+                       }
+                   )
+               })
+
+           server.unpause_message(msg)
 
     print('List application sets: clientId={clientId}, applicationId={applicationId}'.format(
         applicationId=query['applicationId'], clientId=query['deviceUUID'])
@@ -465,16 +495,31 @@ def companion_app_server_list_application_content_for_tags_route(server, msg, pa
                ]
            })
        except GLib.Error as error:
-           json_response(msg, {
-               'status': 'error',
-               'error': serialize_error_as_json_object(
-                   EosCompanionAppService.error_quark(),
-                   EosCompanionAppService.Error.FAILED,
-                   detail={
-                       'server_error': str(error)
-                   }
-               )
-           })
+           # File not found, means that the app ID is not an installed
+           # app ID.
+           if error.matches(Gio.io_error_quark(), Gio.IOErrorEnum.NOT_FOUND):
+               json_response(msg, {
+                   'status': 'error',
+                   'error': serialize_error_as_json_object(
+                       EosCompanionAppService.error_quark(),
+                       EosCompanionAppService.Error.INVALID_APP_ID,
+                       detail={
+                           'app_id': query['applicationId']
+                       }
+                   )
+               })
+           else:
+               json_response(msg, {
+                   'status': 'error',
+                   'error': serialize_error_as_json_object(
+                       EosCompanionAppService.error_quark(),
+                       EosCompanionAppService.Error.FAILED,
+                       detail={
+                           'server_error': str(error)
+                       }
+                   )
+               })
+
        server.unpause_message(msg)
 
     print('List application content for tags: clientId={clientId}, applicationId={applicationId}, tags={tags}'.format(
@@ -515,8 +560,8 @@ def load_record_blob_from_engine(engine, app_id, content_id, attr):
     try:
         domain = engine.get_domain_for_app(app_id)
     except GLib.Error as error:
-        if (error.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.FAILED) or
-            error.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.NOT_FOUND)):
+        if (error.matches(Gio.io_error_quark(), Gio.IOErrorEnum.FAILED) or
+            error.matches(Gio.io_error_quark(), Gio.IOErrorEnum.NOT_FOUND)):
             return _LOAD_FROM_ENGINE_NO_SUCH_APP, None
         raise error
 
@@ -895,16 +940,30 @@ def companion_app_server_content_metadata_route(server, msg, path, query, *args)
                 'payload': metadata_json
             })
         except GLib.Error as error:
-            json_response(msg, {
-                'status': 'error',
-                'error': serialize_error_as_json_object(
-                    EosCompanionAppService.error_quark(),
-                    EosCompanionAppService.Error.FAILED,
-                    detail={
-                        'server_error': str(error)
-                    }
-                )
-            })
+            # File not found, means that the app ID is not an installed
+            # app ID.
+            if error.matches(Gio.io_error_quark(), Gio.IOErrorEnum.NOT_FOUND):
+                json_response(msg, {
+                    'status': 'error',
+                    'error': serialize_error_as_json_object(
+                        EosCompanionAppService.error_quark(),
+                        EosCompanionAppService.Error.INVALID_APP_ID,
+                        detail={
+                            'app_id': query['applicationId']
+                        }
+                    )
+                })
+            else:
+                json_response(msg, {
+                    'status': 'error',
+                    'error': serialize_error_as_json_object(
+                        EosCompanionAppService.error_quark(),
+                        EosCompanionAppService.Error.FAILED,
+                        detail={
+                            'server_error': str(error)
+                        }
+                    )
+                })
 
         server.unpause_message(msg)
 
