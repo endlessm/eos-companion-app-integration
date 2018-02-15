@@ -1686,8 +1686,13 @@ def main(args=None):
     Python code, but setting a variable in os.environ does not actually
     update the 'environ' global variable on the C side.
     '''
+    flatpak_export_share_dirs = [
+        os.path.join(d, 'exports', 'share')
+        for d in EosCompanionAppService.flatpak_install_dirs()
+    ]
     GLib.setenv('XDG_DATA_DIRS',
-                os.pathsep.join([GLib.getenv('XDG_DATA_DIRS') or '',
-                                 '/var/lib/flatpak/exports/share']), True)
+                os.pathsep.join([
+                    GLib.getenv('XDG_DATA_DIRS') or ''
+                ] + flatpak_export_share_dirs), True)
     CompanionAppApplication().run(args or sys.argv)
 
