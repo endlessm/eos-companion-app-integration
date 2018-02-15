@@ -81,11 +81,13 @@ dist_libeoscompanion_1_la_SOURCES = \
 	$(NULL)
 
 nodist_libeoscompanion_1_la_SOURCES = \
+	src/config.h \
 	$(enum_sources) \
 	$(NULL)
 
 libeoscompanion_1_la_CPPFLAGS = \
 	$(EOS_COMPANION_APP_SERVICE_CFLAGS) \
+	-I$(abs_top_builddir)/src \
 	$(NULL)
 
 libeoscompanion_1_la_LIBADD = \
@@ -119,6 +121,14 @@ eos-companion-app-service-dbus.h: eos-companion-app-service-dbus.c
 BUILT_SOURCES += $(gdbus_generated)
 CLEANFILES += $(gdbus_generated)
 EXTRA_DIST += data/com.endlessm.CompanionAppService.xml
+
+# # # CONFIG FILE # # #
+src/config.h: src/config.h.in
+	$(AM_V_GEN) mkdir -p `dirname $@` && sed -e 's|@systemflatpakinstalldir[@]|${SYSTEM_INSTALL_DIR}|g;s|@externalflatpakinstalldir[@]|${EXTERNAL_INSTALL_DIR}|g;' $< > $@.tmp && mv $@.tmp $@
+
+BUILT_SOURCES += src/config.h
+CLEANFILES += src/config.h
+EXTRA_DIST += src/config.h.in
 
 # XXX: We need to touch the output file first while
 # we wait for the version of glib that has https://github.com/endlessm/glib/commit/d8aee2cf5b150659928984de04c655dc06439b9c

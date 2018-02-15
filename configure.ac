@@ -88,6 +88,28 @@ AS_IF([test "x$EOS_COMPANION_APP_INTEGRATION_ENABLED" = "xyes"], [
 ], [
   ADDITIONAL_DISTCHECK_CONFIGURE_FLAGS="$ADDITIONAL_DISTCHECK_CONFIGURE_FLAGS --disable-integration"
 ])
+
+# We need to specify the literal /var and not $(localstatedir), since
+# $(localstatedir) will be /app/var when building inside of the
+# flatpak jail, which is not what we want
+AC_ARG_WITH(system-install-dir,
+           [AS_HELP_STRING([--with-system-install-dir=DIR],
+                           [Location of the system installation [LOCALSTATEDIR/flatpak]])],
+           [],
+           [with_system_install_dir="/var/lib/flatpak"])
+SYSTEM_INSTALL_DIR=$with_system_install_dir
+ADDITIONAL_DISTCHECK_CONFIGURE_FLAGS="$ADDITIONAL_DISTCHECK_CONFIGURE_FLAGS --with-system-install-dir=$SYSTEM_INSTALL_DIR"
+AC_SUBST(SYSTEM_INSTALL_DIR)
+
+AC_ARG_WITH(external-install-dir,
+           [AS_HELP_STRING([--with-external-install-dir=DIR],
+                           [Location of the external installation [LOCALSTATEDIR/endless-extra/flatpak]])],
+           [],
+           [with_external_install_dir="/var/endless-extra/flatpak"])
+EXTERNAL_INSTALL_DIR=$with_external_install_dir
+ADDITIONAL_DISTCHECK_CONFIGURE_FLAGS="$ADDITIONAL_DISTCHECK_CONFIGURE_FLAGS --with-external-install-dir=$EXTERNAL_INSTALL_DIR"
+AC_SUBST(EXTERNAL_INSTALL_DIR)
+
 AM_CONDITIONAL([EOS_COMPANION_APP_INTEGRATION_ENABLED], [test "x$EOS_COMPANION_APP_INTEGRATION_ENABLED" = "xyes"])
 AC_SUBST([ADDITIONAL_DISTCHECK_CONFIGURE_FLAGS])
 
