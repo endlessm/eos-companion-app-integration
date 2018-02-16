@@ -1074,8 +1074,8 @@ eos_companion_app_service_finish_fast_skip_stream (GAsyncResult  *result,
   return g_task_propagate_pointer (G_TASK (result), error);
 }
 
-GStrv
-eos_companion_app_service_flatpak_install_dirs (void)
+static GStrv
+hardcoded_flatpak_install_dirs (void)
 {
   static const gchar *dirs[] = {
     EOS_COMPANION_APP_SERVICE_SYSTEM_FLATPAK_INSTALL_DIR,
@@ -1084,6 +1084,31 @@ eos_companion_app_service_flatpak_install_dirs (void)
   };
 
   return (GStrv) dirs;
+}
+
+static GStrv
+override_flatpak_install_dirs (void)
+{
+  static const gchar *dirs[3];
+
+  /* Mutating global static storage here is not ideal, but it
+   * saves us from having to allocate/deallocate memory all the time. */
+  dirs[0] = g_getenv ("FLATPAK_SYSTEM_DIR");
+  dirs[1] = g_getenv ("FLATPAK_USER_DIR");
+  dirs[2] = NULL;
+
+  return (GStrv) dirs;
+}
+
+GStrv
+eos_companion_app_service_flatpak_install_dirs (void)
+{
+  GStrv override_dirs = override_flatpak_install_dirs ();
+
+  if (override_dirs[0] != NULL)
+    return override_dirs;
+
+  return hardcoded_flatpak_install_dirs ();
 }
 
 G_DEFINE_QUARK (eos-companion-app-service-error, eos_companion_app_service_error)
