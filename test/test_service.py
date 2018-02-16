@@ -112,19 +112,25 @@ def soup_uri_with_query(uri, querystring):
     return soup_uri
 
 
-def json_http_request_with_uuid(uuid, uri, body, callback):
+def soup_uri_with_query_object(uri, query_object):
+    '''Create a new SoupURI for uri, with query string from query_object.'''
+    return soup_uri_with_query(uri, urlencode(query_object))
+
+
+def json_http_request_with_uuid(uuid, uri, query, callback):
     '''Send a new HTTP request with the UUID in the header.'''
     session = Soup.Session.new()
-    querystring = urlencode({
+    query.update({
         'deviceUUID': uuid
     })
-    request = session.request_http_uri('POST',
-                                       soup_uri_with_query(uri, querystring))
+
+    request = session.request_http_uri('GET',
+                                       soup_uri_with_query_object(uri, query))
     message = request.get_message()
     message.request_headers.append('Accept', 'application/json')
     EosCompanionAppService.set_soup_message_request(message,
                                                     'application/json',
-                                                    json.dumps(body))
+                                                    '{}')
     request.send_async(None, callback)
 
 
