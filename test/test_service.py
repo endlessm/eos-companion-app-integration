@@ -25,7 +25,11 @@ import pprint
 import socket
 
 from tempfile import mkdtemp
-from urllib.parse import urlencode
+from urllib.parse import (
+    parse_qs,
+    urlencode,
+    urlparse
+)
 from unittest import TestCase
 
 from test.build_app import (force_remove_directory, setup_fake_apps)
@@ -379,6 +383,28 @@ def matches_structure(fixture, expected):
                                                            expected,
                                                            candidate,
                                                            msg)
+
+    return matcher
+
+
+def matches_uri_query(fixture, path, expected_query):
+    '''Check if the passed URI with a querystring matches expected_query.
+
+    We cannot just test for string equality here - we need to parse
+    the querystring and decompose its query, then match the query
+    against expected_query.
+    '''
+    def matcher(candidate):
+        '''Determine if candidate matches the matcher criteria.'''
+        parsed = urlparse(candidate)
+
+        if path != parsed.path:
+            msg = '{candidate} did not have path {path}'.format(candidate=candidate,
+                                                                path=path)
+            raise fixture.failureException(msg)
+
+        candidate_query = parse_qs(parsed.query)
+        matches_structure(fixture, expected_query)(candidate_query)
 
     return matcher
 
