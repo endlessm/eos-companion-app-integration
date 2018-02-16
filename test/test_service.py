@@ -177,6 +177,24 @@ def handle_json(handler):
     return handle_text(text_loaded)
 
 
+def handle_headers_bytes(handler):
+    '''Handler middleware that just returns the response headers and bytes.'''
+    def soup_bytestream_handler(request_obj, result):
+        '''Handle the bytestream.'''
+        def bytes_loaded(_, result):
+            '''Handle the loaded bytes.'''
+            msg_bytes = EosCompanionAppService.finish_load_all_in_stream_to_bytes(result)
+            handler(msg_bytes, request_obj.get_message().response_headers)
+
+        stream = request_obj.send_finish(result)
+        EosCompanionAppService.load_all_in_stream_to_bytes(stream,
+                                                           chunk_size=1024,
+                                                           cancellable=None,
+                                                           callback=bytes_loaded)
+
+    return soup_bytestream_handler
+
+
 class TestCompanionAppService(TestCase):
     '''Test suite for the CompanionAppService class.'''
 
