@@ -651,7 +651,7 @@ load_colors_from_gresource_file (GResource  *resource,
            * application just has no colors to return and return the
            * empty array */
           g_ptr_array_add (color_strings, NULL);
-          return color_strings;
+          return (GStrv) g_ptr_array_free (color_strings, FALSE);
         }
 
       g_ptr_array_free (color_strings, TRUE);
