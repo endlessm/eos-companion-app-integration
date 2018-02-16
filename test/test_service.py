@@ -296,6 +296,23 @@ def generate_flatpak_installation_directory():
     return mkdtemp(prefix='flatpak_installation')
 
 
+def fetch_first_content_id(app_id, tags, port, callback, quit_cb):
+    '''Request a content listing and pass first content ID to callback.'''
+    def on_received_response(response):
+        '''Called when we receive a response from the server.'''
+        callback(response['payload'][0]['id'])
+
+    json_http_request_with_uuid(FAKE_UUID,
+                                local_endpoint(port,
+                                               'list_application_content_for_tags'),
+                                {
+                                    'applicationId': app_id,
+                                    'tags': ';'.join(tags)
+                                },
+                                handle_json(quit_on_fail(on_received_response,
+                                                         quit_cb)))
+
+
 def element_matches(fixture, element, expected):
     '''Check if element matches expected.
 
