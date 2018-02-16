@@ -1302,7 +1302,7 @@ def companion_app_server_search_content_route(server, msg, path, query, *args):
             # a set. Finally, we only care about content applications, so
             # take the intersection between the returned results
             matched_application_ids = set([
-                desktop_id.strip('.desktop') for desktop_id in
+                desktop_id[:desktop_id.rfind('.desktop')] for desktop_id in
                 itertools.chain.from_iterable(Gio.DesktopAppInfo.search(search_term))
             ]) if search_term else set([])
             matched_application_ids &= set(
