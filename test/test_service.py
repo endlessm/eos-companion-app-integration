@@ -21,6 +21,7 @@
 import errno
 import json
 import os
+import socket
 
 from tempfile import mkdtemp
 from urllib.parse import urlencode
@@ -237,6 +238,39 @@ class GLibEnvironmentPreservationContext(object):
                 GLib.unsetenv(variable)
 
 
+def can_listen(port):
+    '''Return True if we can listen on this port.'''
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        sock.bind((socket.gethostname(), port))
+        sock.close()
+    except OSError as error:
+        if error.errno == errno.EADDRINUSE:
+            return False
+        raise error
+
+    return True
+
+
+_PORT_START = 3000
+_PORT_END = 4000
+
+
+def find_available_port():
+    '''Scan ports to find an available one.'''
+    for port in range(_PORT_START, _PORT_END):
+        if can_listen(port):
+            return port
+
+    raise RuntimeError('Cannot find an available port to listen on')
+
+
+def local_endpoint(port, endpoint):
+    '''Generate localhost endpoint from port.'''
+    return 'http://localhost:{port}/{endpoint}'.format(port=port,
+                                                       endpoint=endpoint)
+
+
 TEST_DATA_DIRECTORY = os.path.join(TOPLEVEL_DIRECTORY, 'test_data')
 FAKE_APPS = ['org.test.ContentApp', 'org.test.VideoApp']
 
@@ -269,6 +303,8 @@ class TestCompanionAppService(TestCase):
         self._env_context.push('FLATPAK_SYSTEM_DIR',
                                self.__class__.flatpak_installation_dir)
 
+        self.port = find_available_port()
+
     def tearDown(self):
         '''Tear down the test case.'''
         self.service.stop()
@@ -299,9 +335,10 @@ class TestCompanionAppService(TestCase):
             self.assertTrue(json.loads(bytes.get_data().decode())['status'] == 'ok')
             quit()
 
-        self.service = CompanionAppService(Holdable(), 1110)
+        self.service = CompanionAppService(Holdable(), self.port)
         json_http_request_with_uuid('Some UUID',
-                                    'http://localhost:1110/device_authenticate',
+                                    local_endpoint(self.port,
+                                                   'device_authenticate'),
                                     {},
                                     on_received_response)
 
@@ -317,9 +354,10 @@ class TestCompanionAppService(TestCase):
             self.assertTrue(response['error']['code'] == 'INVALID_REQUEST')
             quit()
 
-        self.service = CompanionAppService(Holdable(), 1110)
+        self.service = CompanionAppService(Holdable(), self.port)
         json_http_request_with_uuid('',
-                                    'http://localhost:1110/device_authenticate',
+                                    local_endpoint(self.port,
+                                                   'device_authenticate'),
                                     {},
                                     on_received_response)
 
