@@ -24,9 +24,16 @@ import os
 
 from urllib.parse import urlencode
 from unittest import TestCase
+
+from test.build_app import (force_remove_directory, setup_fake_apps)
+
 from eoscompanion.main import CompanionAppService
 
 from gi.repository import EosCompanionAppService, GLib, Soup
+
+
+TOPLEVEL_DIRECTORY = os.path.abspath(os.path.join(os.path.dirname(__file__),
+                                                  '..'))
 
 
 def with_main_loop(testfunc):
@@ -195,6 +202,49 @@ def handle_headers_bytes(handler):
     return soup_bytestream_handler
 
 
+class GLibEnvironmentPreservationContext(object):
+    '''A class to keep track of environment variables set with GLib.setenv.
+
+    Because we interact with a code that expects environment
+    variables to be set on the C side, we need to use GLib.setenv
+    as opposed to just monkey-patching os.environ, which will
+    not propagate changes down to environ on the stdlib.
+    '''
+
+    def __init__(self):
+        '''Initialize backup dict.'''
+        super().__init__()
+        self._backup = {}
+
+    def push(self, variable, value):
+        '''Push a new value for this variable into the environment.
+
+        If the variable was already backed up then the backed up value
+        is not changed, it will be restored upon a call to restore().
+        '''
+        if variable not in self._backup:
+            self._backup[variable] = GLib.getenv(variable)
+
+        GLib.setenv(variable, value, True)
+
+    def restore(self):
+        '''Restore or unset all backed up environment variables.'''
+        for variable, value in self._backup.items():
+            if value is not None:
+                GLib.setenv(variable, value, True)
+            else:
+                GLib.unsetenv(variable)
+
+
+TEST_DATA_DIRECTORY = os.path.join(TOPLEVEL_DIRECTORY, 'test_data')
+FLATPAK_INSTALLATION_DIRECTORY = os.path.join(TOPLEVEL_DIRECTORY,
+                                              'flatpak_installation')
+FAKE_APPS = ['org.test.ContentApp', 'org.test.VideoApp']
+
+VIDEO_APP_THUMBNAIL_EKN_ID = 'b87d21e1d15fdb26f6dcf9f33eff11fbba6f43d5'
+CONTENT_APP_THUMBNAIL_EKN_ID = 'cd50d19784897085a8d0e3e413f8612b097c03f1'
+
+
 class TestCompanionAppService(TestCase):
     '''Test suite for the CompanionAppService class.'''
 
@@ -203,11 +253,29 @@ class TestCompanionAppService(TestCase):
     def setUp(self):
         '''Tear down the test case.'''
         self.service = None
+        self._env_context = GLibEnvironmentPreservationContext()
+
+        self._env_context.push('FLATPAK_SYSTEM_DIR',
+                               FLATPAK_INSTALLATION_DIRECTORY)
 
     def tearDown(self):
         '''Tear down the test case.'''
         self.service.stop()
         self.service = None
+
+        self._env_context.restore()
+
+    @classmethod
+    def setUpClass(cls):  # pylint: disable=invalid-name
+        '''Set up the entire test case class.'''
+        setup_fake_apps(FAKE_APPS,
+                        TEST_DATA_DIRECTORY,
+                        FLATPAK_INSTALLATION_DIRECTORY)
+
+    @classmethod
+    def tearDownClass(cls):  # pylint: disable=invalid-name
+        '''Tear down the entire class by deleting build testing flatpaks.'''
+        force_remove_directory(FLATPAK_INSTALLATION_DIRECTORY)
 
     @with_main_loop
     def test_make_connection_to_authenticate(self, quit):
