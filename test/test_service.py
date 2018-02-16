@@ -303,6 +303,23 @@ class TestCompanionAppService(TestCase):
         self._env_context.push('FLATPAK_SYSTEM_DIR',
                                self.__class__.flatpak_installation_dir)
 
+        # Having to explicitly enumerate all the fake flatpaks
+        # like this is not ideal, but it seems like Eknc only seaches
+        # the hardcoded system flatpak dirs - not sure if it should
+        # also check FLATPAK_SYSTEM_DIR and FLATPAK_USER_DIR
+        self._env_context.push('XDG_DATA_DIRS', os.pathsep.join([
+            os.path.join(self.__class__.flatpak_installation_dir,
+                         'app',
+                         app_id,
+                         'current',
+                         'active',
+                         'files',
+                         'share')
+            for app_id in FAKE_APPS
+        ] + [
+            GLib.getenv('XDG_DATA_DIRS') or '',
+        ]))
+
         self.port = find_available_port()
 
     def tearDown(self):
