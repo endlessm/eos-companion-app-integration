@@ -21,18 +21,8 @@
 import json
 import os
 import sys
+
 from urllib.parse import urlencode
-
-os.environ['GI_TYPELIB_PATH'] = os.pathsep.join([
-    os.path.abspath(
-        os.path.join(
-            os.path.dirname(os.path.realpath(__file__)),
-            os.pardir
-        )
-    ),
-    os.environ.get('GI_TYPELIB_PATH', '')
-])
-
 from unittest import TestCase
 from eoscompanion.main import CompanionAppService
 
