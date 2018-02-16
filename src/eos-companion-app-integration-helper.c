@@ -41,7 +41,7 @@ G_DEFINE_AUTOPTR_CLEANUP_FUNC (GResource, g_resource_unref)
 GQuark
 eos_companion_app_service_error (void)
 {
-  return g_quark_from_static_string ("eos-companion-app-error");
+  return g_quark_from_static_string ("eos-companion-app-service-error");
 }
 
 /**
@@ -1086,5 +1086,5 @@ eos_companion_app_service_flatpak_install_dirs (void)
   return (GStrv) dirs;
 }
 
-G_DEFINE_QUARK (eos-companion-app-service-error-quark, eos_companion_app_service_error)
+G_DEFINE_QUARK (eos-companion-app-service-error, eos_companion_app_service_error)
 
