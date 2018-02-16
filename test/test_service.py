@@ -278,6 +278,7 @@ def local_endpoint(port, endpoint):
 
 TEST_DATA_DIRECTORY = os.path.join(TOPLEVEL_DIRECTORY, 'test_data')
 FAKE_APPS = ['org.test.ContentApp', 'org.test.VideoApp']
+FAKE_UUID = 'Some UUID'
 
 VIDEO_APP_THUMBNAIL_EKN_ID = 'b87d21e1d15fdb26f6dcf9f33eff11fbba6f43d5'
 CONTENT_APP_THUMBNAIL_EKN_ID = 'cd50d19784897085a8d0e3e413f8612b097c03f1'
@@ -469,7 +470,7 @@ class TestCompanionAppService(TestCase):
             self.assertTrue(response['status'] == 'ok')
 
         self.service = CompanionAppService(Holdable(), self.port)
-        json_http_request_with_uuid('Some UUID',
+        json_http_request_with_uuid(FAKE_UUID,
                                     local_endpoint(self.port,
                                                    'device_authenticate'),
                                     {},
