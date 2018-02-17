@@ -69,6 +69,9 @@ AM_DISTCHECK_CONFIGURE_FLAGS = \
 	$(ADDITIONAL_DISTCHECK_CONFIGURE_FLAGS) \
 	$(NULL)
 
+# Cannot have conditional contents, need to put it out here
+TEST_EXTENSIONS = .py
+
 include $(top_srcdir)/Makefile.am.service.inc
 include $(top_srcdir)/Makefile.am.integration.inc
 
