@@ -20,7 +20,6 @@
 
 import json
 import os
-import sys
 
 from urllib.parse import urlencode
 from unittest import TestCase
