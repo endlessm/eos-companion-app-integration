@@ -31,10 +31,14 @@ from gi.repository import EosCompanionAppService, GLib, Soup
 
 def with_main_loop(testfunc):
     '''Decorator for tests to run with a main loop.
-    
-    Tests MUST call the 'quit' parameter when they are finished, otherwise
+
+    Tests MUST call the 'quit_cb' parameter when they are finished, otherwise
     the test will never exit.
     '''
+    # Need to disable docstrings here, otherwise the same docstring
+    # will be printed for each test
+    #
+    # pylint: disable=missing-docstring
     def decorator(instance):
         caught_exception = None
         loop = GLib.MainLoop()
@@ -49,6 +53,7 @@ def with_main_loop(testfunc):
             loop.quit()
 
         def boot():
+            '''Called after we enter the main loop.'''
             nonlocal caught_exception
 
             try:
