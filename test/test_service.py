@@ -69,7 +69,6 @@ def with_main_loop(testfunc):
             caught_exception = exception
 
         if caught_exception:
-            print('Caught a {}'.format(caught_exception), file=sys.stderr)
             raise caught_exception
 
     return decorator
