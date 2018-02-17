@@ -150,6 +150,24 @@ class Holdable(object):
         self.hold_count -= 1
 
 
+def handle_json(handler):
+    '''Handler middleware to parse bytestream for JSON response.'''
+    def bytes_loaded(obj, result):
+        '''Handle the loaded bytes.'''
+        bytes = EosCompanionAppService.finish_load_all_in_stream_to_bytes(result)
+        handler(json.loads(bytes.get_data().decode()))
+
+    def soup_bytestream_handler(obj, result):
+        '''Handle the bytestream.'''
+        stream = obj.send_finish(result)
+        EosCompanionAppService.load_all_in_stream_to_bytes(stream,
+                                                           chunk_size=1024,
+                                                           cancellable=None,
+                                                           callback=bytes_loaded)
+
+    return soup_bytestream_handler
+
+
 class TestCompanionAppService(TestCase):
     '''Test suite for the CompanionAppService class.'''
 
