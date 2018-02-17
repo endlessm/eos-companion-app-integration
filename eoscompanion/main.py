@@ -1166,7 +1166,7 @@ def companion_app_server_search_content_route(server, msg, path, query, *args):
     “searchTerm”: [search term, string]
     '''
     def _on_received_results_list(truncated_models_for_applications,
-                                  matched_applications_ids,
+                                  matched_application_ids,
                                   applications,
                                   remaining):
         '''Called when we receive all models as a part of this search.
@@ -1178,7 +1178,7 @@ def companion_app_server_search_content_route(server, msg, path, query, *args):
         "limit", if one was specified and offsetted by "offset", if one was
         specified, at this point.
 
-        matched_applications_ids is a list of application IDs
+        matched_application_ids is a list of application IDs
         for which the application name actually matched the search term.
 
         applications should be a list of ApplicationListing, which is
@@ -1205,7 +1205,7 @@ def companion_app_server_search_content_route(server, msg, path, query, *args):
                     },
                     'type': 'application'
                 }
-                for app_id in matched_applications_ids
+                for app_id in matched_application_ids
             ],
             [
                 {
