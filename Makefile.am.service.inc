@@ -28,7 +28,19 @@ if EOS_COMPANION_APP_SERVICE_ENABLED
 # Python files
 app_PYTHON += \
 	eoscompanion/__init__.py \
+	eoscompanion/applications_query.py \
+	eoscompanion/constants.py \
+	eoscompanion/content_adjusters.py \
+	eoscompanion/content_streaming.py \
+	eoscompanion/ekn_data.py \
+	eoscompanion/ekn_query.py \
+	eoscompanion/format.py \
+	eoscompanion/functional.py \
 	eoscompanion/main.py \
+	eoscompanion/responses.py \
+	eoscompanion/routes.py \
+	eoscompanion/service.py \
+	eoscompanion/util.py \
 	$(NULL)
 
 # Wrapper script
