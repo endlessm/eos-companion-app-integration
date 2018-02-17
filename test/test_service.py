@@ -52,7 +52,7 @@ from testtools.matchers import (
     MatchesSetwise
 )
 
-from eoscompanion.main import CompanionAppService
+from eoscompanion.service import CompanionAppService
 
 
 TOPLEVEL_DIRECTORY = os.path.abspath(os.path.join(os.path.dirname(__file__),
