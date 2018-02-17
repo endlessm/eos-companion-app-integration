@@ -74,6 +74,18 @@ def with_main_loop(testfunc):
     return decorator
 
 
+def quit_on_fail(callback, quit_func):
+    '''Invoke callback, catching exceptions and propagating to quit_func.'''
+    def handler(*args, **kwargs):
+        '''Callback handler.'''
+        try:
+            callback(*args, **kwargs)
+        except Exception as exception:
+            quit_func(exception=exception)
+
+    return handler
+
+
 def soup_uri_with_query(uri, querystring):
     '''Create a new SoupURI for uri, with a querystring.'''
     soup_uri = Soup.URI.new(uri)
