@@ -57,7 +57,8 @@ class SubprocessWrapperTestCommand(TestCommand):
         check_call(['python3',
                     '-m',
                     'unittest',
-                    'discover'],
+                    'discover',
+                    '-v'],
                    cwd=os.path.join(_CURRENT_DIRECTORY, 'test'),
                    env=env)
 
