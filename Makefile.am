@@ -115,6 +115,10 @@ regenerate-pip-manifest-template:
 # the fact that it was in a conditional
 @EOS_PYLINT_RULES@
 
+EXTRA_DIST += \
+	.pylintrc \
+	$(NULL)
+
 # Add GObject Introspection files to the build
 gir_DATA += $(INTROSPECTION_GIRS)
 typelib_DATA += $(INTROSPECTION_GIRS:.gir=.typelib)
