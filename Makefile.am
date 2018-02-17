@@ -70,10 +70,14 @@ AM_DISTCHECK_CONFIGURE_FLAGS = \
 	$(NULL)
 
 # Cannot have conditional contents, need to put it out here
-TEST_EXTENSIONS = .py
+TEST_EXTENSIONS = .py .pylint
 
 include $(top_srcdir)/Makefile.am.service.inc
 include $(top_srcdir)/Makefile.am.integration.inc
+
+# Needs to be in the toplevel otherwise it gets included twice, despite
+# the fact that it was in a conditional
+@EOS_PYLINT_RULES@
 
 # Add GObject Introspection files to the build
 gir_DATA += $(INTROSPECTION_GIRS)
