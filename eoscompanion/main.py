@@ -150,10 +150,16 @@ def companion_app_server_root_route(_, msg, *args):
     html_response(msg, html)
 
 
+def log(msg, file=sys.stdout):
+    '''Log the message to the console if not running quietly.'''
+    if not GLib.getenv('EOS_COMPANION_APP_SERVICE_QUIET'):
+        print(msg, file=file)
+
+
 @require_query_string_param('deviceUUID')
 def companion_app_server_device_authenticate_route(server, msg, path, query, *args):
     '''Authorize the client.'''
-    print('Authorize client: clientId={clientId}'.format(
+    log('Authorize client: clientId={clientId}'.format(
         clientId=query['deviceUUID'])
     )
     json_response(msg, {
@@ -236,7 +242,7 @@ def companion_app_server_list_applications_route(server, msg, path, query, *args
         })
         server.unpause_message(msg)
 
-    print('List applications: clientId={clientId}'.format(
+    log('List applications: clientId={clientId}'.format(
         clientId=query['deviceUUID'])
     )
     list_all_applications(_callback)
@@ -265,7 +271,7 @@ def companion_app_server_application_icon_route(server, msg, path, query, *args)
            })
        server.unpause_message(msg)
 
-    print('Get application icon: clientId={clientId}, iconName={iconName}'.format(
+    log('Get application icon: clientId={clientId}, iconName={iconName}'.format(
         iconName=query['iconName'],
         clientId=query['deviceUUID']
     ))
@@ -316,7 +322,7 @@ def companion_app_server_application_colors_route(server, msg, path, query, *arg
 
        server.unpause_message(msg)
 
-    print('Get application colors: clientId={clientId}, applicationId={applicationId}'.format(
+    log('Get application colors: clientId={clientId}, applicationId={applicationId}'.format(
         applicationId=query['applicationId'],
         clientId=query['deviceUUID']
     ))
@@ -479,7 +485,7 @@ def companion_app_server_list_application_sets_route(server, msg, path, query, *
 
            server.unpause_message(msg)
 
-    print('List application sets: clientId={clientId}, applicationId={applicationId}'.format(
+    log('List application sets: clientId={clientId}, applicationId={applicationId}'.format(
         applicationId=query['applicationId'], clientId=query['deviceUUID'])
     )
 
@@ -548,7 +554,7 @@ def companion_app_server_list_application_content_for_tags_route(server, msg, pa
 
        server.unpause_message(msg)
 
-    print('List application content for tags: clientId={clientId}, applicationId={applicationId}, tags={tags}'.format(
+    log('List application content for tags: clientId={clientId}, applicationId={applicationId}, tags={tags}'.format(
         tags=query['tags'], applicationId=query['applicationId'], clientId=query['deviceUUID'])
     )
 
@@ -763,7 +769,7 @@ def companion_app_server_content_data_route(server, msg, path, query, context):
                 bytes_written = src.splice_finish(result)
             except GLib.Error as error:
                 # Can't really do much here except log server side
-                print(
+                log(
                     'Splice operation on file failed: {error}'.format(error=error.message),
                     file=sys.stderr
                 )
@@ -825,7 +831,7 @@ def companion_app_server_content_data_route(server, msg, path, query, context):
             a tuple of an error or a stream and length.
             '''
             if error != None:
-                print(
+                log(
                     'Stream wrapping failed {error}'.format(error),
                     file=sys.stderr
                 )
@@ -898,7 +904,7 @@ def companion_app_server_content_data_route(server, msg, path, query, context):
                                        query,
                                        _on_got_wrapped_stream)
 
-    print('Get content stream: clientId={clientId}, applicationId={applicationId}, contentId={contentId}'.format(
+    log('Get content stream: clientId={clientId}, applicationId={applicationId}, contentId={contentId}'.format(
         contentId=query['contentId'], applicationId=query['applicationId'], clientId=query['deviceUUID'])
     )
 
@@ -993,7 +999,7 @@ def companion_app_server_content_metadata_route(server, msg, path, query, *args)
 
         server.unpause_message(msg)
 
-    print('Get content metadata: clientId={clientId}, applicationId={applicationId}, contentId={contentId}'.format(
+    log('Get content metadata: clientId={clientId}, applicationId={applicationId}, contentId={contentId}'.format(
         contentId=query['contentId'], applicationId=query['applicationId'], clientId=query['deviceUUID'])
     )
 
@@ -1637,10 +1643,10 @@ class CompanionAppApplication(Gio.Application):
         and the inhibit lock released.
         '''
         if error is not None:
-            print('Received error when attempting to take idle inhibit '
-                  'lock. Ensure that this user has sufficient permissions '
-                  '(eg, through org.freedesktop.login1.inhibit-block-idle). '
-                  'The error was: {}'.format(str(error)))
+            log('Received error when attempting to take idle inhibit '
+                'lock. Ensure that this user has sufficient permissions '
+                '(eg, through org.freedesktop.login1.inhibit-block-idle). '
+                'The error was: {}'.format(str(error)))
             return
 
         # Hang on to the fd so that we don't lose track of it, even though
@@ -1652,26 +1658,26 @@ class CompanionAppApplication(Gio.Application):
         try:
             connection = Gio.bus_get_finish(result)
         except GLib.Error as error:
-            print('Error getting the system bus: {}'.format(str(error)))
+            log('Error getting the system bus: {}'.format(str(error)))
             self.quit()
             return
 
-        print('Got system d-bus connection')
+        log('Got system d-bus connection')
         _inhibit_auto_idle(connection, self._on_got_inhibit_fd)
 
     def do_dbus_register(self, connection, path):
         '''Invoked when we get a D-Bus connection.'''
-        print('Got session d-bus connection at {path}'.format(path=path))
+        log('Got session d-bus connection at {path}'.format(path=path))
         return Gio.Application.do_dbus_register(self, connection, path)
 
     def do_dbus_unregister(self, connection, path):
         '''Invoked when we lose a D-Bus connection.'''
-        print('Lost session d-bus connection at {path}'.format(path=path))
+        log('Lost session d-bus connection at {path}'.format(path=path))
         return Gio.Application.do_dbus_unregister(self, connection, path)
 
     def do_activate(self):
         '''Invoked when the application is activated.'''
-        print('Activated')
+        log('Activated')
         return Gio.Application.do_activate(self)
 
 
