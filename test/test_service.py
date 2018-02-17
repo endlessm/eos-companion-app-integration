@@ -131,7 +131,7 @@ def soup_uri_with_query_object(uri, query_object):
     return soup_uri_with_query(uri, urlencode(query_object))
 
 
-def json_http_request_with_uuid(uuid, uri, query, callback):
+def json_http_request_with_uuid(uuid, uri, query, callback, headers=None):
     '''Send a new HTTP request with the UUID in the header.'''
     session = Soup.Session.new()
     query.update({
@@ -142,6 +142,9 @@ def json_http_request_with_uuid(uuid, uri, query, callback):
                                        soup_uri_with_query_object(uri, query))
     message = request.get_message()
     message.request_headers.append('Accept', 'application/json')
+    for header, value in (headers or {}).items():
+        message.request_headers.append(header, value)
+
     EosCompanionAppService.set_soup_message_request(message,
                                                     'application/json',
                                                     '{}')
