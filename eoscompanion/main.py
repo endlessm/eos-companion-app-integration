@@ -1165,10 +1165,11 @@ def companion_app_server_search_content_route(server, msg, path, query, *args):
     “offset”: [machine readable offset integer, default 0],
     “searchTerm”: [search term, string]
     '''
-    def _on_received_results_list(truncated_models_for_applications,
+    def _on_received_results_list(models,
                                   matched_application_ids,
                                   applications,
-                                  remaining):
+                                  global_limit,
+                                  global_offset):
         '''Called when we receive all models as a part of this search.
 
         truncated_models_for_applications should be a list of
@@ -1188,6 +1189,11 @@ def companion_app_server_search_content_route(server, msg, path, query, *args):
         remaining is the number of models which have not been served as a
         part of this query.
         '''
+        # An 'end' of None here essentially means that the list will not
+        # be truncated. This is the choice if global_limit is set to None
+        start = global_offset if global_offset is not None else 0
+        end = start + global_limit if global_limit is not None else None
+
         # We need to construct an in-memory hashtable of application
         # IDs to names to at least get nlogn lookup
         applications_hashtable = {
@@ -1196,7 +1202,7 @@ def companion_app_server_search_content_route(server, msg, path, query, *args):
 
         # all_results is the application names that matched the search term,
         # plus all the models that matched the search term
-        all_results = list(itertools.chain.from_iterable([
+        all_results = sorted(list(itertools.chain.from_iterable([
             [
                 {
                     'displayName': applications_hashtable[app_id],
@@ -1217,10 +1223,29 @@ def companion_app_server_search_content_route(server, msg, path, query, *args):
                 }
                 for app_id, display_name, model, model_type, model_payload_renderer in
                 search_models_from_application_models(
-                    truncated_models_for_applications
+                    models
                 )
             ]
-        ]))
+        ])), key=lambda r: r['displayName'])
+
+        # Determine which applications were seen in the truncated model
+        # set or if their name matched the search query and then include
+        # them in the results list
+        truncated_results = all_results[start:end]
+
+        seen_application_ids = set(itertools.chain.from_iterable([[
+            r['payload']['applicationId']
+            for r in truncated_results
+            if r['type'] != 'application'
+        ], [app_id for app_id in matched_application_ids]]))
+        relevant_applications = [
+            a for a in applications if a.app_id in seen_application_ids
+        ]
+
+        remaining = (
+            max(0, len(all_results) - global_limit)
+            if global_limit is not None else 0
+        )
 
         json_response(msg, {
             'status': 'ok',
@@ -1233,9 +1258,9 @@ def companion_app_server_search_content_route(server, msg, path, query, *args):
                         'icon': format_app_icon_uri(a.icon, query['deviceUUID']),
                         'language': a.language
                     }
-                    for a in applications
+                    for a in relevant_applications
                 ],
-                'results': all_results
+                'results': truncated_results
             }
         })
         server.unpause_message(msg)
@@ -1284,21 +1309,6 @@ def companion_app_server_search_content_route(server, msg, path, query, *args):
                     server.unpause_message(msg)
                     return
 
-            remaining = (
-                max(0, len(all_models) - global_limit)
-                if global_limit is not None else 0
-            )
-
-            # An 'end' of None here essentially means that the list will not
-            # be truncated. This is the choice if global_limit is set to None
-            start = global_offset if global_offset is not None else 0
-            end = start + global_limit if global_limit is not None else None
-
-            # Determine which applications were seen in the truncated model
-            # set or if their name matched the search query and then include
-            # them in the results list
-            truncated_models = all_models[start:end]
-
             # Search for applications. The g_desktop_app_info_search function
             # will search all applications using an in-memory index
             # according to its own internal criteria. The returned
@@ -1315,17 +1325,11 @@ def companion_app_server_search_content_route(server, msg, path, query, *args):
                 a.app_id for a in applications
             )
 
-            seen_application_ids = set(itertools.chain.from_iterable([[
-                m.app_id for m in truncated_models
-            ], [app_id for app_id in matched_application_ids]]))
-            relevant_applications = [
-                a for a in applications if a.app_id in seen_application_ids
-            ]
-
-            _on_received_results_list(truncated_models,
+            _on_received_results_list(all_models,
                                       matched_application_ids,
-                                      relevant_applications,
-                                      remaining)
+                                      applications,
+                                      global_limit,
+                                      global_offset)
 
         return _on_all_searches_complete
 
