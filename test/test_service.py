@@ -41,7 +41,7 @@ gi.require_version('EosShard', '0')
 
 from test.build_app import (force_remove_directory, setup_fake_apps)
 
-from eoscompanion.main import CompanionAppService
+from eoscompanion.service import CompanionAppService
 
 from gi.repository import EosCompanionAppService, GLib, Soup
 
