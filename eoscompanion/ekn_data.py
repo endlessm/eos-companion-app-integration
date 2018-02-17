@@ -46,7 +46,7 @@ def load_record_blob_from_engine(engine, app_id, content_id, attr):
         domain = engine.get_domain_for_app(app_id)
     except GLib.Error as error:
         if (error.matches(Gio.io_error_quark(), Gio.IOErrorEnum.FAILED) or
-            error.matches(Gio.io_error_quark(), Gio.IOErrorEnum.NOT_FOUND)):
+                error.matches(Gio.io_error_quark(), Gio.IOErrorEnum.NOT_FOUND)):
             return LOAD_FROM_ENGINE_NO_SUCH_APP, None
         raise error
 
