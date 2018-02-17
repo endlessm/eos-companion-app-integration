@@ -39,25 +39,33 @@ def with_main_loop(testfunc):
         caught_exception = None
         loop = GLib.MainLoop()
 
+        def quit_handler(exception=None):
+            '''Invoke loop.quit, propagating exception if required.'''
+            nonlocal caught_exception
+
+            if exception:
+                caught_exception = exception
+
+            loop.quit()
+
         def boot():
             nonlocal caught_exception
 
             try:
-                testfunc(instance, lambda: loop.quit())
-            except Exception as e:
-                caught_exception = e
-                loop.quit()
+                testfunc(instance, quit_handler)
+            except Exception as exception:
+                quit_handler(exception=exception)
 
         GLib.idle_add(boot)
 
         try:
             loop.run()
-        except Exception as e:
-            caught_exception = e
+        except Exception as exception:
+            caught_exception = exception
 
         if caught_exception:
-           print('Caught a {}'.format(caught_exception), file=sys.stderr)
-           raise caught_exception
+            print('Caught a {}'.format(caught_exception), file=sys.stderr)
+            raise caught_exception
 
     return decorator
 
