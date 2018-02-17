@@ -18,7 +18,6 @@
 # All rights reserved.
 '''URI formatting functions for eoscompanion.'''
 
-import re
 import urllib
 
 
@@ -60,4 +59,3 @@ def rewrite_ekn_url(ekn_id, query):
         contentId=ekn_id
     )
     return formatted
-
