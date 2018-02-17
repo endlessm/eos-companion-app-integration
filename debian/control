@@ -15,7 +15,8 @@ Build-Depends: debhelper (>= 9),
                libglib2.0-dev,
                libsoup2.4-dev,
                libxapian-glib-1.0-dev,
-               pkg-config
+               pkg-config,
+               pylint3
 Standards-Version: 3.9.4
 Section: non-free/libs
 Homepage: http://www.endlessm.com
