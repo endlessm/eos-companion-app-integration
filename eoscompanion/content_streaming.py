@@ -48,7 +48,7 @@ def define_content_range_from_headers_and_size(request_headers, content_size):
 
 def conditionally_wrap_blob_stream(blob, content_type, query, callback):
     '''Inspect content_type and adjust blob stream content.'''
-    def _read_stream_callback(src, result):
+    def _read_stream_callback(_, result):
         '''Callback once we have finished loading the stream to bytes.'''
         try:
             content_bytes = EosCompanionAppService.finish_load_all_in_stream_to_bytes(result)
