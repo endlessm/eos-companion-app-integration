@@ -37,14 +37,13 @@ def maybe_get_app_info_string(app_info, name):
     '''
     try:
         return app_info.get_string(name)
-    except GLib.Error as error:
-        # XXX: See above
+    except GLib.Error:
         return None
 
 
 def application_listing_from_app_info(app_info):
     '''Convert a GDesktopAppInfo app_info to an ApplicationListing.'''
-    display_name = app_info.get_display_name ()
+    display_name = app_info.get_display_name()
     app_id = app_info.get_string('X-Flatpak')
     icon = app_info.get_string('Icon')
 
@@ -64,7 +63,7 @@ def application_listing_from_app_info(app_info):
 
 def list_all_applications(callback):
     '''Convenience function to pass list of ApplicationListing to callback.'''
-    def _callback(src, result):
+    def _callback(_, result):
         '''Callback function that gets called when we are done.'''
         infos = EosCompanionAppService.finish_list_application_infos(result)
         callback([
