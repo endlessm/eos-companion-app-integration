@@ -86,6 +86,24 @@ def quit_on_fail(callback, quit_func):
     return handler
 
 
+def autoquit(callback, quit_func):
+    '''Invoke callback, catching exceptions and propagating to quit_func.
+
+    Otherwise, unlike quit_on_fail, call quit_func without any arguments
+    since it is assumed that this is the last callback that will
+    need to be invoked before the test completes.
+    '''
+    def handler(*args, **kwargs):
+        '''Callback handler.'''
+        try:
+            callback(*args, **kwargs)
+            quit_func()
+        except Exception as exception:
+            quit_func(exception=exception)
+
+    return handler
+
+
 def soup_uri_with_query(uri, querystring):
     '''Create a new SoupURI for uri, with a querystring.'''
     soup_uri = Soup.URI.new(uri)
