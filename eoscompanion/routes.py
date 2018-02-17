@@ -1216,8 +1216,9 @@ COMPANION_APP_ROUTES = {
     '/application_icon': companion_app_server_application_icon_route,
     '/application_colors': companion_app_server_application_colors_route,
     '/list_application_sets': companion_app_server_list_application_sets_route,
-    # pylint-disable: line-too-long
-    '/list_application_content_for_tags': companion_app_server_list_application_content_for_tags_route,
+    '/list_application_content_for_tags': (
+        companion_app_server_list_application_content_for_tags_route
+    ),
     '/content_data': companion_app_server_content_data_route,
     '/content_metadata': companion_app_server_content_metadata_route,
     '/search_content': companion_app_server_search_content_route
