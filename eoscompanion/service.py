@@ -48,4 +48,3 @@ class CompanionAppService(GObject.Object):
         The object is useless after this point.
         '''
         self._server.disconnect()
-
