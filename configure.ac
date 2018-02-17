@@ -113,6 +113,28 @@ AC_SUBST(EXTERNAL_INSTALL_DIR)
 AM_CONDITIONAL([EOS_COMPANION_APP_INTEGRATION_ENABLED], [test "x$EOS_COMPANION_APP_INTEGRATION_ENABLED" = "xyes"])
 AC_SUBST([ADDITIONAL_DISTCHECK_CONFIGURE_FLAGS])
 
+# Check for some tools that we'll need if we're going to be doing
+# any testing
+AC_CHECK_PROG([HAVE_BASIN], [basin], ["yes"], ["no"])
+AC_CHECK_PROG([HAVE_FLATPAK], [flatpak], ["yes"], ["no"])
+AC_CHECK_PROG([HAVE_GLIB_COMPILE_RESOURCES], [glib-compile-resources], ["yes"], ["no"])
+AC_CHECK_PROG([HAVE_PYTHON3], [python3], ["yes"], ["no"])
+AC_MSG_CHECKING([if tests can be run on this build])
+
+# Need to have some odd formatting here due to the fact that
+# an if-condition line on a shell script must end with either
+# a logical operand or a semicolon
+AS_IF([
+  test "x$HAVE_BASIN" == "xyes" &&
+  test "x$HAVE_FLATPAK" == "xyes" &&
+  test "x$HAVE_GLIB_COMPILE_RESOURCES" == "xyes" &&
+  test "x$HAVE_PYTHON3" == "xyes"], [
+  HAVE_TESTING_PROGS="yes"
+], [
+  HAVE_TESTING_PROGS="no"
+])
+AC_MSG_RESULT([$HAVE_TESTING_PROGS])
+AM_CONDITIONAL([EOS_COMPANION_APP_SERVICE_ENABLE_TESTING], [test "x$HAVE_TESTING_PROGS" == "xyes"])
 
 AC_CONFIG_FILES([
   Makefile
