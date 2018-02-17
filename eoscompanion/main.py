@@ -1386,8 +1386,21 @@ def companion_app_server_search_content_route(server, msg, path, query, *args):
         When searching all applications, we do not apply a per-application
         offset, but we do apply a per-application limit since the limit is
         meant to be the upper bound.
+
+        Note that the per-application limit actually needs to
+        be the upper bound of the slice that we take from all query
+        results, since the offset is applied to the reconciled
+        set and not each individual source. For instance, if we
+        have a limit of 1 and an offset of 1, then we need at least
+        two results from a single source in order to apply that
+        global limit and offset correctly, otherwise the slice would
+        run off the end of the result set when we could have had more.
         '''
-        _search_all_applications(applications, limit, offset, limit, 0)
+        _search_all_applications(applications,
+                                 limit,
+                                 offset,
+                                 (limit or 0) + (offset or 0),
+                                 0)
 
 
     def _on_got_application_info(src, result):
