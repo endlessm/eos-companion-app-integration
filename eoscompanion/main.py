@@ -1153,8 +1153,8 @@ def companion_app_server_search_content_route(server, msg, path, query, *args):
     limit the scope of the search:
     “applicationId”: [machine readable application ID, returned
                       by /list_applications],
-    “setIds”: [machine readable set IDs, semicolon delimited,
-               returned by /list_application_sets],
+    “tags”: [machine readable set IDs, semicolon delimited,
+             returned by /list_application_sets],
     “limit”: [machine readable limit integer, default 50],
     “offset”: [machine readable offset integer, default 0],
     “searchTerm”: [search term, string]
