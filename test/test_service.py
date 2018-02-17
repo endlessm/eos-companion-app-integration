@@ -382,38 +382,33 @@ class TestCompanionAppService(TestCase):
         force_remove_directory(cls.flatpak_installation_dir)
 
     @with_main_loop
-    def test_make_connection_to_authenticate(self, quit):
+    def test_make_connection_to_authenticate(self, quit_cb):
         '''Ensure that we can authenticate with the serivce.'''
-        def on_received_response(obj, result):
+        def on_received_response(response):
             '''Called when we receive a response from the server.'''
-            stream = obj.send_finish(result)
-            bytes = stream.read_bytes(8096, None)
-            self.assertTrue(json.loads(bytes.get_data().decode())['status'] == 'ok')
-            quit()
+            self.assertTrue(response['status'] == 'ok')
 
         self.service = CompanionAppService(Holdable(), self.port)
         json_http_request_with_uuid('Some UUID',
                                     local_endpoint(self.port,
                                                    'device_authenticate'),
                                     {},
-                                    on_received_response)
+                                    handle_json(autoquit(on_received_response,
+                                                         quit_cb)))
 
     @with_main_loop
-    def test_connection_reject_if_no_uuid(self, quit):
+    def test_connection_reject_if_no_uuid(self, quit_cb):
         '''Reject connection if UUID is not provided.'''
-        def on_received_response(obj, result):
+        def on_received_response(response):
             '''Called when we receive a response from the server.'''
-            stream = obj.send_finish(result)
-            bytes = stream.read_bytes(8096, None)
-            response = json.loads(bytes.get_data().decode())
             self.assertTrue(response['status'] == 'error')
             self.assertTrue(response['error']['code'] == 'INVALID_REQUEST')
-            quit()
 
         self.service = CompanionAppService(Holdable(), self.port)
         json_http_request_with_uuid('',
                                     local_endpoint(self.port,
                                                    'device_authenticate'),
                                     {},
-                                    on_received_response)
+                                    handle_json(autoquit(on_received_response,
+                                                         quit_cb)))
 
