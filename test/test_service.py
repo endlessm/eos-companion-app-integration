@@ -22,6 +22,7 @@ import errno
 import json
 import os
 import pprint
+import re
 import socket
 
 from tempfile import mkdtemp
@@ -517,3 +518,1186 @@ class TestCompanionAppService(TestCase):
                                     handle_json(autoquit(on_received_response,
                                                          quit_cb)))
 
+    @with_main_loop
+    def test_list_applications_contains_video_app(self, quit_cb):
+        '''/list_applications should contain video app.'''
+        def on_received_response(response):
+            '''Called when we receive a response from the server.'''
+            matches_structure(self, {
+                'applicationId': 'org.test.VideoApp',
+                'displayName': 'Video App',
+                'icon': matches_uri_query(self, '/application_icon', {
+                    'iconName': ['org.test.VideoApp'],
+                    'deviceUUID': [FAKE_UUID]
+                }),
+                'language': 'en'
+            })([a for a in response['payload'] if a['applicationId'] == 'org.test.VideoApp'][0])
+
+        self.service = CompanionAppService(Holdable(), self.port)
+        json_http_request_with_uuid(FAKE_UUID,
+                                    local_endpoint(self.port,
+                                                   'list_applications'),
+                                    {},
+                                    handle_json(autoquit(on_received_response,
+                                                         quit_cb)))
+
+
+    @with_main_loop
+    def test_list_applications_error_no_device_uuid(self, quit_cb):
+        '''/list_applications should return error if deviceUUID not set.'''
+        def on_received_response(response):
+            '''Called when we receive a response from the server.'''
+            matches_structure(self, {
+                'status': 'error',
+                'error': {
+                    'code': 'INVALID_REQUEST'
+                }
+            })(response)
+
+        self.service = CompanionAppService(Holdable(), self.port)
+        json_http_request_with_uuid('',
+                                    local_endpoint(self.port,
+                                                   'application_icon'),
+                                    {
+                                        'applicationId': 'org.test.VideoApp'
+                                    },
+                                    handle_json(autoquit(on_received_response,
+                                                         quit_cb)))
+
+    @with_main_loop
+    def test_get_application_icon_video_app(self, quit_cb):
+        '''/application_icon should work for video app.'''
+        def on_received_response(_, headers):
+            '''Called when we receive a response from the server.'''
+            self.assertEqual(headers.get_content_type()[0], 'image/png')
+
+        self.service = CompanionAppService(Holdable(), self.port)
+        json_http_request_with_uuid(FAKE_UUID,
+                                    local_endpoint(self.port,
+                                                   'application_icon'),
+                                    {
+                                        'iconName': 'org.test.VideoApp'
+                                    },
+                                    handle_headers_bytes(autoquit(on_received_response,
+                                                                  quit_cb)))
+
+    @with_main_loop
+    def test_get_application_icon_video_app_error_no_device_uuid(self, quit_cb):
+        '''/application_icon should return error if deviceUUID not set.'''
+        def on_received_response(response):
+            '''Called when we receive a response from the server.'''
+            matches_structure(self, {
+                'status': 'error',
+                'error': {
+                    'code': 'INVALID_REQUEST'
+                }
+            })(response)
+
+        self.service = CompanionAppService(Holdable(), self.port)
+        json_http_request_with_uuid('',
+                                    local_endpoint(self.port,
+                                                   'application_icon'),
+                                    {
+                                        'iconName': 'org.test.VideoApp'
+                                    },
+                                    handle_json(autoquit(on_received_response,
+                                                         quit_cb)))
+
+    @with_main_loop
+    def test_get_application_icon_video_app_error_no_icon_name(self, quit_cb):
+        '''/application_icon should return error if iconName not set.'''
+        def on_received_response(response):
+            '''Called when we receive a response from the server.'''
+            matches_structure(self, {
+                'status': 'error',
+                'error': {
+                    'code': 'INVALID_REQUEST'
+                }
+            })(response)
+
+        self.service = CompanionAppService(Holdable(), self.port)
+        json_http_request_with_uuid('',
+                                    local_endpoint(self.port,
+                                                   'application_icon'),
+                                    {
+                                    },
+                                    handle_json(autoquit(on_received_response,
+                                                         quit_cb)))
+
+    @with_main_loop
+    def test_get_application_icon_video_app_error_bad_icon_name(self, quit_cb):
+        '''/application_icon should return error if iconName is not valid.'''
+        def on_received_response(response):
+            '''Called when we receive a response from the server.'''
+            matches_structure(self, {
+                'status': 'error',
+                'error': {
+                    'code': 'INVALID_REQUEST'
+                }
+            })(response)
+
+        self.service = CompanionAppService(Holdable(), self.port)
+        json_http_request_with_uuid('',
+                                    local_endpoint(self.port,
+                                                   'application_icon'),
+                                    {
+                                        'iconName': 'org.this.Icon.Name.DNE'
+                                    },
+                                    handle_json(autoquit(on_received_response,
+                                                         quit_cb)))
+
+    @with_main_loop
+    def test_get_application_colors_video_app(self, quit_cb):
+        '''/application_colors should work for video app.'''
+        def on_received_response(response):
+            '''Called when we receive a response from the server.'''
+            sorted_arrays_match(self,
+                                ['#4573d9', '#98b8ff'])(response['payload']['colors'])
+
+        self.service = CompanionAppService(Holdable(), self.port)
+        json_http_request_with_uuid(FAKE_UUID,
+                                    local_endpoint(self.port,
+                                                   'application_colors'),
+                                    {
+                                        'applicationId': 'org.test.VideoApp'
+                                    },
+                                    handle_json(autoquit(on_received_response,
+                                                         quit_cb)))
+
+    @with_main_loop
+    def test_get_application_colors_video_app_error_no_device_uuid(self, quit_cb):
+        '''/application_colors should return error if deviceUUID not set.'''
+        def on_received_response(response):
+            '''Called when we receive a response from the server.'''
+            matches_structure(self, {
+                'status': 'error',
+                'error': {
+                    'code': 'INVALID_REQUEST'
+                }
+            })(response)
+
+        self.service = CompanionAppService(Holdable(), self.port)
+        json_http_request_with_uuid('',
+                                    local_endpoint(self.port,
+                                                   'application_colors'),
+                                    {
+                                        'applicationId': 'org.test.VideoApp'
+                                    },
+                                    handle_json(autoquit(on_received_response,
+                                                         quit_cb)))
+
+    @with_main_loop
+    def test_get_application_colors_video_app_error_no_application_id(self, quit_cb):
+        '''/application_colors should return error if applicationId not set.'''
+        def on_received_response(response):
+            '''Called when we receive a response from the server.'''
+            matches_structure(self, {
+                'status': 'error',
+                'error': {
+                    'code': 'INVALID_REQUEST'
+                }
+            })(response)
+
+        self.service = CompanionAppService(Holdable(), self.port)
+        json_http_request_with_uuid(FAKE_UUID,
+                                    local_endpoint(self.port,
+                                                   'application_colors'),
+                                    {
+                                    },
+                                    handle_json(autoquit(on_received_response,
+                                                         quit_cb)))
+
+    @with_main_loop
+    def test_get_application_colors_video_app_error_bad_application_id(self, quit_cb):
+        '''/application_colors should return error if applicationId is not valid.'''
+        def on_received_response(response):
+            '''Called when we receive a response from the server.'''
+            matches_structure(self, {
+                'status': 'error',
+                'error': {
+                    'code': 'INVALID_APP_ID'
+                }
+            })(response)
+
+        self.service = CompanionAppService(Holdable(), self.port)
+        json_http_request_with_uuid(FAKE_UUID,
+                                    local_endpoint(self.port,
+                                                   'application_colors'),
+                                    {
+                                        'applicationId': 'org.this.App.DNE'
+                                    },
+                                    handle_json(autoquit(on_received_response,
+                                                         quit_cb)))
+
+    @with_main_loop
+    def test_get_application_sets_video_app_colors(self, quit_cb):
+        '''/list_application_sets should include colors.'''
+        def on_received_response(response):
+            '''Called when we receive a response from the server.'''
+            sorted_arrays_match(self,
+                                ['#4573d9', '#98b8ff'])(response['payload']['colors'])
+
+        self.service = CompanionAppService(Holdable(), self.port)
+        json_http_request_with_uuid(FAKE_UUID,
+                                    local_endpoint(self.port,
+                                                   'list_application_sets'),
+                                    {
+                                        'applicationId': 'org.test.VideoApp'
+                                    },
+                                    handle_json(autoquit(on_received_response,
+                                                         quit_cb)))
+
+    @with_main_loop
+    def test_get_application_sets_video_app_home_page_tag(self, quit_cb):
+        '''/list_application_sets should return EknHomePageTag for video app.'''
+        def on_received_response(response):
+            '''Called when we receive a response from the server.'''
+            matches_structure(self, {
+                'tags': ['EknHomePageTag'],
+                'title': 'Video App',
+                'contentType': 'application/x-ekncontent-set',
+                'thumbnail': matches_uri_query(self, '/application_icon', {
+                    'iconName': ['org.test.VideoApp'],
+                    'deviceUUID': [FAKE_UUID]
+                }),
+                'id': '',
+                'global': True
+            })(response['payload']['sets'][0])
+
+        self.service = CompanionAppService(Holdable(), self.port)
+        json_http_request_with_uuid(FAKE_UUID,
+                                    local_endpoint(self.port,
+                                                   'list_application_sets'),
+                                    {
+                                        'applicationId': 'org.test.VideoApp'
+                                    },
+                                    handle_json(autoquit(on_received_response,
+                                                         quit_cb)))
+
+    @with_main_loop
+    def test_get_application_sets_content_app(self, quit_cb):
+        '''/list_application_sets should return correct tags for content app.'''
+        def on_received_response(response):
+            '''Called when we receive a response from the server.'''
+            matches_structure(self, {
+                'tags': ['First Tag'],
+                'title': 'First Tag Set',
+                'contentType': 'application/x-ekncontent-set',
+                'thumbnail': None,
+                'global': False
+            })(sorted(response['payload']['sets'], key=lambda s: s['title'])[0])
+
+        self.service = CompanionAppService(Holdable(), self.port)
+        json_http_request_with_uuid(FAKE_UUID,
+                                    local_endpoint(self.port,
+                                                   'list_application_sets'),
+                                    {
+                                        'applicationId': 'org.test.ContentApp'
+                                    },
+                                    handle_json(autoquit(on_received_response,
+                                                         quit_cb)))
+
+    @with_main_loop
+    def test_get_application_sets_video_app_error_no_device_uuid(self, quit_cb):
+        '''/list_application_sets should return error if deviceUUID not set.'''
+        def on_received_response(response):
+            '''Called when we receive a response from the server.'''
+            matches_structure(self, {
+                'status': 'error',
+                'error': {
+                    'code': 'INVALID_REQUEST'
+                }
+            })(response)
+
+        self.service = CompanionAppService(Holdable(), self.port)
+        json_http_request_with_uuid('',
+                                    local_endpoint(self.port,
+                                                   'list_application_sets'),
+                                    {
+                                        'applicationId': 'org.test.VideoApp'
+                                    },
+                                    handle_json(autoquit(on_received_response,
+                                                         quit_cb)))
+
+    @with_main_loop
+    def test_get_application_sets_video_app_error_no_application_id(self, quit_cb):
+        '''/list_application_sets should return error if applicationId not set.'''
+        def on_received_response(response):
+            '''Called when we receive a response from the server.'''
+            matches_structure(self, {
+                'status': 'error',
+                'error': {
+                    'code': 'INVALID_REQUEST'
+                }
+            })(response)
+
+        self.service = CompanionAppService(Holdable(), self.port)
+        json_http_request_with_uuid(FAKE_UUID,
+                                    local_endpoint(self.port,
+                                                   'list_application_sets'),
+                                    {
+                                    },
+                                    handle_json(autoquit(on_received_response,
+                                                         quit_cb)))
+
+    @with_main_loop
+    def test_get_application_sets_video_app_error_bad_application_id(self, quit_cb):
+        '''/list_application_sets should return error if applicationID is not valid.'''
+        def on_received_response(response):
+            '''Called when we receive a response from the server.'''
+            matches_structure(self, {
+                'status': 'error',
+                'error': {
+                    'code': 'INVALID_APP_ID'
+                }
+            })(response)
+
+        self.service = CompanionAppService(Holdable(), self.port)
+        json_http_request_with_uuid(FAKE_UUID,
+                                    local_endpoint(self.port,
+                                                   'list_application_sets'),
+                                    {
+                                        'applicationId': 'org.this.App.DNE'
+                                    },
+                                    handle_json(autoquit(on_received_response,
+                                                         quit_cb)))
+
+    @with_main_loop
+    def test_get_application_content_for_tags_video_app_home_page_tag(self, quit_cb):
+        '''/list_application_content_for_tags returns video content listing.'''
+        def on_received_response(response):
+            '''Called when we receive a response from the server.'''
+            first = response['payload'][0]
+            matches_structure(self, {
+                'contentType': 'video/mp4',
+                'displayName': 'Sample Video',
+                'tags': sorted_arrays_match(self, [
+                    'EknArticleObject',
+                    'EknHomePageTag',
+                    'EknMediaObject'
+                ]),
+                'thumbnail': matches_uri_query(self, '/content_data', {
+                    'contentId': [VIDEO_APP_THUMBNAIL_EKN_ID],
+                    'applicationId': ['org.test.VideoApp'],
+                    'deviceUUID': [FAKE_UUID]
+                })
+            })(first)
+
+        self.service = CompanionAppService(Holdable(), self.port)
+        json_http_request_with_uuid(FAKE_UUID,
+                                    local_endpoint(self.port,
+                                                   'list_application_content_for_tags'),
+                                    {
+                                        'applicationId': 'org.test.VideoApp',
+                                        'tags': 'EknHomePageTag'
+                                    },
+                                    handle_json(autoquit(on_received_response,
+                                                         quit_cb)))
+
+    @with_main_loop
+    def test_get_application_content_for_tags_video_app_error_no_device_uuid(self, quit_cb):
+        '''/list_application_content_for_tags should return error if deviceUUID not set.'''
+        def on_received_response(response):
+            '''Called when we receive a response from the server.'''
+            matches_structure(self, {
+                'status': 'error',
+                'error': {
+                    'code': 'INVALID_REQUEST'
+                }
+            })(response)
+
+        self.service = CompanionAppService(Holdable(), self.port)
+        json_http_request_with_uuid('',
+                                    local_endpoint(self.port,
+                                                   'list_application_content_for_tags'),
+                                    {
+                                        'applicationId': 'org.test.VideoApp',
+                                        'tags': 'EknHomePageTag'
+                                    },
+                                    handle_json(autoquit(on_received_response,
+                                                         quit_cb)))
+
+    @with_main_loop
+    def test_get_application_content_for_tags_video_app_error_no_application_id(self, quit_cb):
+        '''/list_application_content_for_tags should return error if applicationId not set.'''
+        def on_received_response(response):
+            '''Called when we receive a response from the server.'''
+            matches_structure(self, {
+                'status': 'error',
+                'error': {
+                    'code': 'INVALID_REQUEST'
+                }
+            })(response)
+
+        self.service = CompanionAppService(Holdable(), self.port)
+        json_http_request_with_uuid(FAKE_UUID,
+                                    local_endpoint(self.port,
+                                                   'list_application_content_for_tags'),
+                                    {
+                                        'tags': 'EknHomePageTag'
+                                    },
+                                    handle_json(autoquit(on_received_response,
+                                                         quit_cb)))
+
+    @with_main_loop
+    def test_get_application_content_for_tags_video_app_error_no_tags(self, quit_cb):
+        '''/list_application_content_for_tags should return error if tags not set.'''
+        def on_received_response(response):
+            '''Called when we receive a response from the server.'''
+            matches_structure(self, {
+                'status': 'error',
+                'error': {
+                    'code': 'INVALID_REQUEST'
+                }
+            })(response)
+
+        self.service = CompanionAppService(Holdable(), self.port)
+        json_http_request_with_uuid(FAKE_UUID,
+                                    local_endpoint(self.port,
+                                                   'list_application_content_for_tags'),
+                                    {
+                                        'applicationId': 'org.test.VideoApp'
+                                    },
+                                    handle_json(autoquit(on_received_response,
+                                                         quit_cb)))
+
+    @with_main_loop
+    def test_get_application_content_for_tags_video_app_error_bad_application_id(self, quit_cb):
+        '''/list_application_sets should return error if applicationID is not valid.'''
+        def on_received_response(response):
+            '''Called when we receive a response from the server.'''
+            matches_structure(self, {
+                'status': 'error',
+                'error': {
+                    'code': 'INVALID_APP_ID'
+                }
+            })(response)
+
+        self.service = CompanionAppService(Holdable(), self.port)
+        json_http_request_with_uuid(FAKE_UUID,
+                                    local_endpoint(self.port,
+                                                   'list_application_content_for_tags'),
+                                    {
+                                        'applicationId': 'org.this.App.DNE',
+                                        'tags': 'EknHomePageTag'
+                                    },
+                                    handle_json(autoquit(on_received_response,
+                                                         quit_cb)))
+
+    @with_main_loop
+    def test_get_content_metadata_video_app(self, quit_cb):
+        '''/content_metadata returns some expected video content metadata.'''
+        def on_received_response(response):
+            '''Called when we receive a response from the server.'''
+            matches_structure(self, {
+                'title': 'Sample Video',
+                'source': 'file.mp4',
+                'contentType': 'video/mp4',
+                'tags': sorted_arrays_match(self, [
+                    'EknArticleObject',
+                    'EknHomePageTag',
+                    'EknMediaObject'
+                ])
+            })(response['payload'])
+
+        def on_received_ekn_id(ekn_id):
+            '''Make a query using the EKN ID.'''
+            json_http_request_with_uuid(FAKE_UUID,
+                                        local_endpoint(self.port,
+                                                       'content_metadata'),
+                                        {
+                                            'applicationId': 'org.test.VideoApp',
+                                            'contentId': ekn_id
+                                        },
+                                        handle_json(autoquit(on_received_response,
+                                                             quit_cb)))
+
+        self.service = CompanionAppService(Holdable(), self.port)
+        fetch_first_content_id('org.test.VideoApp',
+                               ['EknHomePageTag'],
+                               self.port,
+                               on_received_ekn_id,
+                               quit_cb)
+
+    @with_main_loop
+    def test_get_content_metadata_video_app_error_no_device_uuid(self, quit_cb):
+        '''/content_metadata returns an error if deviceUUID is not set.'''
+        def on_received_response(response):
+            '''Called when we receive a response from the server.'''
+            matches_structure(self, {
+                'status': 'error',
+                'error': {
+                    'code': 'INVALID_REQUEST'
+                }
+            })(response)
+
+        def on_received_ekn_id(ekn_id):
+            '''Make a query using the EKN ID.'''
+            json_http_request_with_uuid('',
+                                        local_endpoint(self.port,
+                                                       'content_metadata'),
+                                        {
+                                            'applicationId': 'org.test.VideoApp',
+                                            'contentId': ekn_id
+                                        },
+                                        handle_json(autoquit(on_received_response,
+                                                             quit_cb)))
+
+        self.service = CompanionAppService(Holdable(), self.port)
+        fetch_first_content_id('org.test.VideoApp',
+                               ['EknHomePageTag'],
+                               self.port,
+                               on_received_ekn_id,
+                               quit_cb)
+
+    @with_main_loop
+    def test_get_content_metadata_video_app_error_no_application_id(self, quit_cb):
+        '''/content_metadata returns an error if applicationId is not set.'''
+        def on_received_response(response):
+            '''Called when we receive a response from the server.'''
+            matches_structure(self, {
+                'status': 'error',
+                'error': {
+                    'code': 'INVALID_REQUEST'
+                }
+            })(response)
+
+        def on_received_ekn_id(ekn_id):
+            '''Make a query using the EKN ID.'''
+            json_http_request_with_uuid(FAKE_UUID,
+                                        local_endpoint(self.port,
+                                                       'content_metadata'),
+                                        {
+                                            'contentId': ekn_id
+                                        },
+                                        handle_json(autoquit(on_received_response,
+                                                             quit_cb)))
+
+        self.service = CompanionAppService(Holdable(), self.port)
+        fetch_first_content_id('org.test.VideoApp',
+                               ['EknHomePageTag'],
+                               self.port,
+                               on_received_ekn_id,
+                               quit_cb)
+
+    @with_main_loop
+    def test_get_content_metadata_video_app_error_no_content_id(self, quit_cb):
+        '''/content_metadata returns an error if contentId is not set.'''
+        def on_received_response(response):
+            '''Called when we receive a response from the server.'''
+            matches_structure(self, {
+                'status': 'error',
+                'error': {
+                    'code': 'INVALID_REQUEST'
+                }
+            })(response)
+
+        def on_received_ekn_id(_):
+            '''Make a query.'''
+            json_http_request_with_uuid(FAKE_UUID,
+                                        local_endpoint(self.port,
+                                                       'content_metadata'),
+                                        {
+                                            'applicationId': 'org.test.VideoApp'
+                                        },
+                                        handle_json(autoquit(on_received_response,
+                                                             quit_cb)))
+
+        self.service = CompanionAppService(Holdable(), self.port)
+        fetch_first_content_id('org.test.VideoApp',
+                               ['EknHomePageTag'],
+                               self.port,
+                               on_received_ekn_id,
+                               quit_cb)
+
+    @with_main_loop
+    def test_get_content_metadata_video_app_error_bad_application_id(self, quit_cb):
+        '''/content_metadata returns an error applicationId is not valid.'''
+        def on_received_response(response):
+            '''Called when we receive a response from the server.'''
+            matches_structure(self, {
+                'status': 'error',
+                'error': {
+                    'code': 'INVALID_APP_ID'
+                }
+            })(response)
+
+        def on_received_ekn_id(ekn_id):
+            '''Make a query using the EKN ID.'''
+            json_http_request_with_uuid(FAKE_UUID,
+                                        local_endpoint(self.port,
+                                                       'content_metadata'),
+                                        {
+                                            'applicationId': 'org.this.App.DNE',
+                                            'contentId': ekn_id
+                                        },
+                                        handle_json(autoquit(on_received_response,
+                                                             quit_cb),))
+
+        self.service = CompanionAppService(Holdable(), self.port)
+        fetch_first_content_id('org.test.VideoApp',
+                               ['EknHomePageTag'],
+                               self.port,
+                               on_received_ekn_id,
+                               quit_cb)
+
+    @with_main_loop
+    def test_get_content_metadata_video_app_error_bad_content_id(self, quit_cb):
+        '''/content_metadata returns an error contentId is not valid.'''
+        def on_received_response(response):
+            '''Called when we receive a response from the server.'''
+            matches_structure(self, {
+                'status': 'error',
+                'error': {
+                    'code': 'INVALID_CONTENT_ID'
+                }
+            })(response)
+
+        def on_received_ekn_id(_):
+            '''Make a query using a bad EKN ID.'''
+            json_http_request_with_uuid(FAKE_UUID,
+                                        local_endpoint(self.port,
+                                                       'content_metadata'),
+                                        {
+                                            'applicationId': 'org.test.VideoApp',
+                                            'contentId': 'nonexistent'
+                                        },
+                                        handle_json(autoquit(on_received_response,
+                                                             quit_cb)))
+
+        self.service = CompanionAppService(Holdable(), self.port)
+        fetch_first_content_id('org.test.VideoApp',
+                               ['EknHomePageTag'],
+                               self.port,
+                               on_received_ekn_id,
+                               quit_cb)
+
+    @with_main_loop
+    def test_get_content_data_video_app(self, quit_cb):
+        '''/content_data returns some expected video content data.'''
+        def on_received_response(msg_bytes, headers):
+            '''Called when we receive a response from the server.'''
+            test_string = ('Not actually an MPEG-4 file, '
+                           'just a placeholder for tests\n')
+            self.assertEqual(msg_bytes.get_data().decode('utf-8'), test_string)
+            self.assertEqual(headers.get_content_length(), len(test_string))
+            self.assertEqual(headers.get_content_type()[0], 'video/mp4')
+
+        def on_received_ekn_id(ekn_id):
+            '''Make a query using the EKN ID.'''
+            json_http_request_with_uuid(FAKE_UUID,
+                                        local_endpoint(self.port,
+                                                       'content_data'),
+                                        {
+                                            'applicationId': 'org.test.VideoApp',
+                                            'contentId': ekn_id
+                                        },
+                                        handle_headers_bytes(autoquit(on_received_response,
+                                                                      quit_cb)))
+
+        self.service = CompanionAppService(Holdable(), self.port)
+        fetch_first_content_id('org.test.VideoApp',
+                               ['EknHomePageTag'],
+                               self.port,
+                               on_received_ekn_id,
+                               quit_cb)
+
+    @with_main_loop
+    def test_get_content_data_content_app(self, quit_cb):
+        '''/content_data returns rewritten content app data.'''
+        def on_received_response(msg_bytes, headers):
+            '''Called when we receive a response from the server.'''
+            body = msg_bytes.get_data().decode('utf-8')
+
+            self.assertTrue(re.match(r'^.*<img src="\/content_data.*$',
+                                     body,
+                                     flags=re.MULTILINE | re.DOTALL) != None)
+
+            self.assertEqual(headers.get_content_length(), len(body))
+            self.assertEqual(headers.get_content_type()[0], 'text/html')
+
+        def on_received_ekn_id(ekn_id):
+            '''Make a query using the EKN ID.'''
+            json_http_request_with_uuid(FAKE_UUID,
+                                        local_endpoint(self.port,
+                                                       'content_data'),
+                                        {
+                                            'applicationId': 'org.test.ContentApp',
+                                            'contentId': ekn_id
+                                        },
+                                        handle_headers_bytes(autoquit(on_received_response,
+                                                                      quit_cb)))
+
+        self.service = CompanionAppService(Holdable(), self.port)
+        fetch_first_content_id('org.test.ContentApp',
+                               ['First Tag'],
+                               self.port,
+                               on_received_ekn_id,
+                               quit_cb)
+
+    @with_main_loop
+    def test_get_content_data_video_app_ranges(self, quit_cb):
+        '''/content_data returns some expected partial video content data.'''
+        def on_received_response(msg_bytes, headers):
+            '''Called when we receive a response from the server.'''
+            # Range is inclusive, python ranges are exclusive, so add 1
+            test_string = ('Not actually an MPEG-4 file, '
+                           'just a placeholder for tests\n')
+            self.assertEqual(msg_bytes.get_data().decode('utf-8'), test_string[1:11])
+            self.assertEqual(headers.get_content_length(), 10)
+            self.assertEqual(headers.get_content_type()[0], 'video/mp4')
+            self.assertEqual(headers.get_one('Accept-Ranges'), 'bytes')
+            self.assertEqual(
+                headers.get_one('Content-Range'),
+                'bytes 1-10/{}'.format(len(test_string))
+            )
+
+        def on_received_ekn_id(ekn_id):
+            '''Make a query using the EKN ID.'''
+            json_http_request_with_uuid(FAKE_UUID,
+                                        local_endpoint(self.port,
+                                                       'content_data'),
+                                        {
+                                            'applicationId': 'org.test.VideoApp',
+                                            'contentId': ekn_id
+                                        },
+                                        handle_headers_bytes(autoquit(on_received_response,
+                                                                      quit_cb)),
+                                        headers={
+                                            'Range': 'bytes=1-10'
+                                        })
+
+        self.service = CompanionAppService(Holdable(), self.port)
+        fetch_first_content_id('org.test.VideoApp',
+                               ['EknHomePageTag'],
+                               self.port,
+                               on_received_ekn_id,
+                               quit_cb)
+
+    @with_main_loop
+    def test_get_content_data_video_app_error_no_device_uuid(self, quit_cb):
+        '''/content_data returns an error if deviceUUID is not set.'''
+        def on_received_response(response):
+            '''Called when we receive a response from the server.'''
+            matches_structure(self, {
+                'status': 'error',
+                'error': {
+                    'code': 'INVALID_REQUEST'
+                }
+            })(response)
+
+        def on_received_ekn_id(ekn_id):
+            '''Make a query using the EKN ID.'''
+            json_http_request_with_uuid('',
+                                        local_endpoint(self.port,
+                                                       'content_data'),
+                                        {
+                                            'applicationId': 'org.test.VideoApp',
+                                            'contentId': ekn_id
+                                        },
+                                        handle_json(autoquit(on_received_response,
+                                                             quit_cb)))
+
+        self.service = CompanionAppService(Holdable(), self.port)
+        fetch_first_content_id('org.test.VideoApp',
+                               ['EknHomePageTag'],
+                               self.port,
+                               on_received_ekn_id,
+                               quit_cb)
+
+    @with_main_loop
+    def test_get_content_data_video_app_error_no_application_id(self, quit_cb):
+        '''/content_data returns an error if applicationId is not set.'''
+        def on_received_response(response):
+            '''Called when we receive a response from the server.'''
+            matches_structure(self, {
+                'status': 'error',
+                'error': {
+                    'code': 'INVALID_REQUEST'
+                }
+            })(response)
+
+        def on_received_ekn_id(ekn_id):
+            '''Make a query using the EKN ID.'''
+            json_http_request_with_uuid(FAKE_UUID,
+                                        local_endpoint(self.port,
+                                                       'content_data'),
+                                        {
+                                            'contentId': ekn_id
+                                        },
+                                        handle_json(autoquit(on_received_response,
+                                                             quit_cb)))
+
+        self.service = CompanionAppService(Holdable(), self.port)
+        fetch_first_content_id('org.test.VideoApp',
+                               ['EknHomePageTag'],
+                               self.port,
+                               on_received_ekn_id,
+                               quit_cb)
+
+    @with_main_loop
+    def test_get_content_data_video_app_error_no_content_id(self, quit_cb):
+        '''/content_data returns an error if contentId is not set.'''
+        def on_received_response(response):
+            '''Called when we receive a response from the server.'''
+            matches_structure(self, {
+                'status': 'error',
+                'error': {
+                    'code': 'INVALID_REQUEST'
+                }
+            })(response)
+
+        def on_received_ekn_id(_):
+            '''Make a query using no EKN ID.'''
+            json_http_request_with_uuid(FAKE_UUID,
+                                        local_endpoint(self.port,
+                                                       'content_data'),
+                                        {
+                                            'applicationId': 'org.test.VideoApp'
+                                        },
+                                        handle_json(autoquit(on_received_response,
+                                                             quit_cb)))
+
+        self.service = CompanionAppService(Holdable(), self.port)
+        fetch_first_content_id('org.test.VideoApp',
+                               ['EknHomePageTag'],
+                               self.port,
+                               on_received_ekn_id,
+                               quit_cb)
+
+    @with_main_loop
+    def test_get_content_data_video_app_error_bad_application_id(self, quit_cb):
+        '''/content_data returns an error applicationId is not valid.'''
+        def on_received_response(response):
+            '''Called when we receive a response from the server.'''
+            matches_structure(self, {
+                'status': 'error',
+                'error': {
+                    'code': 'INVALID_APP_ID'
+                }
+            })(response)
+
+        def on_received_ekn_id(ekn_id):
+            '''Make a query using the EKN ID.'''
+            json_http_request_with_uuid(FAKE_UUID,
+                                        local_endpoint(self.port,
+                                                       'content_data'),
+                                        {
+                                            'applicationId': 'org.this.App.DNE',
+                                            'contentId': ekn_id
+                                        },
+                                        handle_json(autoquit(on_received_response,
+                                                             quit_cb)))
+
+        self.service = CompanionAppService(Holdable(), self.port)
+        fetch_first_content_id('org.test.VideoApp',
+                               ['EknHomePageTag'],
+                               self.port,
+                               on_received_ekn_id,
+                               quit_cb)
+
+    @with_main_loop
+    def test_get_content_data_video_app_error_bad_content_id(self, quit_cb):
+        '''/content_data returns an error contentId is not valid.'''
+        def on_received_response(response):
+            '''Called when we receive a response from the server.'''
+            matches_structure(self, {
+                'status': 'error',
+                'error': {
+                    'code': 'INVALID_CONTENT_ID'
+                }
+            })(response)
+
+        def on_received_ekn_id(_):
+            '''Make a query using bad EKN ID.'''
+            json_http_request_with_uuid(FAKE_UUID,
+                                        local_endpoint(self.port,
+                                                       'content_data'),
+                                        {
+                                            'applicationId': 'org.test.VideoApp',
+                                            'contentId': 'nonexistent'
+                                        },
+                                        handle_json(autoquit(on_received_response,
+                                                             quit_cb)))
+
+        self.service = CompanionAppService(Holdable(), self.port)
+        fetch_first_content_id('org.test.VideoApp',
+                               ['EknHomePageTag'],
+                               self.port,
+                               on_received_ekn_id,
+                               quit_cb)
+
+    @with_main_loop
+    def test_search_content_by_application_id(self, quit_cb):
+        '''/search_content is able to find content by applicationId.'''
+        def on_received_response(response):
+            '''Called when we receive a response from the server.'''
+            applications = response['payload']['applications']
+            results = response['payload']['results']
+
+            matches_structure(self, {
+                'applicationId': 'org.test.VideoApp'
+            })(applications[0])
+            matches_structure(self, {
+                'displayName': 'Sample Video',
+                'payload': {
+                    'applicationId': 'org.test.VideoApp',
+                    'contentType': 'video/mp4',
+                    'tags': sorted_arrays_match(self, [
+                        'EknArticleObject',
+                        'EknHomePageTag',
+                        'EknMediaObject'
+                    ]),
+                    'thumbnail': matches_uri_query(self, '/content_data', {
+                        'applicationId': ['org.test.VideoApp'],
+                        'contentId': [VIDEO_APP_THUMBNAIL_EKN_ID],
+                        'deviceUUID': [FAKE_UUID]
+                    })
+                }
+            })(results[0])
+
+        self.service = CompanionAppService(Holdable(), self.port)
+        json_http_request_with_uuid(FAKE_UUID,
+                                    local_endpoint(self.port,
+                                                   'search_content'),
+                                    {
+                                        'applicationId': 'org.test.VideoApp'
+                                    },
+                                    handle_json(autoquit(on_received_response,
+                                                         quit_cb)))
+
+    @with_main_loop
+    def test_search_content_by_tags(self, quit_cb):
+        '''/search_content is able to find content by tags.'''
+        def on_received_response(response):
+            '''Called when we receive a response from the server.'''
+            applications = response['payload']['applications']
+            results = response['payload']['results']
+
+            matches_structure(self, {
+                'applicationId': 'org.test.VideoApp'
+            })(applications[0])
+            matches_structure(self, {
+                'displayName': 'Sample Video',
+                'payload': {
+                    'applicationId': 'org.test.VideoApp',
+                    'contentType': 'video/mp4',
+                    'tags': sorted_arrays_match(self, [
+                        'EknArticleObject',
+                        'EknHomePageTag',
+                        'EknMediaObject'
+                    ]),
+                    'thumbnail': matches_uri_query(self, '/content_data', {
+                        'applicationId': ['org.test.VideoApp'],
+                        'contentId': [VIDEO_APP_THUMBNAIL_EKN_ID],
+                        'deviceUUID': [FAKE_UUID]
+                    })
+                }
+            })(results[0])
+
+        self.service = CompanionAppService(Holdable(), self.port)
+        json_http_request_with_uuid(FAKE_UUID,
+                                    local_endpoint(self.port,
+                                                   'search_content'),
+                                    {
+                                        'tags': 'EknHomePageTag'
+                                    },
+                                    handle_json(autoquit(on_received_response,
+                                                         quit_cb)))
+
+    @with_main_loop
+    def test_search_content_by_search_term(self, quit_cb):
+        '''/search_content is able to find content by searchTerm.'''
+        def on_received_response(response):
+            '''Called when we receive a response from the server.'''
+            applications = response['payload']['applications']
+            results = response['payload']['results']
+
+            sorted_arrays_match(self, [
+                matches_structure(self, {
+                    'applicationId': 'org.test.ContentApp'
+                }),
+                matches_structure(self, {
+                    'applicationId': 'org.test.VideoApp'
+                })
+            ], key=lambda s: s['applicationId'])(applications)
+            sorted_arrays_match(self, [
+                matches_structure(self, {
+                    'displayName': 'Sample Article 1',
+                    'payload': {
+                        'applicationId': 'org.test.ContentApp',
+                        'contentType': 'text/html',
+                        'tags': sorted_arrays_match(self, [
+                            'EknArticleObject',
+                            'First Tag',
+                        ]),
+                        'thumbnail': matches_uri_query(self, '/content_data', {
+                            'applicationId': ['org.test.ContentApp'],
+                            'contentId': [CONTENT_APP_THUMBNAIL_EKN_ID],
+                            'deviceUUID': [FAKE_UUID]
+                        })
+                    }
+                }),
+                matches_structure(self, {
+                    'displayName': 'Sample Article 2',
+                    'payload': {
+                        'applicationId': 'org.test.ContentApp',
+                        'contentType': 'text/html',
+                        'tags': sorted_arrays_match(self, [
+                            'EknArticleObject',
+                            'Second Tag',
+                        ]),
+                        'thumbnail': matches_uri_query(self, '/content_data', {
+                            'applicationId': ['org.test.ContentApp'],
+                            'contentId': [CONTENT_APP_THUMBNAIL_EKN_ID],
+                            'deviceUUID': [FAKE_UUID]
+                        })
+                    }
+                }),
+                matches_structure(self, {
+                    'displayName': 'Sample Video',
+                    'payload': {
+                        'applicationId': 'org.test.VideoApp',
+                        'contentType': 'video/mp4',
+                        'tags': sorted_arrays_match(self, [
+                            'EknArticleObject',
+                            'EknHomePageTag',
+                            'EknMediaObject'
+                        ]),
+                        'thumbnail': matches_uri_query(self, '/content_data', {
+                            'applicationId': ['org.test.VideoApp'],
+                            'contentId': [VIDEO_APP_THUMBNAIL_EKN_ID],
+                            'deviceUUID': [FAKE_UUID]
+                        })
+                    }
+                })
+            ], key=lambda s: s['displayName'])(results)
+
+        self.service = CompanionAppService(Holdable(), self.port)
+        json_http_request_with_uuid(FAKE_UUID,
+                                    local_endpoint(self.port,
+                                                   'search_content'),
+                                    {
+                                        'searchTerm': 'Sampl'
+                                    },
+                                    handle_json(autoquit(on_received_response,
+                                                         quit_cb)))
+
+    @with_main_loop
+    def test_search_content_limit_and_offset(self, quit_cb):
+        '''/search_content is able to apply limits and offsets.'''
+        def on_received_response(response):
+            '''Called when we receive a response from the server.'''
+            applications = response['payload']['applications']
+            results = response['payload']['results']
+
+            sorted_arrays_match(self, [
+                matches_structure(self, {
+                    'applicationId': 'org.test.ContentApp'
+                })
+            ], key=lambda s: s['applicationId'])(applications)
+            sorted_arrays_match(self, [
+                matches_structure(self, {
+                    'displayName': 'Sample Article 2',
+                    'payload': {
+                        'applicationId': 'org.test.ContentApp',
+                        'contentType': 'text/html',
+                        'tags': sorted_arrays_match(self, [
+                            'EknArticleObject',
+                            'Second Tag',
+                        ]),
+                        'thumbnail': matches_uri_query(self, '/content_data', {
+                            'applicationId': ['org.test.ContentApp'],
+                            'contentId': [CONTENT_APP_THUMBNAIL_EKN_ID],
+                            'deviceUUID': [FAKE_UUID]
+                        })
+                    }
+                })
+            ], key=lambda s: s['displayName'])(results)
+
+        self.service = CompanionAppService(Holdable(), self.port)
+        json_http_request_with_uuid(FAKE_UUID,
+                                    local_endpoint(self.port,
+                                                   'search_content'),
+                                    {
+                                        'searchTerm': 'Sampl',
+                                        'offset': 1,
+                                        'limit': 1
+                                    },
+                                    handle_json(autoquit(on_received_response,
+                                                         quit_cb)))
+
+    @with_main_loop
+    def test_search_content_applications(self, quit_cb):
+        '''/search_content is able to search for applications.'''
+        def on_received_response(response):
+            '''Called when we receive a response from the server.'''
+            applications = response['payload']['applications']
+            results = response['payload']['results']
+
+            sorted_arrays_match(self, [
+                matches_structure(self, {
+                    'applicationId': 'org.test.ContentApp'
+                })
+            ], key=lambda s: s['applicationId'])(applications)
+            sorted_arrays_match(self, [
+                matches_structure(self, {
+                    'displayName': 'Content App',
+                    'payload': {
+                        'applicationId': 'org.test.ContentApp'
+                    }
+                })
+            ], key=lambda s: s['displayName'])(results)
+
+        self.service = CompanionAppService(Holdable(), self.port)
+        json_http_request_with_uuid(FAKE_UUID,
+                                    local_endpoint(self.port,
+                                                   'search_content'),
+                                    {
+                                        'searchTerm': 'Content'
+                                    },
+                                    handle_json(autoquit(on_received_response,
+                                                         quit_cb)))
+
+    @with_main_loop
+    def test_search_content_error_no_filters(self, quit_cb):
+        '''/search_content returns error if no filters specified.'''
+        def on_received_response(response):
+            '''Called when we receive a response from the server.'''
+            matches_structure(self, {
+                'status': 'error',
+                'error': {
+                    'code': 'INVALID_REQUEST'
+                }
+            })(response)
+
+        self.service = CompanionAppService(Holdable(), self.port)
+        json_http_request_with_uuid(FAKE_UUID,
+                                    local_endpoint(self.port,
+                                                   'search_content'),
+                                    {
+                                    },
+                                    handle_json(autoquit(on_received_response,
+                                                         quit_cb)))
+
+    @with_main_loop
+    def test_search_content_error_bad_app_id(self, quit_cb):
+        '''/search_content returns error if invalid applicationId is specified.'''
+        def on_received_response(response):
+            '''Called when we receive a response from the server.'''
+            matches_structure(self, {
+                'status': 'error',
+                'error': {
+                    'code': 'INVALID_APP_ID'
+                }
+            })(response)
+
+        self.service = CompanionAppService(Holdable(), self.port)
+        json_http_request_with_uuid(FAKE_UUID,
+                                    local_endpoint(self.port,
+                                                   'search_content'),
+                                    {
+                                        'applicationId': 'org.test.This.DNE'
+                                    },
+                                    handle_json(autoquit(on_received_response,
+                                                         quit_cb)))
