@@ -18,9 +18,10 @@
 # All rights reserved.
 '''Main executable entry point for eos-companion-app-service.'''
 
-import gi
 import os
 import sys
+
+import gi
 
 gi.require_version('EosCompanionAppService', '1.0')
 gi.require_version('EosKnowledgeContent', '0')
@@ -29,7 +30,6 @@ gi.require_version('EosShard', '0')
 
 from gi.repository import (
     EosCompanionAppService,
-    EosKnowledgeContent as Eknc,
     Gio,
     GLib,
 )
@@ -91,17 +91,20 @@ class CompanionAppApplication(Gio.Application):
         })
         super(CompanionAppApplication, self).__init__(*args, **kwargs)
 
-    def do_startup(self):
+        self._service = None
+        self._inhibit_fd = None
+
+    def do_startup(self, *args, **kwargs):
         '''Just print a message.'''
-        Gio.Application.do_startup(self)
+        Gio.Application.do_startup(self, *args, **kwargs)
 
         if os.environ.get('EOS_COMPANION_APP_SERVICE_PERSIST', None):
-          self.hold()
+            self.hold()
 
         Gio.bus_get(Gio.BusType.SYSTEM, None, self._on_got_system_bus)
         self._service = CompanionAppService(self, 1110)
 
-    def _on_got_inhibit_fd(self, error, fd):
+    def _on_got_inhibit_fd(self, error, filedes):
         '''Report inhibit error or store returned fd.
 
         The returned fd is never closed explicitly, this process will
@@ -117,9 +120,11 @@ class CompanionAppApplication(Gio.Application):
 
         # Hang on to the fd so that we don't lose track of it, even though
         # this is strictly-speaking unused for now.
-        self._inhibit_fd = fd
+        #
+        # pylint-disable: unused-attribute
+        self._inhibit_fd = filedes
 
-    def _on_got_system_bus(self, src, result):
+    def _on_got_system_bus(self, _, result):
         '''Called when we get a system D-Bus connection.'''
         try:
             connection = Gio.bus_get_finish(result)
@@ -131,20 +136,28 @@ class CompanionAppApplication(Gio.Application):
         log('Got system d-bus connection')
         _inhibit_auto_idle(connection, self._on_got_inhibit_fd)
 
-    def do_dbus_register(self, connection, path):
+    def do_dbus_register(self, connection, path, *args, **kwargs):
         '''Invoked when we get a D-Bus connection.'''
         log('Got session d-bus connection at {path}'.format(path=path))
-        return Gio.Application.do_dbus_register(self, connection, path)
+        return Gio.Application.do_dbus_register(self,
+                                                connection,
+                                                path,
+                                                *args,
+                                                **kwargs)
 
-    def do_dbus_unregister(self, connection, path):
+    def do_dbus_unregister(self, connection, path, *args, **kwargs):
         '''Invoked when we lose a D-Bus connection.'''
         log('Lost session d-bus connection at {path}'.format(path=path))
-        return Gio.Application.do_dbus_unregister(self, connection, path)
+        return Gio.Application.do_dbus_unregister(self,
+                                                  connection,
+                                                  path,
+                                                  *args,
+                                                  **kwargs)
 
-    def do_activate(self):
+    def do_activate(self, *args, **kwargs):
         '''Invoked when the application is activated.'''
         log('Activated')
-        return Gio.Application.do_activate(self)
+        return Gio.Application.do_activate(self, *args, **kwargs)
 
 
 def main(args=None):
@@ -167,4 +180,3 @@ def main(args=None):
                     GLib.getenv('XDG_DATA_DIRS') or ''
                 ] + flatpak_export_share_dirs), True)
     CompanionAppApplication().run(args or sys.argv)
-
