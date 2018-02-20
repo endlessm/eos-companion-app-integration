@@ -7,24 +7,50 @@ https://github.com/endlessm/android-companion-app
 
 ## Building
 
-`eos-companion-app-integration` requires Avahi 0.7 (for GObject-Introspection
-bindings to avahi-glib) which is not available in Endless OS. You can get
-Avahi 0.7 from http://avahi.org/download/avahi-0.7.tar.gz and configure it
-with `./autogen.sh --disable-qt3 --disable-qt4 --disable-pygobject --disable-mono`.
+This project encompasses two separate components. The first is a Python
+webservice designed to be bundled with flatpak. On the default `configure`
+target, this service will be built by default. The service itself is linked to
+the `com.endlessm.apps.Platform//3` flatpak runtime and will read information
+from apps linked to that runtime. To explicitly build the service, pass
+`--enable-service --disable-integration` to `./configure`. The service is
+explicitly built when building the flatpak from the
+`com.endlessm.CompanionAppService.json.in` manifest.
 
-Afterwards, this project is setup in such a way that you should just be able
-to use the standard autotools process of
-`./autogen.sh --prefix=YOURPREFIX; make; sudo make install`.
+Separate to the service is a set of integration hooks. These hooks, amongst
+other things, register systemd service and socket files so that the service
+flatpak is automatically started up whenever a device makes a connection
+to the computer. It also includes an 'avahi helper' script, which writes
+some metadata to `/etc/avahi/services` causing the service to be persistently
+registered as an avahi service even when it is not running (but activatable
+by systemd socket activation). Finally, it includes a small 'configuration
+manager' binary which runs on every boot, responsible for reading the
+configuration file and managing the state of the system by enabling or
+disabling systemd services, avahi service files, etc To explicitly build the
+integration hooks, pass `--disable-service --enable-integration`
+to `./configure`. The integration hooks are automatically built when
+building the debian package, `eos-companion-app-os-integration`.
 
 ## Running
 
-You can start the services with `eos-companion-app-service` which will
-automatically register an Avahi service under the name `EOSCompanionAppService`
-(or a variant if that name would collide with another local or remote name). It
-will also register the `com.endlessm.CompanionAppService` name on the
-D-Bus session bus which exports `com.endlessm.CompanionAppService.Service`.
+If installed globally, you can start the service using
+`eos-companion-app-service`. Note that this does not register any avahi
+services - that will need to be done by the integration hooks detailed
+above.
+
+In the normal case, the service will have been installed as a flatpak, in
+which case it can be run with `flatpak run com.endlessm.CompanionAppService`.
+
+## Testing
+
+This package includes a suite of Python tests which test the external
+API of the service. It runs end-to-end and builds some fake applications
+to test from, so you will need `[basin](https://github.com/endlessm/basin)` and
+`[flatpak](https://github.com/flatpak/flatpak)` in order to run
+them. They can be run either from setuptools by using
+`python setup_setuptools.py test` or from automake with `make check`.
 
 ## WARNING
 
-This repo contains a GitHub API key in com.endlessm.CompanionAppService.json.in,
-it should be removed before the repository is made public!!
+This repo history contained a GitHub API key in
+com.endlessm.CompanionAppService.json.in, it should be removed before the
+repository is made public!!
