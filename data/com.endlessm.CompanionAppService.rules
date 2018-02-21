@@ -1,7 +1,11 @@
 polkit.addRule(function(action, subject) {
-    if (action.id == "org.freedesktop.login1.inhibit-block-idle" &&
+    /* If the app is running as a systemd service, for some reason
+     * the inhibit-block-shutdown permission is requested instead of
+     * inhibit-block-sleep. */
+    if ((action.id == "org.freedesktop.login1.inhibit-block-shutdown" ||
+         action.id == "org.freedesktop.login1.inhibit-block-sleep") &&
         subject.user == "companion-app-helper") {
-            polkit.log('Allowing companion-app-helper to block idle');
+            polkit.log('Allowing companion-app-helper to block idle sleep');
             return polkit.Result.YES;
     }
 });
