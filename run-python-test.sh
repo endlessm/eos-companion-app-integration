@@ -1,8 +1,8 @@
-#!/bin/bash
-GI_TYPELIB_PATH=/home/smspillaz/Source/eos-companion-app-integration:$GI_TYPELIB_PATH
-LD_LIBRARY_PATH=/home/smspillaz/Source/eos-companion-app-integration/.libs:$LD_LIBRARY_PATH
-PYTHONPATH=/home/smspillaz/Source/eos-companion-app-integration:$PYTHONPATH
+#!/bin/bash -e
+arguments=( "$@" )
+last_argument="${arguments[-1]}"
+head_arguments="${arguments[@]:0:$((${#arguments[@]} - 1))}"
 
-pushd test
-    python3 -m unittest $(basename ${1%.py})
+pushd ${SOURCE_DIRECTORY}/test
+    python3 -m unittest ${head_arguments} $(basename ${last_argument%.py})
 popd
