@@ -30,8 +30,7 @@ from subprocess import (
     PIPE,
     run as subprocess_run
 )
-from tempfile import NamedTemporaryFile, mkdtemp
-from xml.etree import cElementTree as ET
+from tempfile import mkdtemp
 
 import gi
 
@@ -127,19 +126,13 @@ def find_xapian_db_offset(shard_path):
     raise RuntimeError('Could not find a Xapian database in {}'.format(shard_path))
 
 
-def compile_content_into_subscription(db_json_path,
-                                      subscriptions):
+def compile_content_into_subscription(subscriptions):
     '''Run basin from the system to build the app database.
 
     Note that we need to run the system-level basin here since we are
     testing using the system-level knowledge-lib and database versions
     can differ between SDKs.
     '''
-    run_only_print_errors([
-        'basin',
-        os.path.basename(db_json_path),
-        subscriptions.shard
-    ], cwd=os.path.dirname(db_json_path))
     timestamp = datetime.now().isoformat()
     with open(subscriptions.subscriptions_json, 'w') as subscriptions_json_f:
         json.dump({
@@ -172,38 +165,6 @@ def generate_resources_location(app_id, output_directory):
     return os.path.join(directory, 'app.gresource')
 
 
-def build_gresource_document_string():
-    '''Build a GResource manifest for the app.
-
-    Right now this assumes that the only thing in the resource will
-    be the overrides.scss file.
-    '''
-    root = ET.Element('gresources')
-    resource = ET.SubElement(root, 'gresource', attrib={
-        'prefix': '/app'
-    })
-    file_tag = ET.Element('file')
-    file_tag.text = 'overrides.scss'
-    resource.append(file_tag)
-    return '<?xml version="1.0" encoding="UTF-8"?>\n{}'.format(ET.tostring(root).decode())
-
-
-def compile_gresource_file(app_resources_directory,
-                           gresource_file_location):
-    '''Use the glib-compile-resources tool to compile the app resources.'''
-    with NamedTemporaryFile() as temp_fileobj:
-        contents = build_gresource_document_string()
-        temp_fileobj.write(contents.encode('utf-8'))
-        temp_fileobj.flush()
-
-        run_only_print_errors([
-            'glib-compile-resources',
-            '--target={}'.format(gresource_file_location),
-            '--sourcedir={}'.format(app_resources_directory),
-            temp_fileobj.name
-        ])
-
-
 def write_string_to_path(string, path):
     '''Write a string to a path.'''
     with open(path, 'w') as path_fileobj:
@@ -233,13 +194,12 @@ def compile_app_structure(app_id, directory, output_directory):
 
     subscriptions = generate_subscriptions_locations(app_id,
                                                      files_output_directory)
-    compile_content_into_subscription(os.path.join(content_directory,
-                                                   'db.json'),
-                                      subscriptions)
+    shutil.copy(os.path.join(content_directory, 'content.shard'),
+                subscriptions.shard)
+    compile_content_into_subscription(subscriptions)
 
     resources = generate_resources_location(app_id, files_output_directory)
-    compile_gresource_file(app_directory,
-                           resources)
+    shutil.copy(os.path.join(app_directory, 'app.gresource'), resources)
 
     write_ekn_version(app_id, '3', files_output_directory)
     applications_directory = os.path.join(files_output_directory,
