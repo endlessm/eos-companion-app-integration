@@ -56,7 +56,7 @@ def run(*args, **kwargs):
 def run_only_print_errors(*args, **kwargs):
     '''Wrapper for run, to show the commands being run.'''
     kwargs.update({
-        'show_command': False,
+        'show_command': True,
         'stdout': PIPE,
         'stderr': PIPE
     })
@@ -267,62 +267,78 @@ def compile_app_structure(app_id, directory, output_directory):
                          os.path.join(binpath, app_id))
 
 
-def build_flatpak_app(app_id,
-                      directory,
-                      output_directory,
-                      repo_directory):
-    '''Build a flatpak app from content in directory.'''
-    os.makedirs(repo_directory, exist_ok=True)
-
-    run_only_print_errors([
-        'flatpak',
-        'build-init',
-        output_directory,
-        app_id,
-        'com.endlessm.apps.Sdk',
-        'com.endlessm.apps.Platform',
-        '3'
-    ], check=True)
-    compile_app_structure(app_id, directory, output_directory)
-    run_only_print_errors([
-        'flatpak',
-        'build-finish',
-        output_directory,
-        '--command',
-        app_id
-    ], check=True)
-    run_only_print_errors([
-        'flatpak',
-        'build-export',
-        repo_directory,
-        output_directory,
-        'master'
-    ], check=True)
-
-
-def install_flatpak_app(app, install_directory):
-    '''Install a flatpak app from the repo to install_directory.'''
-    os.makedirs(install_directory, exist_ok=True)
-    environment = os.environ.copy()
-    environment.update({
-        'FLATPAK_USER_DIR': install_directory
-    })
-
-    run_only_print_errors([
-        'flatpak',
-        'install',
-        '--user',
-        'test-apps',
-        app
-    ], env=environment, check=True)
-
-
 def force_remove_directory(directory):
     '''Forcibly remove a directory, ignoring ENOENT.'''
     try:
         shutil.rmtree(directory)
     except FileNotFoundError:
         pass
+
+
+def install_app(app, output_directory, install_directory):
+    '''Install a flatpak app from the repo to install_directory.'''
+    target_directory = os.path.join(install_directory,
+                                    'app',
+                                    app,
+                                    'current',
+                                    'active')
+
+    # Now, for copytree to work, we need to make all the directory
+    # parents, but remove the target directory
+    os.makedirs(target_directory, exist_ok=True)
+    force_remove_directory(target_directory)
+    shutil.copytree(output_directory, target_directory)
+
+    # Create the metadata file
+    app_metadata_keyfile = GLib.KeyFile()
+    app_metadata_keyfile.set_string('Application',
+                                    'name',
+                                    app)
+    app_metadata_keyfile.set_string('Application',
+                                    'runtime',
+                                    format_runtime('com.endlessm.apps.Platform',
+                                                   '3'))
+    app_metadata_keyfile.set_string('Application',
+                                    'sdk',
+                                    format_runtime('com.endlessm.apps.Sdk',
+                                                   '3'))
+    app_metadata_keyfile.set_string('Application',
+                                    'command',
+                                    app)
+    app_metadata_keyfile.save_to_file(os.path.join(target_directory,
+                                                   'metadata'))
+
+    # Export the /share tree
+    app_share_dir = os.path.join(target_directory, 'files', 'share')
+
+    # Exporting the local exports dir is fairly straightforward, just create
+    # a directory level symlink
+    app_exports_dir = os.path.join(target_directory, 'exports')
+    os.makedirs(app_exports_dir, exist_ok=True)
+    os.symlink(app_share_dir, os.path.join(app_exports_dir, 'share'))
+
+    # Exporting into the global exports dir is a little trickier, we need
+    # to walk the directory tree of the app exports dir and create
+    # any corresponding directories in the global exports directory
+    #
+    # A file already existing in place of a symbolic link is an error
+    global_exports_dir = os.path.join(install_directory, 'exports')
+    os.makedirs(global_exports_dir, exist_ok=True)
+
+    for root, directories, filenames in os.walk(app_exports_dir, followlinks=True):
+        # Directory and file names are relative to 'root', which changes
+        # as we explore directories. Get the relative path from root
+        # to app_exports_dir so that we can join it
+        root_relative = os.path.relpath(root, app_exports_dir)
+
+        for directory in directories:
+            os.makedirs(os.path.join(global_exports_dir,
+                                     root_relative,
+                                     directory), exist_ok=True)
+
+        for filename in filenames:
+            os.link(os.path.join(root, filename),
+                    os.path.join(global_exports_dir, root_relative, filename))
 
 
 @contextmanager
@@ -342,76 +358,19 @@ def format_runtime(name, branch):
                                            branch=branch)
 
 
-def setup_fake_apps_runtime(repo_directory, install_directory):
-    '''Setup a fake com.endlessm.apps.Platform runtime and install it.
-
-    We'll build the apps using the actual runtime and SDK, but install
-    a fake one so that we don't chew up disk space and bandwidth during tests.
-    '''
-    os.makedirs(repo_directory, exist_ok=True)
-
-    with temporary_directory() as working_directory:
-        runtime_metadata_keyfile = GLib.KeyFile()
-        runtime_metadata_keyfile.set_string('Runtime',
-                                            'name',
-                                            'com.endlessm.apps.Platform')
-        runtime_metadata_keyfile.set_string('Runtime',
-                                            'runtime',
-                                            format_runtime('com.endlessm.apps.Platform',
-                                                           '3'))
-        runtime_metadata_keyfile.save_to_file(os.path.join(working_directory,
-                                                           'metadata'))
-
-        os.makedirs(os.path.join(working_directory, 'usr'))
-        os.makedirs(os.path.join(working_directory, 'files'))
-
-        run_only_print_errors([
-            'ostree',
-            'init',
-            '--mode=archive-z2',
-            '--collection-id=org.test.CollectionId'
-        ], cwd=working_directory, check=True)
-        run_only_print_errors([
-            'flatpak',
-            'build-export',
-            repo_directory,
-            working_directory,
-            '3'
-        ], check=True)
-
-    # Now that the runtime has been exported to the repo, install the flatpak
-    environment = os.environ.copy()
-    environment.update({
-        'FLATPAK_USER_DIR': install_directory
-    })
-    run_only_print_errors([
-        'flatpak',
-        'remote-add',
-        '--user',
-        '--no-gpg-verify',
-        'test-apps',
-        repo_directory
-    ], env=environment, check=True)
-    install_flatpak_app('com.endlessm.apps.Platform//3',
-                        install_directory)
-
-
 def setup_fake_apps(apps, apps_directory, installation_directory):
     '''Set up some fake content app Flatpaks into installation_directory.'''
     force_remove_directory(installation_directory)
     os.makedirs(installation_directory)
 
     with temporary_directory() as build_directory:
-        repo_directory = os.path.join(build_directory, 'repo')
         compile_directory = os.path.join(build_directory, 'build')
-
-        # Install the fake runtime first, so that we
-        # can install the fake apps
-        setup_fake_apps_runtime(repo_directory, installation_directory)
+        force_remove_directory(installation_directory)
 
         for app_id in apps:
-            build_flatpak_app(app_id,
-                              os.path.join(apps_directory, app_id),
-                              os.path.join(compile_directory, app_id),
-                              repo_directory)
-            install_flatpak_app(app_id, installation_directory)
+            compile_app_structure(app_id,
+                                  os.path.join(apps_directory, app_id),
+                                  os.path.join(compile_directory, app_id))
+            install_app(app_id,
+                        os.path.join(compile_directory, app_id),
+                        installation_directory)
