@@ -1253,7 +1253,6 @@ def metrics_middleware(handler):
     def _handler(server, msg, path, query, *args, **kwargs):
          '''Middleware function.'''
          if GLib.getenv('USE_METRICS'):
-             print('Record metric')
              metrics.record_event(COMPANION_APP_ROUTE_METRIC_ID,
                                   GLib.Variant('a{sv}', {
                                       'path': GLib.Variant('s', path),
