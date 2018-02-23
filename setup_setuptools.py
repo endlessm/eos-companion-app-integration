@@ -50,7 +50,9 @@ class SubprocessWrapperTestCommand(TestCommand):
                                                                '')]),
             'GI_TYPELIB_PATH': os.pathsep.join([os.path.join(_BUILD_DIRECTORY),
                                                 os.environ.get('GI_TYPELIB_PATH',
-                                                               '')])
+                                                               '')]),
+            'PYTHONPATH': os.pathsep.join([_CURRENT_DIRECTORY,
+                                           os.environ.get('PYTHONPATH', '')])
         })
         check_call(['python3',
                     '-m',
