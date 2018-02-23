@@ -30,7 +30,7 @@ def format_uri_with_querystring(uri, **params):
 def format_app_icon_uri(icon_name, device_uuid):
     '''Format a uri to get an icon for an app.'''
     return format_uri_with_querystring(
-        '/application_icon',
+        '/v1/application_icon',
         deviceUUID=device_uuid,
         iconName=icon_name
     )
@@ -39,7 +39,7 @@ def format_app_icon_uri(icon_name, device_uuid):
 def format_thumbnail_uri(application_id, model, device_uuid):
     '''Format a uri to get an icon for an app.'''
     return format_uri_with_querystring(
-        '/content_data',
+        '/v1/content_data',
         deviceUUID=device_uuid,
         applicationId=application_id,
         contentId=urllib.parse.urlparse(model.get_property('thumbnail-uri')).path[1:]
@@ -53,7 +53,7 @@ def rewrite_ekn_url(ekn_id, query):
     the URL query-string.
     '''
     formatted = format_uri_with_querystring(
-        '/content_data',
+        '/v1/content_data',
         deviceUUID=query['deviceUUID'],
         applicationId=query['applicationId'],
         contentId=ekn_id

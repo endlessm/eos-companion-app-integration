@@ -1265,17 +1265,17 @@ COMPANION_APP_ROUTES = {
     '/': companion_app_server_root_route,
     '/heartbeat': heartbeat_route,
     '/version': version_route,
-    '/device_authenticate': companion_app_server_device_authenticate_route,
-    '/list_applications': companion_app_server_list_applications_route,
-    '/application_icon': companion_app_server_application_icon_route,
-    '/application_colors': companion_app_server_application_colors_route,
-    '/list_application_sets': companion_app_server_list_application_sets_route,
-    '/list_application_content_for_tags': (
+    '/v1/device_authenticate': companion_app_server_device_authenticate_route,
+    '/v1/list_applications': companion_app_server_list_applications_route,
+    '/v1/application_icon': companion_app_server_application_icon_route,
+    '/v1/application_colors': companion_app_server_application_colors_route,
+    '/v1/list_application_sets': companion_app_server_list_application_sets_route,
+    '/v1/list_application_content_for_tags': (
         companion_app_server_list_application_content_for_tags_route
     ),
-    '/content_data': companion_app_server_content_data_route,
-    '/content_metadata': companion_app_server_content_metadata_route,
-    '/search_content': companion_app_server_search_content_route
+    '/v1/content_data': companion_app_server_content_data_route,
+    '/v1/content_metadata': companion_app_server_content_metadata_route,
+    '/v1/search_content': companion_app_server_search_content_route
 }
 
 def create_companion_app_webserver(application):

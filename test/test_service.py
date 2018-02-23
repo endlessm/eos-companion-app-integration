@@ -289,10 +289,13 @@ def find_available_port():
     raise RuntimeError('Cannot find an available port to listen on')
 
 
-def local_endpoint(port, endpoint):
+def local_endpoint(port, endpoint, version='v1'):
     '''Generate localhost endpoint from port.'''
-    return 'http://localhost:{port}/{endpoint}'.format(port=port,
-                                                       endpoint=endpoint)
+    return 'http://localhost:{port}/{version}/{endpoint}'.format(
+        port=port,
+        version=version,
+        endpoint=endpoint
+    )
 
 
 TEST_DATA_DIRECTORY = os.path.join(TOPLEVEL_DIRECTORY, 'test_data')
@@ -446,7 +449,7 @@ class TestCompanionAppService(TestCase):
 
     @with_main_loop
     def test_list_applications_contains_video_app(self, quit_cb):
-        '''/list_applications should contain video app.'''
+        '''/v1/list_applications should contain video app.'''
         def on_received_response(response):
             '''Called when we receive a response from the server.'''
             self.assertThat(
@@ -454,14 +457,13 @@ class TestCompanionAppService(TestCase):
                 ContainsDict({
                     'applicationId': Equals('org.test.VideoApp'),
                     'displayName': Equals('Video App'),
-                    'icon': matches_uri_query('/application_icon', {
+                    'icon': matches_uri_query('/v1/application_icon', {
                         'iconName': MatchesSetwise(Equals('org.test.VideoApp')),
                         'deviceUUID': MatchesSetwise(Equals(FAKE_UUID))
                     }),
                     'language': Equals('en')
                 })
             )
-
         self.service = CompanionAppService(Holdable(), self.port)
         json_http_request_with_uuid(FAKE_UUID,
                                     local_endpoint(self.port,
@@ -473,7 +475,7 @@ class TestCompanionAppService(TestCase):
 
     @with_main_loop
     def test_list_applications_error_no_device_uuid(self, quit_cb):
-        '''/list_applications should return an error if deviceUUID not set.'''
+        '''/v1/list_applications should return an error if deviceUUID not set.'''
         def on_received_response(response):
             '''Called when we receive a response from the server.'''
             self.assertThat(response, ContainsDict({
@@ -495,7 +497,7 @@ class TestCompanionAppService(TestCase):
 
     @with_main_loop
     def test_get_application_icon_video_app(self, quit_cb):
-        '''/application_icon should work for video app.'''
+        '''/v1/application_icon should work for video app.'''
         def on_received_response(_, headers):
             '''Called when we receive a response from the server.'''
             self.assertEqual(headers.get_content_type()[0], 'image/png')
@@ -512,7 +514,7 @@ class TestCompanionAppService(TestCase):
 
     @with_main_loop
     def test_get_application_icon_video_app_error_no_device_uuid(self, quit_cb):
-        '''/application_icon should return an error if deviceUUID not set.'''
+        '''/v1/application_icon should return an error if deviceUUID not set.'''
         def on_received_response(response):
             '''Called when we receive a response from the server.'''
             self.assertThat(response, ContainsDict({
@@ -534,7 +536,7 @@ class TestCompanionAppService(TestCase):
 
     @with_main_loop
     def test_get_application_icon_video_app_error_no_icon_name(self, quit_cb):
-        '''/application_icon should return an error if iconName not set.'''
+        '''/v1/application_icon should return an error if iconName not set.'''
         def on_received_response(response):
             '''Called when we receive a response from the server.'''
             self.assertThat(response, ContainsDict({
@@ -555,7 +557,7 @@ class TestCompanionAppService(TestCase):
 
     @with_main_loop
     def test_get_application_icon_video_app_error_bad_icon_name(self, quit_cb):
-        '''/application_icon should return an error if iconName is not valid.'''
+        '''/v1/application_icon should return an error if iconName is not valid.'''
         def on_received_response(response):
             '''Called when we receive a response from the server.'''
             self.assertThat(response, ContainsDict({
@@ -577,7 +579,7 @@ class TestCompanionAppService(TestCase):
 
     @with_main_loop
     def test_get_application_colors_video_app(self, quit_cb):
-        '''/application_colors should work for video app.'''
+        '''/v1/application_colors should work for video app.'''
         def on_received_response(response):
             '''Called when we receive a response from the server.'''
             self.assertThat(response['payload']['colors'],
@@ -595,7 +597,7 @@ class TestCompanionAppService(TestCase):
 
     @with_main_loop
     def test_get_application_colors_video_app_error_no_device_uuid(self, quit_cb):
-        '''/application_colors should return an error if deviceUUID not set.'''
+        '''/v1/application_colors should return an error if deviceUUID not set.'''
         def on_received_response(response):
             '''Called when we receive a response from the server.'''
             self.assertThat(response, ContainsDict({
@@ -617,7 +619,7 @@ class TestCompanionAppService(TestCase):
 
     @with_main_loop
     def test_get_application_colors_video_app_error_no_application_id(self, quit_cb):
-        '''/application_colors should return an error if applicationId not set.'''
+        '''/v1/application_colors should return an error if applicationId not set.'''
         def on_received_response(response):
             '''Called when we receive a response from the server.'''
             self.assertThat(response, ContainsDict({
@@ -638,7 +640,7 @@ class TestCompanionAppService(TestCase):
 
     @with_main_loop
     def test_get_application_colors_video_app_error_bad_application_id(self, quit_cb):
-        '''/application_colors should return an error if applicationId is not valid.'''
+        '''/v1/application_colors should return an error if applicationId is not valid.'''
         def on_received_response(response):
             '''Called when we receive a response from the server.'''
             self.assertThat(response, ContainsDict({
@@ -660,7 +662,7 @@ class TestCompanionAppService(TestCase):
 
     @with_main_loop
     def test_get_application_sets_video_app_colors(self, quit_cb):
-        '''/list_application_sets should include colors.'''
+        '''/v1/list_application_sets should include colors.'''
         def on_received_response(response):
             '''Called when we receive a response from the server.'''
             self.assertThat(response['payload']['colors'],
@@ -679,14 +681,14 @@ class TestCompanionAppService(TestCase):
 
     @with_main_loop
     def test_get_application_sets_video_app_home_page_tag(self, quit_cb):
-        '''/list_application_sets should return EknHomePageTag for video app.'''
+        '''/v1/list_application_sets should return EknHomePageTag for video app.'''
         def on_received_response(response):
             '''Called when we receive a response from the server.'''
             self.assertThat(response['payload']['sets'][0], ContainsDict({
                 'tags': MatchesSetwise(Equals('EknHomePageTag')),
                 'title': Equals('Video App'),
                 'contentType': Equals('application/x-ekncontent-set'),
-                'thumbnail': matches_uri_query('/application_icon', {
+                'thumbnail': matches_uri_query('/v1/application_icon', {
                     'iconName': MatchesSetwise(Equals('org.test.VideoApp')),
                     'deviceUUID': MatchesSetwise(Equals(FAKE_UUID))
                 }),
@@ -706,7 +708,7 @@ class TestCompanionAppService(TestCase):
 
     @with_main_loop
     def test_get_application_sets_content_app(self, quit_cb):
-        '''/list_application_sets should return correct tags for content app.'''
+        '''/v1/list_application_sets should return correct tags for content app.'''
         def on_received_response(response):
             '''Called when we receive a response from the server.'''
             self.assertThat(
@@ -754,7 +756,7 @@ class TestCompanionAppService(TestCase):
 
     @with_main_loop
     def test_get_application_sets_video_app_error_no_application_id(self, quit_cb):
-        '''/list_application_sets should return an error if applicationId not set.'''
+        '''/v1/list_application_sets should return an error if applicationId not set.'''
         def on_received_response(response):
             '''Called when we receive a response from the server.'''
             self.assertThat(response, ContainsDict({
@@ -775,7 +777,7 @@ class TestCompanionAppService(TestCase):
 
     @with_main_loop
     def test_get_application_sets_video_app_error_bad_application_id(self, quit_cb):
-        '''/list_application_sets should return an error if applicationID is not valid.'''
+        '''/v1/list_application_sets should return an error if applicationID is not valid.'''
         def on_received_response(response):
             '''Called when we receive a response from the server.'''
             self.assertThat(response, ContainsDict({
@@ -797,7 +799,7 @@ class TestCompanionAppService(TestCase):
 
     @with_main_loop
     def test_get_application_content_for_tags_video_app_home_page_tag(self, quit_cb):
-        '''/list_application_content_for_tags returns video content listing.'''
+        '''/v1/list_application_content_for_tags returns video content listing.'''
         def on_received_response(response):
             '''Called when we receive a response from the server.'''
             first = response['payload'][0]
@@ -809,7 +811,7 @@ class TestCompanionAppService(TestCase):
                     Equals('EknHomePageTag'),
                     Equals('EknMediaObject')
                 ),
-                'thumbnail': matches_uri_query('/content_data', {
+                'thumbnail': matches_uri_query('/v1/content_data', {
                     'contentId': MatchesSetwise(Equals(VIDEO_APP_THUMBNAIL_EKN_ID)),
                     'applicationId': MatchesSetwise(Equals('org.test.VideoApp')),
                     'deviceUUID': MatchesSetwise(Equals(FAKE_UUID))
@@ -829,7 +831,7 @@ class TestCompanionAppService(TestCase):
 
     @with_main_loop
     def test_get_application_content_for_tags_video_app_error_no_device_uuid(self, quit_cb):
-        '''/list_application_content_for_tags should return an error if deviceUUID not set.'''
+        '''/v1/list_application_content_for_tags should return an error if deviceUUID not set.'''
         def on_received_response(response):
             '''Called when we receive a response from the server.'''
             self.assertThat(response, ContainsDict({
@@ -852,7 +854,7 @@ class TestCompanionAppService(TestCase):
 
     @with_main_loop
     def test_get_application_content_for_tags_video_app_error_no_application_id(self, quit_cb):
-        '''/list_application_content_for_tags should return an error if applicationId not set.'''
+        '''/v1/list_application_content_for_tags should return an error if applicationId not set.'''
         def on_received_response(response):
             '''Called when we receive a response from the server.'''
             self.assertThat(response, ContainsDict({
@@ -874,7 +876,7 @@ class TestCompanionAppService(TestCase):
 
     @with_main_loop
     def test_get_application_content_for_tags_video_app_error_no_tags(self, quit_cb):
-        '''/list_application_content_for_tags should return an error if tags not set.'''
+        '''/v1/list_application_content_for_tags should return an error if tags not set.'''
         def on_received_response(response):
             '''Called when we receive a response from the server.'''
             self.assertThat(response, ContainsDict({
@@ -896,7 +898,7 @@ class TestCompanionAppService(TestCase):
 
     @with_main_loop
     def test_get_application_content_for_tags_video_app_error_bad_application_id(self, quit_cb):
-        '''/list_application_sets should return an error if applicationID is not valid.'''
+        '''/v1/list_application_sets should return an error if applicationID is not valid.'''
         def on_received_response(response):
             '''Called when we receive a response from the server.'''
             self.assertThat(response, ContainsDict({
@@ -919,7 +921,7 @@ class TestCompanionAppService(TestCase):
 
     @with_main_loop
     def test_get_content_metadata_video_app(self, quit_cb):
-        '''/content_metadata returns some expected video content metadata.'''
+        '''/v1/content_metadata returns some expected video content metadata.'''
         def on_received_response(response):
             '''Called when we receive a response from the server.'''
             self.assertThat(response['payload'], ContainsDict({
@@ -954,7 +956,7 @@ class TestCompanionAppService(TestCase):
 
     @with_main_loop
     def test_get_content_metadata_video_app_error_no_device_uuid(self, quit_cb):
-        '''/content_metadata returns an error if deviceUUID is not set.'''
+        '''/v1/content_metadata returns an error if deviceUUID is not set.'''
         def on_received_response(response):
             '''Called when we receive a response from the server.'''
             self.assertThat(response, ContainsDict({
@@ -985,7 +987,7 @@ class TestCompanionAppService(TestCase):
 
     @with_main_loop
     def test_get_content_metadata_video_app_error_no_application_id(self, quit_cb):
-        '''/content_metadata returns an error if applicationId is not set.'''
+        '''/v1/content_metadata returns an error if applicationId is not set.'''
         def on_received_response(response):
             '''Called when we receive a response from the server.'''
             self.assertThat(response, ContainsDict({
@@ -1015,7 +1017,7 @@ class TestCompanionAppService(TestCase):
 
     @with_main_loop
     def test_get_content_metadata_video_app_error_no_content_id(self, quit_cb):
-        '''/content_metadata returns an error if contentId is not set.'''
+        '''/v1/content_metadata returns an error if contentId is not set.'''
         def on_received_response(response):
             '''Called when we receive a response from the server.'''
             self.assertThat(response, ContainsDict({
@@ -1045,7 +1047,7 @@ class TestCompanionAppService(TestCase):
 
     @with_main_loop
     def test_get_content_metadata_video_app_error_bad_application_id(self, quit_cb):
-        '''/content_metadata returns an error applicationId is not valid.'''
+        '''/v1/content_metadata returns an error applicationId is not valid.'''
         def on_received_response(response):
             '''Called when we receive a response from the server.'''
             self.assertThat(response, ContainsDict({
@@ -1076,7 +1078,7 @@ class TestCompanionAppService(TestCase):
 
     @with_main_loop
     def test_get_content_metadata_video_app_error_bad_content_id(self, quit_cb):
-        '''/content_metadata returns an error contentId is not valid.'''
+        '''/v1/content_metadata returns an error contentId is not valid.'''
         def on_received_response(response):
             '''Called when we receive a response from the server.'''
             self.assertThat(response, ContainsDict({
@@ -1107,7 +1109,7 @@ class TestCompanionAppService(TestCase):
 
     @with_main_loop
     def test_get_content_data_video_app(self, quit_cb):
-        '''/content_data returns some expected video content data.'''
+        '''/v1/content_data returns some expected video content data.'''
         def on_received_response(msg_bytes, headers):
             '''Called when we receive a response from the server.'''
             test_string = VIDEO_APP_FAKE_CONTENT
@@ -1136,12 +1138,12 @@ class TestCompanionAppService(TestCase):
 
     @with_main_loop
     def test_get_content_data_content_app(self, quit_cb):
-        '''/content_data returns rewritten content app data.'''
+        '''/v1/content_data returns rewritten content app data.'''
         def on_received_response(msg_bytes, headers):
             '''Called when we receive a response from the server.'''
             body = msg_bytes.get_data().decode('utf-8')
 
-            self.assertTrue(re.match(r'^.*<img src="\/content_data.*$',
+            self.assertTrue(re.match(r'^.*<img src="\/v1/content_data.*$',
                                      body,
                                      flags=re.MULTILINE | re.DOTALL) != None)
 
@@ -1169,7 +1171,7 @@ class TestCompanionAppService(TestCase):
 
     @with_main_loop
     def test_get_content_data_video_app_ranges(self, quit_cb):
-        '''/content_data returns some expected partial video content data.'''
+        '''/v1/content_data returns some expected partial video content data.'''
         def on_received_response(msg_bytes, headers):
             '''Called when we receive a response from the server.'''
             # Range is inclusive, python ranges are exclusive, so add 1
@@ -1207,7 +1209,7 @@ class TestCompanionAppService(TestCase):
 
     @with_main_loop
     def test_get_content_data_video_app_error_no_device_uuid(self, quit_cb):
-        '''/content_data returns an error if deviceUUID is not set.'''
+        '''/v1/content_data returns an error if deviceUUID is not set.'''
         def on_received_response(response):
             '''Called when we receive a response from the server.'''
             self.assertThat(response, ContainsDict({
@@ -1238,7 +1240,7 @@ class TestCompanionAppService(TestCase):
 
     @with_main_loop
     def test_get_content_data_video_app_error_no_application_id(self, quit_cb):
-        '''/content_data returns an error if applicationId is not set.'''
+        '''/v1/content_data returns an error if applicationId is not set.'''
         def on_received_response(response):
             '''Called when we receive a response from the server.'''
             self.assertThat(response, ContainsDict({
@@ -1268,7 +1270,7 @@ class TestCompanionAppService(TestCase):
 
     @with_main_loop
     def test_get_content_data_video_app_error_no_content_id(self, quit_cb):
-        '''/content_data returns an error if contentId is not set.'''
+        '''/v1/content_data returns an error if contentId is not set.'''
         def on_received_response(response):
             '''Called when we receive a response from the server.'''
             self.assertThat(response, ContainsDict({
@@ -1298,7 +1300,7 @@ class TestCompanionAppService(TestCase):
 
     @with_main_loop
     def test_get_content_data_video_app_error_bad_application_id(self, quit_cb):
-        '''/content_data returns an error applicationId is not valid.'''
+        '''/v1/content_data returns an error applicationId is not valid.'''
         def on_received_response(response):
             '''Called when we receive a response from the server.'''
             self.assertThat(response, ContainsDict({
@@ -1329,7 +1331,7 @@ class TestCompanionAppService(TestCase):
 
     @with_main_loop
     def test_get_content_data_video_app_error_bad_content_id(self, quit_cb):
-        '''/content_data returns an error contentId is not valid.'''
+        '''/v1/content_data returns an error contentId is not valid.'''
         def on_received_response(response):
             '''Called when we receive a response from the server.'''
             self.assertThat(response, ContainsDict({
@@ -1360,7 +1362,7 @@ class TestCompanionAppService(TestCase):
 
     @with_main_loop
     def test_search_content_by_application_id(self, quit_cb):
-        '''/search_content is able to find content by applicationId.'''
+        '''/v1/search_content is able to find content by applicationId.'''
         def on_received_response(response):
             '''Called when we receive a response from the server.'''
             applications = response['payload']['applications']
@@ -1379,7 +1381,7 @@ class TestCompanionAppService(TestCase):
                         Equals('EknHomePageTag'),
                         Equals('EknMediaObject')
                     ),
-                    'thumbnail': matches_uri_query('/content_data', {
+                    'thumbnail': matches_uri_query('/v1/content_data', {
                         'applicationId': MatchesSetwise(Equals('org.test.VideoApp')),
                         'contentId': MatchesSetwise(Equals(VIDEO_APP_THUMBNAIL_EKN_ID)),
                         'deviceUUID': MatchesSetwise(Equals(FAKE_UUID))
@@ -1399,7 +1401,7 @@ class TestCompanionAppService(TestCase):
 
     @with_main_loop
     def test_search_content_by_tags(self, quit_cb):
-        '''/search_content is able to find content by tags.'''
+        '''/v1/search_content is able to find content by tags.'''
         def on_received_response(response):
             '''Called when we receive a response from the server.'''
             applications = response['payload']['applications']
@@ -1418,7 +1420,7 @@ class TestCompanionAppService(TestCase):
                         Equals('EknHomePageTag'),
                         Equals('EknMediaObject')
                     ),
-                    'thumbnail': matches_uri_query('/content_data', {
+                    'thumbnail': matches_uri_query('/v1/content_data', {
                         'applicationId': MatchesSetwise(Equals('org.test.VideoApp')),
                         'contentId': MatchesSetwise(
                             Equals(VIDEO_APP_THUMBNAIL_EKN_ID)
@@ -1440,7 +1442,7 @@ class TestCompanionAppService(TestCase):
 
     @with_main_loop
     def test_search_content_by_search_term(self, quit_cb):
-        '''/search_content is able to find content by searchTerm.'''
+        '''/v1/search_content is able to find content by searchTerm.'''
         def on_received_response(response):
             '''Called when we receive a response from the server.'''
             applications = response['payload']['applications']
@@ -1464,7 +1466,7 @@ class TestCompanionAppService(TestCase):
                             Equals('EknArticleObject'),
                             Equals('First Tag'),
                         ),
-                        'thumbnail': matches_uri_query('/content_data', {
+                        'thumbnail': matches_uri_query('/v1/content_data', {
                             'applicationId': MatchesSetwise(Equals('org.test.ContentApp')),
                             'contentId': MatchesSetwise(Equals(CONTENT_APP_THUMBNAIL_EKN_ID)),
                             'deviceUUID': MatchesSetwise(Equals(FAKE_UUID))
@@ -1480,7 +1482,7 @@ class TestCompanionAppService(TestCase):
                             Equals('EknArticleObject'),
                             Equals('Second Tag'),
                         ),
-                        'thumbnail': matches_uri_query('/content_data', {
+                        'thumbnail': matches_uri_query('/v1/content_data', {
                             'applicationId': MatchesSetwise(Equals('org.test.ContentApp')),
                             'contentId': MatchesSetwise(Equals(CONTENT_APP_THUMBNAIL_EKN_ID)),
                             'deviceUUID': MatchesSetwise(Equals(FAKE_UUID))
@@ -1497,7 +1499,7 @@ class TestCompanionAppService(TestCase):
                             Equals('EknHomePageTag'),
                             Equals('EknMediaObject')
                         ),
-                        'thumbnail': matches_uri_query('/content_data', {
+                        'thumbnail': matches_uri_query('/v1/content_data', {
                             'applicationId': MatchesSetwise(Equals('org.test.VideoApp')),
                             'contentId': MatchesSetwise(Equals(VIDEO_APP_THUMBNAIL_EKN_ID)),
                             'deviceUUID': MatchesSetwise(Equals(FAKE_UUID))
@@ -1518,7 +1520,7 @@ class TestCompanionAppService(TestCase):
 
     @with_main_loop
     def test_search_content_limit_and_offset(self, quit_cb):
-        '''/search_content is able to apply limits and offsets.'''
+        '''/v1/search_content is able to apply limits and offsets.'''
         def on_received_response(response):
             '''Called when we receive a response from the server.'''
             applications = response['payload']['applications']
@@ -1539,7 +1541,7 @@ class TestCompanionAppService(TestCase):
                             Equals('EknArticleObject'),
                             Equals('Second Tag'),
                         ),
-                        'thumbnail': matches_uri_query('/content_data', {
+                        'thumbnail': matches_uri_query('/v1/content_data', {
                             'applicationId': MatchesSetwise(Equals('org.test.ContentApp')),
                             'contentId': MatchesSetwise(
                                 Equals(CONTENT_APP_THUMBNAIL_EKN_ID)
@@ -1564,7 +1566,7 @@ class TestCompanionAppService(TestCase):
 
     @with_main_loop
     def test_search_content_applications(self, quit_cb):
-        '''/search_content is able to search for applications.'''
+        '''/v1/search_content is able to search for applications.'''
         def on_received_response(response):
             '''Called when we receive a response from the server.'''
             applications = response['payload']['applications']
@@ -1596,7 +1598,7 @@ class TestCompanionAppService(TestCase):
 
     @with_main_loop
     def test_search_content_error_no_filters(self, quit_cb):
-        '''/search_content returns an error if no filters specified.'''
+        '''/v1/search_content returns an error if no filters specified.'''
         def on_received_response(response):
             '''Called when we receive a response from the server.'''
             self.assertThat(response, ContainsDict({
@@ -1617,7 +1619,7 @@ class TestCompanionAppService(TestCase):
 
     @with_main_loop
     def test_search_content_error_bad_app_id(self, quit_cb):
-        '''/search_content returns an error if invalid applicationId is specified.'''
+        '''/v1/search_content returns an error if invalid applicationId is specified.'''
         def on_received_response(response):
             '''Called when we receive a response from the server.'''
             self.assertThat(response, ContainsDict({
