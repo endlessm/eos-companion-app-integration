@@ -1093,8 +1093,8 @@ override_flatpak_install_dirs (void)
 
   /* Mutating global static storage here is not ideal, but it
    * saves us from having to allocate/deallocate memory all the time. */
-  dirs[0] = g_getenv ("FLATPAK_SYSTEM_DIR");
-  dirs[1] = g_getenv ("FLATPAK_USER_DIR");
+  dirs[0] = g_getenv ("EOS_COMPANION_APP_FLATPAK_SYSTEM_DIR");
+  dirs[1] = g_getenv ("EOS_COMPANION_APP_FLATPAK_USER_DIR");
   dirs[2] = NULL;
 
   return (GStrv) dirs;
