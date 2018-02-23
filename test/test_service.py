@@ -37,6 +37,7 @@ import gi
 
 gi.require_version('EosCompanionAppService', '1.0')
 gi.require_version('EosKnowledgeContent', '0')
+gi.require_version('EosMetrics', '0')
 gi.require_version('EosShard', '0')
 
 from test.build_app import (force_remove_directory, setup_fake_apps)

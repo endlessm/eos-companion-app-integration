@@ -18,5 +18,8 @@
 # All rights reserved.
 '''Constants in use throughout the whole program.'''
 
+# Metrics event for recording requests
+COMPANION_APP_ROUTE_METRIC_ID = '6dad6c44-f52f-4bca-8b4c-dc203f175b97'
+
 # Five minute inactivity timeout
 INACTIVITY_TIMEOUT = 1000 * 60 * 5

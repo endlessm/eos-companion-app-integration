@@ -29,6 +29,7 @@ import urllib.parse
 from gi.repository import (
     EosCompanionAppService,
     EosKnowledgeContent as Eknc,
+    EosMetrics,
     Gio,
     GLib,
     Soup
@@ -38,7 +39,10 @@ from .applications_query import (
     application_listing_from_app_info,
     list_all_applications
 )
-from .constants import INACTIVITY_TIMEOUT
+from .constants import (
+    COMPANION_APP_ROUTE_METRIC_ID,
+    INACTIVITY_TIMEOUT
+)
 from .content_streaming import (
     conditionally_wrap_blob_stream,
     define_content_range_from_headers_and_size
@@ -1238,6 +1242,29 @@ def application_hold_middleware(application, handler):
     return _handler
 
 
+def metrics_middleware(handler):
+    '''Middleware function to record all routes in the metrics system.
+
+    This middleware records both the route and the relevant querystring
+    encoded as a dictionary.
+    '''
+    metrics = EosMetrics.EventRecorder.get_default();
+
+    def _handler(server, msg, path, query, *args, **kwargs):
+         '''Middleware function.'''
+         if GLib.getenv('USE_METRICS'):
+             print('Record metric')
+             metrics.record_event(COMPANION_APP_ROUTE_METRIC_ID,
+                                  GLib.Variant('a{sv}', {
+                                      'path': GLib.Variant('s', path),
+                                      'query': GLib.Variant('a{ss}', dict(query or {}))
+                                  }))
+
+         return handler(server, msg, path, query, *args, **kwargs)
+
+    return _handler
+
+
 COMPANION_APP_ROUTES = {
     '/': companion_app_server_root_route,
     '/heartbeat': heartbeat_route,
@@ -1258,7 +1285,10 @@ def create_companion_app_webserver(application):
     '''Create a HTTP server with companion app routes.'''
     server = Soup.Server()
     for path, handler in COMPANION_APP_ROUTES.items():
-        server.add_handler(path, application_hold_middleware(application,
-                                                             handler))
+        server.add_handler(path,
+                           metrics_middleware(
+                               application_hold_middleware(application,
+                                                           handler)
+                           ))
 
     return server

@@ -12,6 +12,7 @@
         "--filesystem=/var/lib/flatpak:ro",
         "--filesystem=/var/endless-extra/flatpak:ro",
         "--talk-name=ca.desrt.dconf", "--env=DCONF_USER_CONFIG_DIR=.config/dconf",
+        "--env=USE_METRICS=1",
         "--share=network",
         "--command=eos-companion-app-service"
     ],
