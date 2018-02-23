@@ -378,10 +378,6 @@ class TestCompanionAppService(TestCase):
             GLib.getenv('XDG_DATA_DIRS') or '',
         ]))
 
-        # Turn off logging, it is just noisy and clutters up
-        # the tests
-        self._env_context.push('EOS_COMPANION_APP_SERVICE_QUIET', '1')
-
         self.port = find_available_port()
 
     def tearDown(self):

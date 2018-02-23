@@ -52,7 +52,8 @@ class SubprocessWrapperTestCommand(TestCommand):
                                                 os.environ.get('GI_TYPELIB_PATH',
                                                                '')]),
             'PYTHONPATH': os.pathsep.join([_CURRENT_DIRECTORY,
-                                           os.environ.get('PYTHONPATH', '')])
+                                           os.environ.get('PYTHONPATH', '')]),
+            'EOS_COMPANION_APP_SERVICE_QUIET': '1'
         })
         check_call(['python3',
                     '-m',
