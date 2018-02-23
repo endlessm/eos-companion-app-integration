@@ -36,6 +36,7 @@
         },
         {
             "name": "eos-companion-app-service",
+            "run_tests": @RUN_TESTS@,
             "config-opts": ["--disable-integration", "--enable-service"],
             "sources": [
                 {
