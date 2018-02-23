@@ -36,9 +36,8 @@ from xml.etree import cElementTree as ET
 import gi
 
 gi.require_version('EosShard', '0')
-gi.require_version('Flatpak', '1.0')
 
-from gi.repository import EosShard, Flatpak, GLib
+from gi.repository import EosShard, GLib
 
 
 def run(*args, **kwargs):
@@ -354,7 +353,7 @@ def temporary_directory(parent_directory=None):
 def format_runtime(name, branch):
     '''Format a runtime name with our architecture.'''
     return '{name}/{arch}/{branch}'.format(name=name,
-                                           arch=Flatpak.get_default_arch(),
+                                           arch='arch',
                                            branch=branch)
 
 
