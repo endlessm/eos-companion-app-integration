@@ -304,8 +304,9 @@ class TestCompanionAppService(TestCase):
                                self.__class__.flatpak_installation_dir)
 
         # Having to explicitly enumerate all the fake flatpaks
-        # like this is not ideal, but it seems like Eknc only seaches
-        # the hardcoded system flatpak dirs and XDG_DATA_DIRS.
+        # like this is not ideal, but it seems like Eknc only searches
+        # the hardcoded system flatpak dirs - not sure if it should
+        # also check FLATPAK_SYSTEM_DIR and FLATPAK_USER_DIR
         self._env_context.push('XDG_DATA_DIRS', os.pathsep.join([
             os.path.join(self.__class__.flatpak_installation_dir,
                          'app',
