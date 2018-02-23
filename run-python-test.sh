@@ -6,4 +6,3 @@ PYTHONPATH=/home/smspillaz/Source/eos-companion-app-integration:$PYTHONPATH
 pushd test
     python3 -m unittest $(basename ${1%.py})
 popd
-
