@@ -6,4 +6,5 @@ Exec=org.test.ContentApp
 Version=1.0
 Icon=org.test.ContentApp
 X-Endless-Content-Language=en
+X-Flatpak=org.test.ContentApp
 NoDisplay=false
