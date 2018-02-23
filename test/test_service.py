@@ -22,6 +22,7 @@ import errno
 import json
 import os
 
+from tempfile import mkdtemp
 from urllib.parse import urlencode
 from unittest import TestCase
 
@@ -237,12 +238,22 @@ class GLibEnvironmentPreservationContext(object):
 
 
 TEST_DATA_DIRECTORY = os.path.join(TOPLEVEL_DIRECTORY, 'test_data')
-FLATPAK_INSTALLATION_DIRECTORY = os.path.join(TOPLEVEL_DIRECTORY,
-                                              'flatpak_installation')
 FAKE_APPS = ['org.test.ContentApp', 'org.test.VideoApp']
 
 VIDEO_APP_THUMBNAIL_EKN_ID = 'b87d21e1d15fdb26f6dcf9f33eff11fbba6f43d5'
 CONTENT_APP_THUMBNAIL_EKN_ID = 'cd50d19784897085a8d0e3e413f8612b097c03f1'
+
+
+def generate_flatpak_installation_directory():
+    '''Generate a path for a flatpak installation directory.
+
+    If BUILD_DIR is set, put it in there, for easy debugging. Otherwise,
+    put it in a temporary directory.
+    '''
+    if 'BUILD_DIR' in os.environ:
+        return os.path.join(os.environ['BUILD_DIR'], 'flatpak_installation')
+
+    return mkdtemp(prefix='flatpak_installation')
 
 
 class TestCompanionAppService(TestCase):
@@ -256,7 +267,7 @@ class TestCompanionAppService(TestCase):
         self._env_context = GLibEnvironmentPreservationContext()
 
         self._env_context.push('EOS_COMPANION_APP_FLATPAK_SYSTEM_DIR',
-                               FLATPAK_INSTALLATION_DIRECTORY)
+                               self.__class__.flatpak_installation_dir)
 
     def tearDown(self):
         '''Tear down the test case.'''
@@ -268,14 +279,15 @@ class TestCompanionAppService(TestCase):
     @classmethod
     def setUpClass(cls):  # pylint: disable=invalid-name
         '''Set up the entire test case class.'''
+        cls.flatpak_installation_dir = generate_flatpak_installation_directory()
         setup_fake_apps(FAKE_APPS,
                         TEST_DATA_DIRECTORY,
-                        FLATPAK_INSTALLATION_DIRECTORY)
+                        cls.flatpak_installation_dir)
 
     @classmethod
     def tearDownClass(cls):  # pylint: disable=invalid-name
         '''Tear down the entire class by deleting build testing flatpaks.'''
-        force_remove_directory(FLATPAK_INSTALLATION_DIRECTORY)
+        force_remove_directory(cls.flatpak_installation_dir)
 
     @with_main_loop
     def test_make_connection_to_authenticate(self, quit):
