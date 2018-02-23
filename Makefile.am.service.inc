@@ -203,6 +203,7 @@ test_support = \
 	$(NULL)
 
 TESTS_ENVIRONMENT = \
+	export EOS_COMPANION_APP_DISABLE_METRICS="1" \
 	export EOS_COMPANION_APP_SERVICE_QUIET="1" \
 	export PYTHONPATH="$(abs_top_srcdir):$${PYTHONPATH:+:$$PYTHONPATH}"; \
 	export GI_TYPELIB_PATH="$(abs_top_builddir):$${GI_TYPELIB_PATH:+:$$GI_TYPELIB_PATH}"; \

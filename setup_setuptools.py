@@ -53,6 +53,7 @@ class SubprocessWrapperTestCommand(TestCommand):
                                                                '')]),
             'PYTHONPATH': os.pathsep.join([_CURRENT_DIRECTORY,
                                            os.environ.get('PYTHONPATH', '')]),
+            'EOS_COMPANION_APP_DISABLE_METRICS': '1',
             'EOS_COMPANION_APP_SERVICE_QUIET': '1'
         })
         check_call(['python3',

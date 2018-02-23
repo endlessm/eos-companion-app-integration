@@ -25,6 +25,7 @@ import gi
 
 gi.require_version('EosCompanionAppService', '1.0')
 gi.require_version('EosKnowledgeContent', '0')
+gi.require_version('EosMetrics', '0')
 gi.require_version('EosShard', '0')
 
 
