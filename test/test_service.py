@@ -255,7 +255,7 @@ class TestCompanionAppService(TestCase):
         self.service = None
         self._env_context = GLibEnvironmentPreservationContext()
 
-        self._env_context.push('FLATPAK_SYSTEM_DIR',
+        self._env_context.push('EOS_COMPANION_APP_FLATPAK_SYSTEM_DIR',
                                FLATPAK_INSTALLATION_DIRECTORY)
 
     def tearDown(self):
