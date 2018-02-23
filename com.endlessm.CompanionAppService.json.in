@@ -6,6 +6,7 @@
     "command": "eos-companion-app-service",
     "finish-args": [
         "--share=ipc",
+        "--system-talk-name=com.endlessm.Metrics",
         "--system-talk-name=org.freedesktop.Avahi",
         "--system-talk-name=org.freedesktop.login1",
         "--filesystem=xdg-run/dconf", "--filesystem=~/.config/dconf:ro",
