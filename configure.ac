@@ -116,7 +116,6 @@ AC_SUBST([ADDITIONAL_DISTCHECK_CONFIGURE_FLAGS])
 # Check for some tools that we'll need if we're going to be doing
 # any testing
 AC_CHECK_PROG([HAVE_BASIN], [basin], ["yes"], ["no"])
-AC_CHECK_PROG([HAVE_FLATPAK], [flatpak], ["yes"], ["no"])
 AC_CHECK_PROG([HAVE_GLIB_COMPILE_RESOURCES], [glib-compile-resources], ["yes"], ["no"])
 AC_CHECK_PROG([HAVE_PYTHON3], [python3], ["yes"], ["no"])
 AC_MSG_CHECKING([if tests can be run on this build])
@@ -126,7 +125,6 @@ AC_MSG_CHECKING([if tests can be run on this build])
 # a logical operand or a semicolon
 AS_IF([
   test "x$HAVE_BASIN" == "xyes" &&
-  test "x$HAVE_FLATPAK" == "xyes" &&
   test "x$HAVE_GLIB_COMPILE_RESOURCES" == "xyes" &&
   test "x$HAVE_PYTHON3" == "xyes"], [
   HAVE_TESTING_PROGS="yes"
