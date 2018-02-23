@@ -24,6 +24,17 @@
     },
     "modules": [
         {
+            "name": "basin",
+            "sources": [
+                {
+                    "type": "git",
+                    "url": "git://github.com/endlessm/basin",
+                    "branch": "master"
+                }
+            ],
+            "cleanup": ["*"]
+        },
+        {
             "name": "eos-companion-app-service",
             "config-opts": ["--disable-integration", "--enable-service"],
             "sources": [
