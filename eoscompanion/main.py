@@ -1202,7 +1202,7 @@ def companion_app_server_search_content_route(server, msg, path, query, *args):
 
         # all_results is the application names that matched the search term,
         # plus all the models that matched the search term
-        all_results = list(itertools.chain.from_iterable([
+        all_results = sorted(list(itertools.chain.from_iterable([
             [
                 {
                     'displayName': applications_hashtable[app_id],
@@ -1226,7 +1226,7 @@ def companion_app_server_search_content_route(server, msg, path, query, *args):
                     models
                 )
             ]
-        ]))
+        ])), key=lambda r: r['displayName'])
 
         # Determine which applications were seen in the truncated model
         # set or if their name matched the search query and then include
