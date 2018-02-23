@@ -38,7 +38,10 @@ from .applications_query import (
     application_listing_from_app_info,
     list_all_applications
 )
-from .constants import INACTIVITY_TIMEOUT
+from .constants import (
+    INACTIVITY_TIMEOUT,
+    SERVER_API_VERSION
+)
 from .content_streaming import (
     conditionally_wrap_blob_stream,
     define_content_range_from_headers_and_size
@@ -1214,6 +1217,26 @@ def heartbeat_route(server, msg, *args):
     })
 
 
+def version_route(server, msg, *args):
+    '''A route which just returns the current server version.
+
+    The client also has a corresponding server API version number. If the
+    client's version is higher, then the client should complain about
+    the server needing to update the 'Endless Platform'. If the server's version
+    is higher, the client should complain about needing to be updated from
+    the Play Store.
+    '''
+    del server
+    del args
+
+    json_response(msg, {
+        "status": "ok",
+        "payload": {
+            "version": SERVER_API_VERSION
+        }
+    })
+
+
 def application_hold_middleware(application, handler):
     '''Middleware function to put a hold on the application.
 
@@ -1241,6 +1264,7 @@ def application_hold_middleware(application, handler):
 COMPANION_APP_ROUTES = {
     '/': companion_app_server_root_route,
     '/heartbeat': heartbeat_route,
+    '/version': version_route,
     '/device_authenticate': companion_app_server_device_authenticate_route,
     '/list_applications': companion_app_server_list_applications_route,
     '/application_icon': companion_app_server_application_icon_route,
