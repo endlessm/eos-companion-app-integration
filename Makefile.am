@@ -72,6 +72,33 @@ AM_DISTCHECK_CONFIGURE_FLAGS = \
 include $(top_srcdir)/Makefile.am.service.inc
 include $(top_srcdir)/Makefile.am.integration.inc
 
+# # # TEST DATA GENERATION # # #
+# See test_data/scripts/README.md for a more in-depth discussion
+# of how this works.
+EXTRA_DIST += \
+	test_data/scripts/generate_content_shard.sh \
+	test_data/scripts/generate_gresource_shard.sh \
+	$(NULL)
+
+RUNTIME_VERSION = 3
+FAKE_VIDEO_APP_DIR = $(abs_top_srcdir)/test_data/org.test.VideoApp
+FAKE_CONTENT_APP_DIR = $(abs_top_srcdir)/test_data/org.test.ContentApp
+SCRIPTS_DIR = $(abs_top_srcdir)/test_data/scripts
+
+# We don't use a file-based build rule here as we want the file to
+# go in the source directory
+test-data-video-app:
+	cd $(FAKE_VIDEO_APP_DIR)/content && $(SCRIPTS_DIR)/generate_content_shard.sh $(RUNTIME_VERSION) $(FAKE_VIDEO_APP_DIR)/content/db.json $(FAKE_VIDEO_APP_DIR)/content/content.shard
+	cd $(FAKE_VIDEO_APP_DIR)/app && $(SCRIPTS_DIR)/generate_gresource_file.sh $(RUNTIME_VERSION) $(FAKE_VIDEO_APP_DIR)/app $(FAKE_VIDEO_APP_DIR)/app/app.gresource
+
+test-data-content-app:
+	cd $(FAKE_CONTENT_APP_DIR)/content && $(SCRIPTS_DIR)/generate_content_shard.sh $(RUNTIME_VERSION) $(FAKE_CONTENT_APP_DIR)/content/db.json $(FAKE_CONTENT_APP_DIR)/content/content.shard
+	cd $(FAKE_CONTENT_APP_DIR)/app && $(SCRIPTS_DIR)/generate_gresource_file.sh $(RUNTIME_VERSION) $(FAKE_CONTENT_APP_DIR)/app $(FAKE_CONTENT_APP_DIR)/app/app.gresource
+
+test-data: test-data-video-app test-data-content-app
+
+.PHONY: test-data test-data-video-app test-data-content-app
+
 # Add GObject Introspection files to the build
 gir_DATA += $(INTROSPECTION_GIRS)
 typelib_DATA += $(INTROSPECTION_GIRS:.gir=.typelib)
