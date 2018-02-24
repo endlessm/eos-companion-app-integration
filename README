@@ -49,6 +49,15 @@ to test from, so you will need `[basin](https://github.com/endlessm/basin)` and
 them. They can be run either from setuptools by using
 `python setup_setuptools.py test` or from automake with `make check`.
 
+## Dependency Management
+
+The tests require that certain dependencies from PyPI are installed. Those
+requirements are specified in `requirements.txt` as per PEP508. However, flatpak
+wants those dependencies to be installed in the systemwide flatpak installation
+so we have an extra tool to regenerate the flatpak pip manifest to include those
+requirements at build-time and test-time and then clean them up afterwards. To
+run that tool, just use `make regenerate-pip-manifest-template`.
+
 ## WARNING
 
 This repo history contained a GitHub API key in
