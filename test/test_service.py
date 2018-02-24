@@ -21,18 +21,20 @@
 import errno
 import json
 import os
-import pprint
 import socket
 
 from tempfile import mkdtemp
 from urllib.parse import urlencode
-from unittest import TestCase
 
 from test.build_app import (force_remove_directory, setup_fake_apps)
 
-from eoscompanion.main import CompanionAppService
-
 from gi.repository import EosCompanionAppService, GLib, Soup
+
+from testtools import (
+    TestCase
+)
+
+from eoscompanion.main import CompanionAppService
 
 
 TOPLEVEL_DIRECTORY = os.path.abspath(os.path.join(os.path.dirname(__file__),
@@ -289,98 +291,6 @@ def generate_flatpak_installation_directory():
         return os.path.join(os.environ['BUILD_DIR'], 'flatpak_installation')
 
     return mkdtemp(prefix='flatpak_installation')
-
-
-def element_matches(fixture, element, expected):
-    '''Check if element matches expected.
-
-    If expected is a function, assume that it is a matcher
-    and invoke it over element, otherwise, check for equality.
-    '''
-    if callable(expected):
-        expected(element)
-    elif element != expected:
-        raise fixture.failureException(
-            'Expected element {element} to match {expected}'.format(
-                element=element,
-                expected=expected
-            )
-        )
-
-
-def sorted_arrays_match(fixture, expected_array, key=None):
-    '''Check if the sorted arrays match.
-
-    Note that expected_array is expected to be sorted already,
-    we cannot sort it from here as it might contain matchers
-    itself, which we can't sort based on a uniform key.
-    '''
-    def matcher(candidate):
-        '''Determine if candidate matches the matcher criteria.'''
-        sorted_candidate = sorted(candidate, key=key)
-
-        if len(expected_array) != len(sorted_candidate):
-            raise fixture.failureException(
-                'Expected {candidate} to have length {length}'.format(
-                    candidate=sorted_candidate,
-                    length=len(expected_array)
-                )
-            )
-
-        for candidate, expected in zip(sorted_candidate, expected_array):
-            element_matches(fixture,
-                            candidate,
-                            expected)
-
-    return matcher
-
-
-def report_structure_matcher_failure(fixture, expected, candidate, failure):
-    '''Report a match failure for the structure matcher.'''
-    fmt_candidate = pprint.pformat(candidate)
-    fmt_expected = pprint.pformat(expected)
-    msg = ('{candidate} does not match '
-           '{expected} - {failure}'.format(candidate=fmt_candidate,
-                                           expected=fmt_expected,
-                                           failure=failure))
-    raise fixture.failureException(msg)
-
-
-# Some handwritten matcher code since we cannot use any third party
-# libraries for now
-def matches_structure(fixture, expected):
-    '''Check if every field in expected matches candidate.
-
-    This is done by doing an equality test if candidate and expected
-    are both trivial datatypes. If the value in expected is a function,
-    the function invoked as though it is a matcher itself.
-    '''
-    def matcher(candidate):
-        '''Determine if candidate matches the matcher criteria.'''
-        for key in expected.keys():
-            if key not in candidate:
-                msg = 'Key {key} not in candidate'.format(key=key)
-                report_structure_matcher_failure(fixture,
-                                                 expected,
-                                                 candidate,
-                                                 msg)
-
-            # Matcher - call it
-            if callable(expected[key]):
-                expected[key](candidate[key])
-            elif isinstance(expected[key], dict):
-                matches_structure(fixture, expected[key])(candidate[key])
-            else:
-                if not expected[key] == candidate[key]:
-                    msg = (
-                        'Expected {expected} to equal {candidate}'
-                    ).format(expected=expected[key], candidate=candidate[key])
-                    raise report_structure_matcher_failure(fixture,
-                                                           expected,
-                                                           candidate,
-                                                           msg)
-
-    return matcher
 
 
 class TestCompanionAppService(TestCase):
