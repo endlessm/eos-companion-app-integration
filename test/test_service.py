@@ -443,15 +443,18 @@ class TestCompanionAppService(TestCase):
         '''/list_applications should contain video app.'''
         def on_received_response(response):
             '''Called when we receive a response from the server.'''
-            matches_structure(self, {
-                'applicationId': 'org.test.VideoApp',
-                'displayName': 'Video App',
-                'icon': matches_uri_query(self, '/application_icon', {
-                    'iconName': ['org.test.VideoApp'],
-                    'deviceUUID': [FAKE_UUID]
-                }),
-                'language': 'en'
-            })([a for a in response['payload'] if a['applicationId'] == 'org.test.VideoApp'][0])
+            self.assertThat(
+                [a for a in response['payload'] if a['applicationId'] == 'org.test.VideoApp'][0],
+                ContainsDict({
+                    'applicationId': Equals('org.test.VideoApp'),
+                    'displayName': Equals('Video App'),
+                    'icon': matches_uri_query('/application_icon', {
+                        'iconName': MatchesSetwise(Equals('org.test.VideoApp')),
+                        'deviceUUID': MatchesSetwise(Equals(FAKE_UUID))
+                    }),
+                    'language': Equals('en')
+                })
+            )
 
         self.service = CompanionAppService(Holdable(), self.port)
         json_http_request_with_uuid(FAKE_UUID,
@@ -467,12 +470,12 @@ class TestCompanionAppService(TestCase):
         '''/list_applications should return an error if deviceUUID not set.'''
         def on_received_response(response):
             '''Called when we receive a response from the server.'''
-            matches_structure(self, {
-                'status': 'error',
-                'error': {
-                    'code': 'INVALID_REQUEST'
-                }
-            })(response)
+            self.assertThat(response, ContainsDict({
+                'status': Equals('error'),
+                'error': ContainsDict({
+                    'code': Equals('INVALID_REQUEST')
+                })
+            }))
 
         self.service = CompanionAppService(Holdable(), self.port)
         json_http_request_with_uuid('',
@@ -506,12 +509,12 @@ class TestCompanionAppService(TestCase):
         '''/application_icon should return an error if deviceUUID not set.'''
         def on_received_response(response):
             '''Called when we receive a response from the server.'''
-            matches_structure(self, {
-                'status': 'error',
-                'error': {
-                    'code': 'INVALID_REQUEST'
-                }
-            })(response)
+            self.assertThat(response, ContainsDict({
+                'status': Equals('error'),
+                'error': ContainsDict({
+                    'code': Equals('INVALID_REQUEST')
+                })
+            }))
 
         self.service = CompanionAppService(Holdable(), self.port)
         json_http_request_with_uuid('',
@@ -528,12 +531,12 @@ class TestCompanionAppService(TestCase):
         '''/application_icon should return an error if iconName not set.'''
         def on_received_response(response):
             '''Called when we receive a response from the server.'''
-            matches_structure(self, {
-                'status': 'error',
-                'error': {
-                    'code': 'INVALID_REQUEST'
-                }
-            })(response)
+            self.assertThat(response, ContainsDict({
+                'status': Equals('error'),
+                'error': ContainsDict({
+                    'code': Equals('INVALID_REQUEST')
+                })
+            }))
 
         self.service = CompanionAppService(Holdable(), self.port)
         json_http_request_with_uuid('',
@@ -549,12 +552,12 @@ class TestCompanionAppService(TestCase):
         '''/application_icon should return an error if iconName is not valid.'''
         def on_received_response(response):
             '''Called when we receive a response from the server.'''
-            matches_structure(self, {
-                'status': 'error',
-                'error': {
-                    'code': 'INVALID_REQUEST'
-                }
-            })(response)
+            self.assertThat(response, ContainsDict({
+                'status': Equals('error'),
+                'error': ContainsDict({
+                    'code': Equals('INVALID_REQUEST')
+                })
+            }))
 
         self.service = CompanionAppService(Holdable(), self.port)
         json_http_request_with_uuid('',
@@ -571,8 +574,8 @@ class TestCompanionAppService(TestCase):
         '''/application_colors should work for video app.'''
         def on_received_response(response):
             '''Called when we receive a response from the server.'''
-            sorted_arrays_match(self,
-                                ['#4573d9', '#98b8ff'])(response['payload']['colors'])
+            self.assertThat(response['payload']['colors'],
+                            MatchesSetwise(Equals('#4573d9'), Equals('#98b8ff')))
 
         self.service = CompanionAppService(Holdable(), self.port)
         json_http_request_with_uuid(FAKE_UUID,
@@ -589,12 +592,12 @@ class TestCompanionAppService(TestCase):
         '''/application_colors should return an error if deviceUUID not set.'''
         def on_received_response(response):
             '''Called when we receive a response from the server.'''
-            matches_structure(self, {
-                'status': 'error',
-                'error': {
-                    'code': 'INVALID_REQUEST'
-                }
-            })(response)
+            self.assertThat(response, ContainsDict({
+                'status': Equals('error'),
+                'error': ContainsDict({
+                    'code': Equals('INVALID_REQUEST')
+                })
+            }))
 
         self.service = CompanionAppService(Holdable(), self.port)
         json_http_request_with_uuid('',
@@ -611,12 +614,12 @@ class TestCompanionAppService(TestCase):
         '''/application_colors should return an error if applicationId not set.'''
         def on_received_response(response):
             '''Called when we receive a response from the server.'''
-            matches_structure(self, {
-                'status': 'error',
-                'error': {
-                    'code': 'INVALID_REQUEST'
-                }
-            })(response)
+            self.assertThat(response, ContainsDict({
+                'status': Equals('error'),
+                'error': ContainsDict({
+                    'code': Equals('INVALID_REQUEST')
+                })
+            }))
 
         self.service = CompanionAppService(Holdable(), self.port)
         json_http_request_with_uuid(FAKE_UUID,
@@ -632,12 +635,12 @@ class TestCompanionAppService(TestCase):
         '''/application_colors should return an error if applicationId is not valid.'''
         def on_received_response(response):
             '''Called when we receive a response from the server.'''
-            matches_structure(self, {
-                'status': 'error',
-                'error': {
-                    'code': 'INVALID_APP_ID'
-                }
-            })(response)
+            self.assertThat(response, ContainsDict({
+                'status': Equals('error'),
+                'error': ContainsDict({
+                    'code': Equals('INVALID_APP_ID')
+                })
+            }))
 
         self.service = CompanionAppService(Holdable(), self.port)
         json_http_request_with_uuid(FAKE_UUID,
@@ -654,8 +657,9 @@ class TestCompanionAppService(TestCase):
         '''/list_application_sets should include colors.'''
         def on_received_response(response):
             '''Called when we receive a response from the server.'''
-            sorted_arrays_match(self,
-                                ['#4573d9', '#98b8ff'])(response['payload']['colors'])
+            self.assertThat(response['payload']['colors'],
+                            MatchesSetwise(Equals('#4573d9'),
+                                           Equals('#98b8ff')))
 
         self.service = CompanionAppService(Holdable(), self.port)
         json_http_request_with_uuid(FAKE_UUID,
@@ -672,17 +676,17 @@ class TestCompanionAppService(TestCase):
         '''/list_application_sets should return EknHomePageTag for video app.'''
         def on_received_response(response):
             '''Called when we receive a response from the server.'''
-            matches_structure(self, {
-                'tags': ['EknHomePageTag'],
-                'title': 'Video App',
-                'contentType': 'application/x-ekncontent-set',
-                'thumbnail': matches_uri_query(self, '/application_icon', {
-                    'iconName': ['org.test.VideoApp'],
-                    'deviceUUID': [FAKE_UUID]
+            self.assertThat(response['payload']['sets'][0], ContainsDict({
+                'tags': MatchesSetwise(Equals('EknHomePageTag')),
+                'title': Equals('Video App'),
+                'contentType': Equals('application/x-ekncontent-set'),
+                'thumbnail': matches_uri_query('/application_icon', {
+                    'iconName': MatchesSetwise(Equals('org.test.VideoApp')),
+                    'deviceUUID': MatchesSetwise(Equals(FAKE_UUID))
                 }),
-                'id': '',
-                'global': True
-            })(response['payload']['sets'][0])
+                'id': Equals(''),
+                'global': Equals(True)
+            }))
 
         self.service = CompanionAppService(Holdable(), self.port)
         json_http_request_with_uuid(FAKE_UUID,
@@ -699,13 +703,16 @@ class TestCompanionAppService(TestCase):
         '''/list_application_sets should return correct tags for content app.'''
         def on_received_response(response):
             '''Called when we receive a response from the server.'''
-            matches_structure(self, {
-                'tags': ['First Tag'],
-                'title': 'First Tag Set',
-                'contentType': 'application/x-ekncontent-set',
-                'thumbnail': None,
-                'global': False
-            })(sorted(response['payload']['sets'], key=lambda s: s['title'])[0])
+            self.assertThat(
+                sorted(response['payload']['sets'], key=lambda s: s['title'])[0],
+                ContainsDict({
+                    'tags': MatchesSetwise(Equals('First Tag')),
+                    'title': Equals('First Tag Set'),
+                    'contentType': Equals('application/x-ekncontent-set'),
+                    'thumbnail': Equals(None),
+                    'global': Equals(False)
+                })
+            )
 
         self.service = CompanionAppService(Holdable(), self.port)
         json_http_request_with_uuid(FAKE_UUID,
@@ -722,12 +729,12 @@ class TestCompanionAppService(TestCase):
         '''/list_application_sets should return an error if deviceUUID not set.'''
         def on_received_response(response):
             '''Called when we receive a response from the server.'''
-            matches_structure(self, {
-                'status': 'error',
-                'error': {
-                    'code': 'INVALID_REQUEST'
-                }
-            })(response)
+            self.assertThat(response, ContainsDict({
+                'status': Equals('error'),
+                'error': ContainsDict({
+                    'code': Equals('INVALID_REQUEST')
+                })
+            }))
 
         self.service = CompanionAppService(Holdable(), self.port)
         json_http_request_with_uuid('',
@@ -744,12 +751,12 @@ class TestCompanionAppService(TestCase):
         '''/list_application_sets should return an error if applicationId not set.'''
         def on_received_response(response):
             '''Called when we receive a response from the server.'''
-            matches_structure(self, {
-                'status': 'error',
-                'error': {
-                    'code': 'INVALID_REQUEST'
-                }
-            })(response)
+            self.assertThat(response, ContainsDict({
+                'status': Equals('error'),
+                'error': ContainsDict({
+                    'code': Equals('INVALID_REQUEST')
+                })
+            }))
 
         self.service = CompanionAppService(Holdable(), self.port)
         json_http_request_with_uuid(FAKE_UUID,
@@ -765,12 +772,12 @@ class TestCompanionAppService(TestCase):
         '''/list_application_sets should return an error if applicationID is not valid.'''
         def on_received_response(response):
             '''Called when we receive a response from the server.'''
-            matches_structure(self, {
-                'status': 'error',
-                'error': {
-                    'code': 'INVALID_APP_ID'
-                }
-            })(response)
+            self.assertThat(response, ContainsDict({
+                'status': Equals('error'),
+                'error': ContainsDict({
+                    'code': Equals('INVALID_APP_ID')
+                })
+            }))
 
         self.service = CompanionAppService(Holdable(), self.port)
         json_http_request_with_uuid(FAKE_UUID,
@@ -788,20 +795,20 @@ class TestCompanionAppService(TestCase):
         def on_received_response(response):
             '''Called when we receive a response from the server.'''
             first = response['payload'][0]
-            matches_structure(self, {
-                'contentType': 'video/mp4',
-                'displayName': 'Sample Video',
-                'tags': sorted_arrays_match(self, [
-                    'EknArticleObject',
-                    'EknHomePageTag',
-                    'EknMediaObject'
-                ]),
-                'thumbnail': matches_uri_query(self, '/content_data', {
-                    'contentId': [VIDEO_APP_THUMBNAIL_EKN_ID],
-                    'applicationId': ['org.test.VideoApp'],
-                    'deviceUUID': [FAKE_UUID]
+            self.assertThat(first, ContainsDict({
+                'contentType': Equals('video/mp4'),
+                'displayName': Equals('Sample Video'),
+                'tags': MatchesSetwise(
+                    Equals('EknArticleObject'),
+                    Equals('EknHomePageTag'),
+                    Equals('EknMediaObject')
+                ),
+                'thumbnail': matches_uri_query('/content_data', {
+                    'contentId': MatchesSetwise(Equals(VIDEO_APP_THUMBNAIL_EKN_ID)),
+                    'applicationId': MatchesSetwise(Equals('org.test.VideoApp')),
+                    'deviceUUID': MatchesSetwise(Equals(FAKE_UUID))
                 })
-            })(first)
+            }))
 
         self.service = CompanionAppService(Holdable(), self.port)
         json_http_request_with_uuid(FAKE_UUID,
@@ -819,12 +826,12 @@ class TestCompanionAppService(TestCase):
         '''/list_application_content_for_tags should return an error if deviceUUID not set.'''
         def on_received_response(response):
             '''Called when we receive a response from the server.'''
-            matches_structure(self, {
-                'status': 'error',
-                'error': {
-                    'code': 'INVALID_REQUEST'
-                }
-            })(response)
+            self.assertThat(response, ContainsDict({
+                'status': Equals('error'),
+                'error': ContainsDict({
+                    'code': Equals('INVALID_REQUEST')
+                })
+            }))
 
         self.service = CompanionAppService(Holdable(), self.port)
         json_http_request_with_uuid('',
@@ -842,12 +849,12 @@ class TestCompanionAppService(TestCase):
         '''/list_application_content_for_tags should return an error if applicationId not set.'''
         def on_received_response(response):
             '''Called when we receive a response from the server.'''
-            matches_structure(self, {
-                'status': 'error',
-                'error': {
-                    'code': 'INVALID_REQUEST'
-                }
-            })(response)
+            self.assertThat(response, ContainsDict({
+                'status': Equals('error'),
+                'error': ContainsDict({
+                    'code': Equals('INVALID_REQUEST')
+                })
+            }))
 
         self.service = CompanionAppService(Holdable(), self.port)
         json_http_request_with_uuid(FAKE_UUID,
@@ -864,12 +871,12 @@ class TestCompanionAppService(TestCase):
         '''/list_application_content_for_tags should return an error if tags not set.'''
         def on_received_response(response):
             '''Called when we receive a response from the server.'''
-            matches_structure(self, {
-                'status': 'error',
-                'error': {
-                    'code': 'INVALID_REQUEST'
-                }
-            })(response)
+            self.assertThat(response, ContainsDict({
+                'status': Equals('error'),
+                'error': ContainsDict({
+                    'code': Equals('INVALID_REQUEST')
+                })
+            }))
 
         self.service = CompanionAppService(Holdable(), self.port)
         json_http_request_with_uuid(FAKE_UUID,
@@ -886,12 +893,12 @@ class TestCompanionAppService(TestCase):
         '''/list_application_sets should return an error if applicationID is not valid.'''
         def on_received_response(response):
             '''Called when we receive a response from the server.'''
-            matches_structure(self, {
-                'status': 'error',
-                'error': {
-                    'code': 'INVALID_APP_ID'
-                }
-            })(response)
+            self.assertThat(response, ContainsDict({
+                'status': Equals('error'),
+                'error': ContainsDict({
+                    'code': Equals('INVALID_APP_ID')
+                })
+            }))
 
         self.service = CompanionAppService(Holdable(), self.port)
         json_http_request_with_uuid(FAKE_UUID,
@@ -909,16 +916,16 @@ class TestCompanionAppService(TestCase):
         '''/content_metadata returns some expected video content metadata.'''
         def on_received_response(response):
             '''Called when we receive a response from the server.'''
-            matches_structure(self, {
-                'title': 'Sample Video',
-                'source': 'file.mp4',
-                'contentType': 'video/mp4',
-                'tags': sorted_arrays_match(self, [
-                    'EknArticleObject',
-                    'EknHomePageTag',
-                    'EknMediaObject'
-                ])
-            })(response['payload'])
+            self.assertThat(response['payload'], ContainsDict({
+                'title': Equals('Sample Video'),
+                'source': Equals('file.mp4'),
+                'contentType': Equals('video/mp4'),
+                'tags': MatchesSetwise(
+                    Equals('EknArticleObject'),
+                    Equals('EknHomePageTag'),
+                    Equals('EknMediaObject')
+                )
+            }))
 
         def on_received_ekn_id(ekn_id):
             '''Make a query using the EKN ID.'''
@@ -944,12 +951,12 @@ class TestCompanionAppService(TestCase):
         '''/content_metadata returns an error if deviceUUID is not set.'''
         def on_received_response(response):
             '''Called when we receive a response from the server.'''
-            matches_structure(self, {
-                'status': 'error',
-                'error': {
-                    'code': 'INVALID_REQUEST'
-                }
-            })(response)
+            self.assertThat(response, ContainsDict({
+                'status': Equals('error'),
+                'error': ContainsDict({
+                    'code': Equals('INVALID_REQUEST')
+                })
+            }))
 
         def on_received_ekn_id(ekn_id):
             '''Make a query using the EKN ID.'''
@@ -975,12 +982,12 @@ class TestCompanionAppService(TestCase):
         '''/content_metadata returns an error if applicationId is not set.'''
         def on_received_response(response):
             '''Called when we receive a response from the server.'''
-            matches_structure(self, {
-                'status': 'error',
-                'error': {
-                    'code': 'INVALID_REQUEST'
-                }
-            })(response)
+            self.assertThat(response, ContainsDict({
+                'status': Equals('error'),
+                'error': ContainsDict({
+                    'code': Equals('INVALID_REQUEST')
+                })
+            }))
 
         def on_received_ekn_id(ekn_id):
             '''Make a query using the EKN ID.'''
@@ -1005,12 +1012,12 @@ class TestCompanionAppService(TestCase):
         '''/content_metadata returns an error if contentId is not set.'''
         def on_received_response(response):
             '''Called when we receive a response from the server.'''
-            matches_structure(self, {
-                'status': 'error',
-                'error': {
-                    'code': 'INVALID_REQUEST'
-                }
-            })(response)
+            self.assertThat(response, ContainsDict({
+                'status': Equals('error'),
+                'error': ContainsDict({
+                    'code': Equals('INVALID_REQUEST')
+                })
+            }))
 
         def on_received_ekn_id(_):
             '''Make a query.'''
@@ -1035,12 +1042,12 @@ class TestCompanionAppService(TestCase):
         '''/content_metadata returns an error applicationId is not valid.'''
         def on_received_response(response):
             '''Called when we receive a response from the server.'''
-            matches_structure(self, {
-                'status': 'error',
-                'error': {
-                    'code': 'INVALID_APP_ID'
-                }
-            })(response)
+            self.assertThat(response, ContainsDict({
+                'status': Equals('error'),
+                'error': ContainsDict({
+                    'code': Equals('INVALID_APP_ID')
+                })
+            }))
 
         def on_received_ekn_id(ekn_id):
             '''Make a query using the EKN ID.'''
@@ -1066,12 +1073,12 @@ class TestCompanionAppService(TestCase):
         '''/content_metadata returns an error contentId is not valid.'''
         def on_received_response(response):
             '''Called when we receive a response from the server.'''
-            matches_structure(self, {
-                'status': 'error',
-                'error': {
-                    'code': 'INVALID_CONTENT_ID'
-                }
-            })(response)
+            self.assertThat(response, ContainsDict({
+                'status': Equals('error'),
+                'error': ContainsDict({
+                    'code': Equals('INVALID_CONTENT_ID')
+                })
+            }))
 
         def on_received_ekn_id(_):
             '''Make a query using a bad EKN ID.'''
@@ -1197,12 +1204,12 @@ class TestCompanionAppService(TestCase):
         '''/content_data returns an error if deviceUUID is not set.'''
         def on_received_response(response):
             '''Called when we receive a response from the server.'''
-            matches_structure(self, {
-                'status': 'error',
-                'error': {
-                    'code': 'INVALID_REQUEST'
-                }
-            })(response)
+            self.assertThat(response, ContainsDict({
+                'status': Equals('error'),
+                'error': ContainsDict({
+                    'code': Equals('INVALID_REQUEST')
+                })
+            }))
 
         def on_received_ekn_id(ekn_id):
             '''Make a query using the EKN ID.'''
@@ -1228,12 +1235,12 @@ class TestCompanionAppService(TestCase):
         '''/content_data returns an error if applicationId is not set.'''
         def on_received_response(response):
             '''Called when we receive a response from the server.'''
-            matches_structure(self, {
-                'status': 'error',
-                'error': {
-                    'code': 'INVALID_REQUEST'
-                }
-            })(response)
+            self.assertThat(response, ContainsDict({
+                'status': Equals('error'),
+                'error': ContainsDict({
+                    'code': Equals('INVALID_REQUEST')
+                })
+            }))
 
         def on_received_ekn_id(ekn_id):
             '''Make a query using the EKN ID.'''
@@ -1258,12 +1265,12 @@ class TestCompanionAppService(TestCase):
         '''/content_data returns an error if contentId is not set.'''
         def on_received_response(response):
             '''Called when we receive a response from the server.'''
-            matches_structure(self, {
-                'status': 'error',
-                'error': {
-                    'code': 'INVALID_REQUEST'
-                }
-            })(response)
+            self.assertThat(response, ContainsDict({
+                'status': Equals('error'),
+                'error': ContainsDict({
+                    'code': Equals('INVALID_REQUEST')
+                })
+            }))
 
         def on_received_ekn_id(_):
             '''Make a query using no EKN ID.'''
@@ -1288,12 +1295,12 @@ class TestCompanionAppService(TestCase):
         '''/content_data returns an error applicationId is not valid.'''
         def on_received_response(response):
             '''Called when we receive a response from the server.'''
-            matches_structure(self, {
-                'status': 'error',
-                'error': {
-                    'code': 'INVALID_APP_ID'
-                }
-            })(response)
+            self.assertThat(response, ContainsDict({
+                'status': Equals('error'),
+                'error': ContainsDict({
+                    'code': Equals('INVALID_APP_ID')
+                })
+            }))
 
         def on_received_ekn_id(ekn_id):
             '''Make a query using the EKN ID.'''
@@ -1319,12 +1326,12 @@ class TestCompanionAppService(TestCase):
         '''/content_data returns an error contentId is not valid.'''
         def on_received_response(response):
             '''Called when we receive a response from the server.'''
-            matches_structure(self, {
-                'status': 'error',
-                'error': {
-                    'code': 'INVALID_CONTENT_ID'
-                }
-            })(response)
+            self.assertThat(response, ContainsDict({
+                'status': Equals('error'),
+                'error': ContainsDict({
+                    'code': Equals('INVALID_CONTENT_ID')
+                })
+            }))
 
         def on_received_ekn_id(_):
             '''Make a query using bad EKN ID.'''
@@ -1353,26 +1360,26 @@ class TestCompanionAppService(TestCase):
             applications = response['payload']['applications']
             results = response['payload']['results']
 
-            matches_structure(self, {
-                'applicationId': 'org.test.VideoApp'
-            })(applications[0])
-            matches_structure(self, {
-                'displayName': 'Sample Video',
-                'payload': {
-                    'applicationId': 'org.test.VideoApp',
-                    'contentType': 'video/mp4',
-                    'tags': sorted_arrays_match(self, [
-                        'EknArticleObject',
-                        'EknHomePageTag',
-                        'EknMediaObject'
-                    ]),
-                    'thumbnail': matches_uri_query(self, '/content_data', {
-                        'applicationId': ['org.test.VideoApp'],
-                        'contentId': [VIDEO_APP_THUMBNAIL_EKN_ID],
-                        'deviceUUID': [FAKE_UUID]
+            self.assertThat(applications[0], ContainsDict({
+                'applicationId': Equals('org.test.VideoApp')
+            }))
+            self.assertThat(results[0], ContainsDict({
+                'displayName': Equals('Sample Video'),
+                'payload': ContainsDict({
+                    'applicationId': Equals('org.test.VideoApp'),
+                    'contentType': Equals('video/mp4'),
+                    'tags': MatchesSetwise(
+                        Equals('EknArticleObject'),
+                        Equals('EknHomePageTag'),
+                        Equals('EknMediaObject')
+                    ),
+                    'thumbnail': matches_uri_query('/content_data', {
+                        'applicationId': MatchesSetwise(Equals('org.test.VideoApp')),
+                        'contentId': MatchesSetwise(Equals(VIDEO_APP_THUMBNAIL_EKN_ID)),
+                        'deviceUUID': MatchesSetwise(Equals(FAKE_UUID))
                     })
-                }
-            })(results[0])
+                })
+            }))
 
         self.service = CompanionAppService(Holdable(), self.port)
         json_http_request_with_uuid(FAKE_UUID,
@@ -1392,26 +1399,28 @@ class TestCompanionAppService(TestCase):
             applications = response['payload']['applications']
             results = response['payload']['results']
 
-            matches_structure(self, {
-                'applicationId': 'org.test.VideoApp'
-            })(applications[0])
-            matches_structure(self, {
-                'displayName': 'Sample Video',
-                'payload': {
-                    'applicationId': 'org.test.VideoApp',
-                    'contentType': 'video/mp4',
-                    'tags': sorted_arrays_match(self, [
-                        'EknArticleObject',
-                        'EknHomePageTag',
-                        'EknMediaObject'
-                    ]),
-                    'thumbnail': matches_uri_query(self, '/content_data', {
-                        'applicationId': ['org.test.VideoApp'],
-                        'contentId': [VIDEO_APP_THUMBNAIL_EKN_ID],
-                        'deviceUUID': [FAKE_UUID]
+            self.assertThat(applications[0], ContainsDict({
+                'applicationId': Equals('org.test.VideoApp')
+            }))
+            self.assertThat(results[0], ContainsDict({
+                'displayName': Equals('Sample Video'),
+                'payload': ContainsDict({
+                    'applicationId': Equals('org.test.VideoApp'),
+                    'contentType': Equals('video/mp4'),
+                    'tags': MatchesSetwise(
+                        Equals('EknArticleObject'),
+                        Equals('EknHomePageTag'),
+                        Equals('EknMediaObject')
+                    ),
+                    'thumbnail': matches_uri_query('/content_data', {
+                        'applicationId': MatchesSetwise(Equals('org.test.VideoApp')),
+                        'contentId': MatchesSetwise(
+                            Equals(VIDEO_APP_THUMBNAIL_EKN_ID)
+                        ),
+                        'deviceUUID': MatchesSetwise(Equals(FAKE_UUID))
                     })
-                }
-            })(results[0])
+                })
+            }))
 
         self.service = CompanionAppService(Holdable(), self.port)
         json_http_request_with_uuid(FAKE_UUID,
@@ -1431,65 +1440,65 @@ class TestCompanionAppService(TestCase):
             applications = response['payload']['applications']
             results = response['payload']['results']
 
-            sorted_arrays_match(self, [
-                matches_structure(self, {
-                    'applicationId': 'org.test.ContentApp'
+            self.assertThat(applications, MatchesSetwise(
+                ContainsDict({
+                    'applicationId': Equals('org.test.ContentApp')
                 }),
-                matches_structure(self, {
-                    'applicationId': 'org.test.VideoApp'
+                ContainsDict({
+                    'applicationId': Equals('org.test.VideoApp')
                 })
-            ], key=lambda s: s['applicationId'])(applications)
-            sorted_arrays_match(self, [
-                matches_structure(self, {
-                    'displayName': 'Sample Article 1',
-                    'payload': {
-                        'applicationId': 'org.test.ContentApp',
-                        'contentType': 'text/html',
-                        'tags': sorted_arrays_match(self, [
-                            'EknArticleObject',
-                            'First Tag',
-                        ]),
-                        'thumbnail': matches_uri_query(self, '/content_data', {
-                            'applicationId': ['org.test.ContentApp'],
-                            'contentId': [CONTENT_APP_THUMBNAIL_EKN_ID],
-                            'deviceUUID': [FAKE_UUID]
+            ))
+            self.assertThat(results, MatchesSetwise(
+                ContainsDict({
+                    'displayName': Equals('Sample Article 1'),
+                    'payload': ContainsDict({
+                        'applicationId': Equals('org.test.ContentApp'),
+                        'contentType': Equals('text/html'),
+                        'tags': MatchesSetwise(
+                            Equals('EknArticleObject'),
+                            Equals('First Tag'),
+                        ),
+                        'thumbnail': matches_uri_query('/content_data', {
+                            'applicationId': MatchesSetwise(Equals('org.test.ContentApp')),
+                            'contentId': MatchesSetwise(Equals(CONTENT_APP_THUMBNAIL_EKN_ID)),
+                            'deviceUUID': MatchesSetwise(Equals(FAKE_UUID))
                         })
-                    }
+                    })
                 }),
-                matches_structure(self, {
-                    'displayName': 'Sample Article 2',
-                    'payload': {
-                        'applicationId': 'org.test.ContentApp',
-                        'contentType': 'text/html',
-                        'tags': sorted_arrays_match(self, [
-                            'EknArticleObject',
-                            'Second Tag',
-                        ]),
-                        'thumbnail': matches_uri_query(self, '/content_data', {
-                            'applicationId': ['org.test.ContentApp'],
-                            'contentId': [CONTENT_APP_THUMBNAIL_EKN_ID],
-                            'deviceUUID': [FAKE_UUID]
+                ContainsDict({
+                    'displayName': Equals('Sample Article 2'),
+                    'payload': ContainsDict({
+                        'applicationId': Equals('org.test.ContentApp'),
+                        'contentType': Equals('text/html'),
+                        'tags': MatchesSetwise(
+                            Equals('EknArticleObject'),
+                            Equals('Second Tag'),
+                        ),
+                        'thumbnail': matches_uri_query('/content_data', {
+                            'applicationId': MatchesSetwise(Equals('org.test.ContentApp')),
+                            'contentId': MatchesSetwise(Equals(CONTENT_APP_THUMBNAIL_EKN_ID)),
+                            'deviceUUID': MatchesSetwise(Equals(FAKE_UUID))
                         })
-                    }
+                    })
                 }),
-                matches_structure(self, {
-                    'displayName': 'Sample Video',
-                    'payload': {
-                        'applicationId': 'org.test.VideoApp',
-                        'contentType': 'video/mp4',
-                        'tags': sorted_arrays_match(self, [
-                            'EknArticleObject',
-                            'EknHomePageTag',
-                            'EknMediaObject'
-                        ]),
-                        'thumbnail': matches_uri_query(self, '/content_data', {
-                            'applicationId': ['org.test.VideoApp'],
-                            'contentId': [VIDEO_APP_THUMBNAIL_EKN_ID],
-                            'deviceUUID': [FAKE_UUID]
+                ContainsDict({
+                    'displayName': Equals('Sample Video'),
+                    'payload': ContainsDict({
+                        'applicationId': Equals('org.test.VideoApp'),
+                        'contentType': Equals('video/mp4'),
+                        'tags': MatchesSetwise(
+                            Equals('EknArticleObject'),
+                            Equals('EknHomePageTag'),
+                            Equals('EknMediaObject')
+                        ),
+                        'thumbnail': matches_uri_query('/content_data', {
+                            'applicationId': MatchesSetwise(Equals('org.test.VideoApp')),
+                            'contentId': MatchesSetwise(Equals(VIDEO_APP_THUMBNAIL_EKN_ID)),
+                            'deviceUUID': MatchesSetwise(Equals(FAKE_UUID))
                         })
-                    }
+                    })
                 })
-            ], key=lambda s: s['displayName'])(results)
+            ))
 
         self.service = CompanionAppService(Holdable(), self.port)
         json_http_request_with_uuid(FAKE_UUID,
@@ -1509,29 +1518,31 @@ class TestCompanionAppService(TestCase):
             applications = response['payload']['applications']
             results = response['payload']['results']
 
-            sorted_arrays_match(self, [
-                matches_structure(self, {
-                    'applicationId': 'org.test.ContentApp'
+            self.assertThat(applications, MatchesSetwise(
+                ContainsDict({
+                    'applicationId': Equals('org.test.ContentApp')
                 })
-            ], key=lambda s: s['applicationId'])(applications)
-            sorted_arrays_match(self, [
-                matches_structure(self, {
-                    'displayName': 'Sample Article 2',
-                    'payload': {
-                        'applicationId': 'org.test.ContentApp',
-                        'contentType': 'text/html',
-                        'tags': sorted_arrays_match(self, [
-                            'EknArticleObject',
-                            'Second Tag',
-                        ]),
-                        'thumbnail': matches_uri_query(self, '/content_data', {
-                            'applicationId': ['org.test.ContentApp'],
-                            'contentId': [CONTENT_APP_THUMBNAIL_EKN_ID],
-                            'deviceUUID': [FAKE_UUID]
+            ))
+            self.assertThat(results, MatchesSetwise(
+                ContainsDict({
+                    'displayName': Equals('Sample Article 2'),
+                    'payload': ContainsDict({
+                        'applicationId': Equals('org.test.ContentApp'),
+                        'contentType': Equals('text/html'),
+                        'tags': MatchesSetwise(
+                            Equals('EknArticleObject'),
+                            Equals('Second Tag'),
+                        ),
+                        'thumbnail': matches_uri_query('/content_data', {
+                            'applicationId': MatchesSetwise(Equals('org.test.ContentApp')),
+                            'contentId': MatchesSetwise(
+                                Equals(CONTENT_APP_THUMBNAIL_EKN_ID)
+                            ),
+                            'deviceUUID': MatchesSetwise(Equals(FAKE_UUID))
                         })
-                    }
+                    })
                 })
-            ], key=lambda s: s['displayName'])(results)
+            ))
 
         self.service = CompanionAppService(Holdable(), self.port)
         json_http_request_with_uuid(FAKE_UUID,
@@ -1553,19 +1564,19 @@ class TestCompanionAppService(TestCase):
             applications = response['payload']['applications']
             results = response['payload']['results']
 
-            sorted_arrays_match(self, [
-                matches_structure(self, {
-                    'applicationId': 'org.test.ContentApp'
+            self.assertThat(applications, MatchesSetwise(
+                ContainsDict({
+                    'applicationId': Equals('org.test.ContentApp')
                 })
-            ], key=lambda s: s['applicationId'])(applications)
-            sorted_arrays_match(self, [
-                matches_structure(self, {
-                    'displayName': 'Content App',
-                    'payload': {
-                        'applicationId': 'org.test.ContentApp'
-                    }
+            ))
+            self.assertThat(results, MatchesSetwise(
+                ContainsDict({
+                    'displayName': Equals('Content App'),
+                    'payload': ContainsDict({
+                        'applicationId': Equals('org.test.ContentApp')
+                    })
                 })
-            ], key=lambda s: s['displayName'])(results)
+            ))
 
         self.service = CompanionAppService(Holdable(), self.port)
         json_http_request_with_uuid(FAKE_UUID,
@@ -1582,12 +1593,12 @@ class TestCompanionAppService(TestCase):
         '''/search_content returns an error if no filters specified.'''
         def on_received_response(response):
             '''Called when we receive a response from the server.'''
-            matches_structure(self, {
-                'status': 'error',
-                'error': {
-                    'code': 'INVALID_REQUEST'
-                }
-            })(response)
+            self.assertThat(response, ContainsDict({
+                'status': Equals('error'),
+                'error': ContainsDict({
+                    'code': Equals('INVALID_REQUEST')
+                })
+            }))
 
         self.service = CompanionAppService(Holdable(), self.port)
         json_http_request_with_uuid(FAKE_UUID,
@@ -1603,12 +1614,12 @@ class TestCompanionAppService(TestCase):
         '''/search_content returns an error if invalid applicationId is specified.'''
         def on_received_response(response):
             '''Called when we receive a response from the server.'''
-            matches_structure(self, {
-                'status': 'error',
-                'error': {
-                    'code': 'INVALID_APP_ID'
-                }
-            })(response)
+            self.assertThat(response, ContainsDict({
+                'status': Equals('error'),
+                'error': ContainsDict({
+                    'code': Equals('INVALID_APP_ID')
+                })
+            }))
 
         self.service = CompanionAppService(Holdable(), self.port)
         json_http_request_with_uuid(FAKE_UUID,
