@@ -29,6 +29,7 @@
                 "--enable-service"
             ],
             "name": "eos-companion-app-service",
+            "run-tests": @RUN_TESTS@,
             "sources": [
                 {
                     "branch": "@GIT_CLONE_BRANCH@",
