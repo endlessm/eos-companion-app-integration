@@ -24,7 +24,11 @@ import os
 import socket
 
 from tempfile import mkdtemp
-from urllib.parse import urlencode
+from urllib.parse import (
+    parse_qs,
+    urlencode,
+    urlparse
+)
 
 from test.build_app import (force_remove_directory, setup_fake_apps)
 
@@ -32,6 +36,13 @@ from gi.repository import EosCompanionAppService, GLib, Soup
 
 from testtools import (
     TestCase
+)
+from testtools.matchers import (
+    AfterPreprocessing,
+    ContainsDict,
+    Equals,
+    MatchesAll,
+    MatchesSetwise
 )
 
 from eoscompanion.main import CompanionAppService
@@ -291,6 +302,28 @@ def generate_flatpak_installation_directory():
         return os.path.join(os.environ['BUILD_DIR'], 'flatpak_installation')
 
     return mkdtemp(prefix='flatpak_installation')
+
+
+def url_matches_path(path):
+    '''Check if the candidate URL matches some path.'''
+    return AfterPreprocessing(lambda u: urlparse(u).path, Equals(path))
+
+
+def url_matches_query(query):
+    '''Check if the candidate URL matches some query structure.'''
+    return AfterPreprocessing(lambda u: parse_qs(urlparse(u).query),
+                              ContainsDict(query))
+
+
+def matches_uri_query(path, expected_query):
+    '''Check if the passed URI with a querystring matches expected_query.
+
+    We cannot just test for string equality here - we need to parse
+    the querystring and decompose its query, then match the query
+    against expected_query.
+    '''
+    return MatchesAll(url_matches_path(path),
+                      url_matches_query(expected_query))
 
 
 class TestCompanionAppService(TestCase):
