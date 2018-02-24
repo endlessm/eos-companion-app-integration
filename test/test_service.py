@@ -460,7 +460,7 @@ class TestCompanionAppService(TestCase):
 
     @with_main_loop
     def test_list_applications_error_no_device_uuid(self, quit_cb):
-        '''/list_applications should return error if deviceUUID not set.'''
+        '''/list_applications should return an error if deviceUUID not set.'''
         def on_received_response(response):
             '''Called when we receive a response from the server.'''
             matches_structure(self, {
@@ -499,7 +499,7 @@ class TestCompanionAppService(TestCase):
 
     @with_main_loop
     def test_get_application_icon_video_app_error_no_device_uuid(self, quit_cb):
-        '''/application_icon should return error if deviceUUID not set.'''
+        '''/application_icon should return an error if deviceUUID not set.'''
         def on_received_response(response):
             '''Called when we receive a response from the server.'''
             matches_structure(self, {
@@ -521,7 +521,7 @@ class TestCompanionAppService(TestCase):
 
     @with_main_loop
     def test_get_application_icon_video_app_error_no_icon_name(self, quit_cb):
-        '''/application_icon should return error if iconName not set.'''
+        '''/application_icon should return an error if iconName not set.'''
         def on_received_response(response):
             '''Called when we receive a response from the server.'''
             matches_structure(self, {
@@ -542,7 +542,7 @@ class TestCompanionAppService(TestCase):
 
     @with_main_loop
     def test_get_application_icon_video_app_error_bad_icon_name(self, quit_cb):
-        '''/application_icon should return error if iconName is not valid.'''
+        '''/application_icon should return an error if iconName is not valid.'''
         def on_received_response(response):
             '''Called when we receive a response from the server.'''
             matches_structure(self, {
@@ -582,7 +582,7 @@ class TestCompanionAppService(TestCase):
 
     @with_main_loop
     def test_get_application_colors_video_app_error_no_device_uuid(self, quit_cb):
-        '''/application_colors should return error if deviceUUID not set.'''
+        '''/application_colors should return an error if deviceUUID not set.'''
         def on_received_response(response):
             '''Called when we receive a response from the server.'''
             matches_structure(self, {
@@ -604,7 +604,7 @@ class TestCompanionAppService(TestCase):
 
     @with_main_loop
     def test_get_application_colors_video_app_error_no_application_id(self, quit_cb):
-        '''/application_colors should return error if applicationId not set.'''
+        '''/application_colors should return an error if applicationId not set.'''
         def on_received_response(response):
             '''Called when we receive a response from the server.'''
             matches_structure(self, {
@@ -625,7 +625,7 @@ class TestCompanionAppService(TestCase):
 
     @with_main_loop
     def test_get_application_colors_video_app_error_bad_application_id(self, quit_cb):
-        '''/application_colors should return error if applicationId is not valid.'''
+        '''/application_colors should return an error if applicationId is not valid.'''
         def on_received_response(response):
             '''Called when we receive a response from the server.'''
             matches_structure(self, {
@@ -715,7 +715,7 @@ class TestCompanionAppService(TestCase):
 
     @with_main_loop
     def test_get_application_sets_video_app_error_no_device_uuid(self, quit_cb):
-        '''/list_application_sets should return error if deviceUUID not set.'''
+        '''/list_application_sets should return an error if deviceUUID not set.'''
         def on_received_response(response):
             '''Called when we receive a response from the server.'''
             matches_structure(self, {
@@ -737,7 +737,7 @@ class TestCompanionAppService(TestCase):
 
     @with_main_loop
     def test_get_application_sets_video_app_error_no_application_id(self, quit_cb):
-        '''/list_application_sets should return error if applicationId not set.'''
+        '''/list_application_sets should return an error if applicationId not set.'''
         def on_received_response(response):
             '''Called when we receive a response from the server.'''
             matches_structure(self, {
@@ -758,7 +758,7 @@ class TestCompanionAppService(TestCase):
 
     @with_main_loop
     def test_get_application_sets_video_app_error_bad_application_id(self, quit_cb):
-        '''/list_application_sets should return error if applicationID is not valid.'''
+        '''/list_application_sets should return an error if applicationID is not valid.'''
         def on_received_response(response):
             '''Called when we receive a response from the server.'''
             matches_structure(self, {
@@ -812,7 +812,7 @@ class TestCompanionAppService(TestCase):
 
     @with_main_loop
     def test_get_application_content_for_tags_video_app_error_no_device_uuid(self, quit_cb):
-        '''/list_application_content_for_tags should return error if deviceUUID not set.'''
+        '''/list_application_content_for_tags should return an error if deviceUUID not set.'''
         def on_received_response(response):
             '''Called when we receive a response from the server.'''
             matches_structure(self, {
@@ -835,7 +835,7 @@ class TestCompanionAppService(TestCase):
 
     @with_main_loop
     def test_get_application_content_for_tags_video_app_error_no_application_id(self, quit_cb):
-        '''/list_application_content_for_tags should return error if applicationId not set.'''
+        '''/list_application_content_for_tags should return an error if applicationId not set.'''
         def on_received_response(response):
             '''Called when we receive a response from the server.'''
             matches_structure(self, {
@@ -857,7 +857,7 @@ class TestCompanionAppService(TestCase):
 
     @with_main_loop
     def test_get_application_content_for_tags_video_app_error_no_tags(self, quit_cb):
-        '''/list_application_content_for_tags should return error if tags not set.'''
+        '''/list_application_content_for_tags should return an error if tags not set.'''
         def on_received_response(response):
             '''Called when we receive a response from the server.'''
             matches_structure(self, {
@@ -879,7 +879,7 @@ class TestCompanionAppService(TestCase):
 
     @with_main_loop
     def test_get_application_content_for_tags_video_app_error_bad_application_id(self, quit_cb):
-        '''/list_application_sets should return error if applicationID is not valid.'''
+        '''/list_application_sets should return an error if applicationID is not valid.'''
         def on_received_response(response):
             '''Called when we receive a response from the server.'''
             matches_structure(self, {
