@@ -300,6 +300,7 @@ class TestCompanionAppService(TestCase):
     # so that the references on them are dropped
     def setUp(self):
         '''Tear down the test case.'''
+        super().setUp()
         self.service = None
         self._env_context = GLibEnvironmentPreservationContext()
 
@@ -331,6 +332,8 @@ class TestCompanionAppService(TestCase):
         self.service = None
 
         self._env_context.restore()
+
+        super().tearDown()
 
     @classmethod
     def setUpClass(cls):  # pylint: disable=invalid-name
