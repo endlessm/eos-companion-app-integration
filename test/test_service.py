@@ -296,6 +296,10 @@ FAKE_UUID = 'Some UUID'
 VIDEO_APP_THUMBNAIL_EKN_ID = 'b87d21e1d15fdb26f6dcf9f33eff11fbba6f43d5'
 CONTENT_APP_THUMBNAIL_EKN_ID = 'cd50d19784897085a8d0e3e413f8612b097c03f1'
 
+VIDEO_APP_FAKE_CONTENT = (
+    'Not actually an MPEG-4 file, just a placeholder for tests\n'
+)
+
 
 def generate_flatpak_installation_directory():
     '''Generate a path for a flatpak installation directory.
@@ -1093,8 +1097,7 @@ class TestCompanionAppService(TestCase):
         '''/content_data returns some expected video content data.'''
         def on_received_response(msg_bytes, headers):
             '''Called when we receive a response from the server.'''
-            test_string = ('Not actually an MPEG-4 file, '
-                           'just a placeholder for tests\n')
+            test_string = VIDEO_APP_FAKE_CONTENT
             self.assertEqual(msg_bytes.get_data().decode('utf-8'), test_string)
             self.assertEqual(headers.get_content_length(), len(test_string))
             self.assertEqual(headers.get_content_type()[0], 'video/mp4')
@@ -1157,8 +1160,7 @@ class TestCompanionAppService(TestCase):
         def on_received_response(msg_bytes, headers):
             '''Called when we receive a response from the server.'''
             # Range is inclusive, python ranges are exclusive, so add 1
-            test_string = ('Not actually an MPEG-4 file, '
-                           'just a placeholder for tests\n')
+            test_string = VIDEO_APP_FAKE_CONTENT
             self.assertEqual(msg_bytes.get_data().decode('utf-8'), test_string[1:11])
             self.assertEqual(headers.get_content_length(), 10)
             self.assertEqual(headers.get_content_type()[0], 'video/mp4')
