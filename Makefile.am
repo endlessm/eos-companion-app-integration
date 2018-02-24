@@ -100,6 +100,15 @@ test-data-content-app:
 
 test-data: test-data-video-app test-data-content-app
 
+# # # MANIFEST TOOLS # # #
+# These targets exist to help manage the dependencies in the manifest file
+EXTRA_DIST += \
+	tools/regenerate_flatpak_manifest.py \
+	$(NULL)
+
+regenerate-pip-manifest-template:
+	python3 $(abs_top_srcdir)/tools/regenerate_pip_flatpak_manifest.py tools/flatpak-builder-tools/pip/flatpak-pip-generator $(abs_top_srcdir)/requirements.txt $(abs_top_srcdir)/com.endlessm.CompanionAppService.PipDependencies.json
+
 .PHONY: test-data test-data-video-app test-data-content-app
 
 # Add GObject Introspection files to the build
