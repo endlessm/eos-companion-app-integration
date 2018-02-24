@@ -311,9 +311,9 @@ GInputStream * eos_companion_app_service_finish_fast_skip_stream (GAsyncResult  
  * may also be overridden by tests in the future.
  *
  * Note that this function may depend on the pointer-value of
- * FLATPAK_SYSTEM_DIR and FLATPAK_USER_DIR - it is programmer error to
- * change those values whilst iterating over these directories, even
- * in another thread.
+ * EOS_COMPANION_APP_FLATPAK_SYSTEM_DIR and EOS_COMPANION_APP_FLATPAK_USER_DIR
+ * - it is a programmer error to change those values whilst iterating over these
+ * directories, even in another thread.
  *
  * Returns: (transfer none): a #GStrv of Flatpak install directories.
  */
