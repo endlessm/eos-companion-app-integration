@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# test_data/scripts/generate_content_shard.sh
+# test_data/scripts/generate_gresource_file.sh
 #
 # Usage: generate_gresource_file.sh GRESOURCE_FILE
 #
