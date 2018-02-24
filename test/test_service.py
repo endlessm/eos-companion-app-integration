@@ -473,7 +473,7 @@ class TestCompanionAppService(TestCase):
         self.service = CompanionAppService(Holdable(), self.port)
         json_http_request_with_uuid('',
                                     local_endpoint(self.port,
-                                                   'application_icon'),
+                                                   'list_applications'),
                                     {
                                         'applicationId': 'org.test.VideoApp'
                                     },
