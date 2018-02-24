@@ -16,6 +16,13 @@ from apps linked to that runtime. To explicitly build the service, pass
 explicitly built when building the flatpak from the
 `com.endlessm.CompanionAppService.json.in` manifest.
 
+Note that if you are running a "converted" system, avoid the pitfall of
+of trying to build and test against the system installed eos-knowledge-lib! The
+service currently uses the API and database schema exposed by
+eos-knowledge-lib SDK version 3. Trying to build it against a system-installed
+or git-master version will probably fail. Use the `./sdk3_run.sh` wrapper
+or `flapjack` to run build commands against SDK version 3.
+
 Separate to the service is a set of integration hooks. These hooks, amongst
 other things, register systemd service and socket files so that the service
 flatpak is automatically started up whenever a device makes a connection
