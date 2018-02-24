@@ -18,8 +18,8 @@
 # All rights reserved.
 '''Helper functions to build flatpak apps for tests.'''
 
-import json
 import hashlib
+import json
 import os
 import shutil
 
