@@ -80,7 +80,7 @@ include $(top_srcdir)/Makefile.am.integration.inc
 # of how this works.
 EXTRA_DIST += \
 	test_data/scripts/generate_content_shard.sh \
-	test_data/scripts/generate_gresource_shard.sh \
+	test_data/scripts/generate_gresource_file.sh \
 	$(NULL)
 
 RUNTIME_VERSION = 3
