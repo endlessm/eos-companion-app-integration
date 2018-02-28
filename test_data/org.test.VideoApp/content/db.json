@@ -1,0 +1,20 @@
+{
+    "content": [
+        {
+            "contentType": "video/mp4",
+            "source": "file.mp4",
+            "tags": ["EknHomePageTag", "EknMediaObject", "EknArticleObject"],
+            "title": "Sample Video",
+            "thumbnail": "ekn:///b87d21e1d15fdb26f6dcf9f33eff11fbba6f43d5"
+        },
+        {
+            "contentType": "image/jpeg",
+            "@id": "b87d21e1d15fdb26f6dcf9f33eff11fbba6f43d5",
+            "source": "thumbnail.jpg",
+            "tags": ["EknMediaObject"],
+            "title": "Thumbnail for video"
+        }
+    ],
+    "sets": [
+    ]
+}

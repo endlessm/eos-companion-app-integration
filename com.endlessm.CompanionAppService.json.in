@@ -1,38 +1,45 @@
 {
     "app-id": "com.endlessm.CompanionAppService",
-    "runtime": "com.endlessm.apps.Platform",
-    "runtime-version": "3",
-    "sdk": "com.endlessm.apps.Sdk",
-    "command": "eos-companion-app-service",
-    "finish-args": [
-        "--share=ipc",
-        "--system-talk-name=org.freedesktop.Avahi",
-        "--system-talk-name=org.freedesktop.login1",
-        "--filesystem=xdg-run/dconf", "--filesystem=~/.config/dconf:ro",
-        "--filesystem=/var/lib/flatpak:ro",
-        "--filesystem=/var/endless-extra/flatpak:ro",
-        "--talk-name=ca.desrt.dconf", "--env=DCONF_USER_CONFIG_DIR=.config/dconf",
-        "--share=network",
-        "--command=eos-companion-app-service"
-    ],
-    "build-options" : {
+    "build-options": {
         "cflags": "-O2 -g",
         "cxxflags": "-O2 -g",
         "env": {
             "V": "1"
         }
     },
+    "command": "eos-companion-app-service",
+    "finish-args": [
+        "--share=ipc",
+        "--system-talk-name=org.freedesktop.Avahi",
+        "--system-talk-name=org.freedesktop.login1",
+        "--filesystem=xdg-run/dconf",
+        "--filesystem=~/.config/dconf:ro",
+        "--filesystem=/var/lib/flatpak:ro",
+        "--filesystem=/var/endless-extra/flatpak:ro",
+        "--talk-name=ca.desrt.dconf",
+        "--env=DCONF_USER_CONFIG_DIR=.config/dconf",
+        "--share=network",
+        "--command=eos-companion-app-service"
+    ],
     "modules": [
+        "com.endlessm.CompanionAppService.PipDependencies.json",
         {
+            "config-opts": [
+                "--disable-integration",
+                "--enable-service"
+            ],
             "name": "eos-companion-app-service",
-            "config-opts": ["--disable-integration", "--enable-service"],
+            "run-tests": @RUN_TESTS@,
             "sources": [
                 {
-                    "type": "git",
+                    "branch": "@GIT_CLONE_BRANCH@",
                     "path": ".",
-                    "branch": "@GIT_CLONE_BRANCH@"
+                    "type": "git"
                 }
             ]
         }
-    ]
+    ],
+    "runtime": "com.endlessm.apps.Platform",
+    "runtime-version": "3",
+    "sdk": "com.endlessm.apps.Sdk"
 }

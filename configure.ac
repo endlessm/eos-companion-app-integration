@@ -6,7 +6,7 @@ AC_INIT([eos-companion-app-integration],
         [https://github.com/endlessm/eos-companion-app-integration])
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_SRCDIR([Makefile.am])
-AM_INIT_AUTOMAKE([1.11 tar-ustar dist-xz no-dist-gzip -Wno-portability subdir-objects])
+AM_INIT_AUTOMAKE([1.11 tar-ustar dist-xz no-dist-gzip -Wno-portability subdir-objects parallel-tests])
 AM_MAINTAINER_MODE([enable])
 m4_ifdef([AM_SILENT_RULES],[AM_SILENT_RULES([no])])
 
@@ -113,6 +113,22 @@ AC_SUBST(EXTERNAL_INSTALL_DIR)
 AM_CONDITIONAL([EOS_COMPANION_APP_INTEGRATION_ENABLED], [test "x$EOS_COMPANION_APP_INTEGRATION_ENABLED" = "xyes"])
 AC_SUBST([ADDITIONAL_DISTCHECK_CONFIGURE_FLAGS])
 
+# Check for some tools that we'll need if we're going to be doing
+# any testing
+AC_CHECK_PROG([HAVE_PYTHON3], [python3], ["yes"], ["no"])
+AC_MSG_CHECKING([if tests can be run on this build])
+
+# Need to have some odd formatting here due to the fact that
+# an if-condition line on a shell script must end with either
+# a logical operand or a semicolon
+AS_IF([
+  test "x$HAVE_PYTHON3" == "xyes"], [
+  HAVE_TESTING_PROGS="yes"
+], [
+  HAVE_TESTING_PROGS="no"
+])
+AC_MSG_RESULT([$HAVE_TESTING_PROGS])
+AM_CONDITIONAL([EOS_COMPANION_APP_SERVICE_ENABLE_TESTING], [test "x$HAVE_TESTING_PROGS" == "xyes"])
 
 AC_CONFIG_FILES([
   Makefile

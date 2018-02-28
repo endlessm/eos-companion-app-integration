@@ -1,6 +1,11 @@
-# /eoscompanion/__init__.py
+#!/bin/bash
 #
-# Copyright (C) 2017 Endless Mobile, Inc.
+# test_data/scripts/generate_content_shard.sh
+#
+# Usage: generate_content_shard.sh RUNTIME_VERSION DB_JSON CONTENT_SHARD
+#
+# Generate a content shard from some db.json file using
+# the given runtime version. The relevant Flatpak SDK must be installed.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -16,4 +21,20 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 # All rights reserved.
-'''Package entry point for eoscompanion.'''
+
+function usage() {
+    echo "generate_content_shard.sh RUNTIME_VERSION DB_JSON CONTENT_SHARD"
+}
+
+RUNTIME_VERSION=$1
+DB_JSON=$2
+CONTENT_SHARD=$3
+
+flatpak run \
+	"--filesystem=$(readlink -f $(dirname ${DB_JSON}))" \
+	"--filesystem=$(readlink -f $(dirname ${CONTENT_SHARD}))" \
+	"com.endlessm.apps.Sdk//${RUNTIME_VERSION}" \
+	basin \
+	"${DB_JSON}" \
+	"${CONTENT_SHARD}"
+

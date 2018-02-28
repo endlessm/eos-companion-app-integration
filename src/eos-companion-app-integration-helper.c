@@ -41,7 +41,7 @@ G_DEFINE_AUTOPTR_CLEANUP_FUNC (GResource, g_resource_unref)
 GQuark
 eos_companion_app_service_error (void)
 {
-  return g_quark_from_static_string ("eos-companion-app-error");
+  return g_quark_from_static_string ("eos-companion-app-service-error");
 }
 
 /**
@@ -651,7 +651,7 @@ load_colors_from_gresource_file (GResource  *resource,
            * application just has no colors to return and return the
            * empty array */
           g_ptr_array_add (color_strings, NULL);
-          return color_strings;
+          return (GStrv) g_ptr_array_free (color_strings, FALSE);
         }
 
       g_ptr_array_free (color_strings, TRUE);
@@ -1074,8 +1074,8 @@ eos_companion_app_service_finish_fast_skip_stream (GAsyncResult  *result,
   return g_task_propagate_pointer (G_TASK (result), error);
 }
 
-GStrv
-eos_companion_app_service_flatpak_install_dirs (void)
+static GStrv
+hardcoded_flatpak_install_dirs (void)
 {
   static const gchar *dirs[] = {
     EOS_COMPANION_APP_SERVICE_SYSTEM_FLATPAK_INSTALL_DIR,
@@ -1086,5 +1086,30 @@ eos_companion_app_service_flatpak_install_dirs (void)
   return (GStrv) dirs;
 }
 
-G_DEFINE_QUARK (eos-companion-app-service-error-quark, eos_companion_app_service_error)
+static GStrv
+override_flatpak_install_dirs (void)
+{
+  static const gchar *dirs[3];
+
+  /* Mutating global static storage here is not ideal, but it
+   * saves us from having to allocate/deallocate memory all the time. */
+  dirs[0] = g_getenv ("EOS_COMPANION_APP_FLATPAK_SYSTEM_DIR");
+  dirs[1] = g_getenv ("EOS_COMPANION_APP_FLATPAK_USER_DIR");
+  dirs[2] = NULL;
+
+  return (GStrv) dirs;
+}
+
+GStrv
+eos_companion_app_service_flatpak_install_dirs (void)
+{
+  GStrv override_dirs = override_flatpak_install_dirs ();
+
+  if (override_dirs[0] != NULL)
+    return override_dirs;
+
+  return hardcoded_flatpak_install_dirs ();
+}
+
+G_DEFINE_QUARK (eos-companion-app-service-error, eos_companion_app_service_error)
 

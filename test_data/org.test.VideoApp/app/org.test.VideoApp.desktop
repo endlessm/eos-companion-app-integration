@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=Video App
+Type=Application
+Comment=A description about a Video App
+Exec=org.test.VideoApp
+Version=1.0
+Icon=org.test.VideoApp
+X-Endless-Content-Language=en
+X-Flatpak=org.test.VideoApp
+NoDisplay=false

@@ -1,6 +1,9 @@
-# /eoscompanion/__init__.py
+#!/bin/bash -e
 #
-# Copyright (C) 2017 Endless Mobile, Inc.
+# run_sdk3.sh: A simple tool to run a command in the current directory
+#              in the context of SDK3
+#
+# Copyright (C) 2018 Endless Mobile, Inc.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -16,4 +19,9 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 # All rights reserved.
-'''Package entry point for eoscompanion.'''
+
+arguments=( "$@" )
+first_argument="${arguments[0]}"
+tail_arguments="${arguments[@]:1:$((${#arguments[@]}))}"
+
+flatpak run --filesystem=$(pwd) --command=$first_argument com.endlessm.apps.Sdk//3 $tail_arguments

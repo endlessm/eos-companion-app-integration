@@ -162,4 +162,55 @@ EosCompanionAppService_1_0_gir_FILES = $(introspection_sources)
 INTROSPECTION_GIRS += EosCompanionAppService-1.0.gir
 endif
 
+# # # TESTING # # #
+if EOS_COMPANION_APP_SERVICE_ENABLE_TESTING
+python_tests = \
+	test/test_service.py \
+	$(NULL)
+
+test_data = \
+	test_data/org.test.ContentApp/app/org.test.ContentApp.desktop \
+	test_data/org.test.ContentApp/app/org.test.ContentApp.png \
+	test_data/org.test.ContentApp/app/overrides.scss \
+	test_data/org.test.ContentApp/content/article1.html \
+	test_data/org.test.ContentApp/content/article2.html \
+	test_data/org.test.ContentApp/content/thumbnail.jpg \
+	test_data/org.test.ContentApp/content/image.jpg \
+	test_data/org.test.ContentApp/content/db.json \
+	test_data/org.test.VideoApp/app/org.test.VideoApp.desktop \
+	test_data/org.test.VideoApp/app/org.test.VideoApp.png \
+	test_data/org.test.VideoApp/app/overrides.scss \
+	test_data/org.test.VideoApp/content/file.mp4 \
+	test_data/org.test.VideoApp/content/thumbnail.jpg \
+	test_data/org.test.VideoApp/content/db.json \
+	$(NULL)
+
+test_support = \
+	test/__init__.py \
+	test/build_app.py \
+	$(NULL)
+
+TESTS_ENVIRONMENT = \
+	export EOS_COMPANION_APP_SERVICE_QUIET="1" \
+	export PYTHONPATH="$(abs_top_srcdir):$${PYTHONPATH:+:$$PYTHONPATH}"; \
+	export GI_TYPELIB_PATH="$(abs_top_builddir):$${GI_TYPELIB_PATH:+:$$GI_TYPELIB_PATH}"; \
+	export LD_LIBRARY_PATH="$(abs_top_builddir)/.libs:$${LD_LIBRARY_PATH:+:$$LD_LIBRARY_PATH}"; \
+	export SOURCE_DIRECTORY="$(abs_top_srcdir)"; \
+	export LC_ALL=C; \
+	$(NULL)
+TESTS = \
+	$(python_tests) \
+	$(NULL)
+
+PY_LOG_COMPILER = $(abs_top_srcdir)/run-python-test.sh
+AM_PY_LOG_FLAGS = -v
+
+EXTRA_DIST += \
+	$(python_tests) \
+	$(test_data) \
+	$(test_support) \
+	run-python-test.sh \
+	$(NULL)
+endif
+
 endif

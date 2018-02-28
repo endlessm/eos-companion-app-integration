@@ -150,10 +150,16 @@ def companion_app_server_root_route(_, msg, *args):
     html_response(msg, html)
 
 
+def log(msg, file=sys.stdout):
+    '''Log the message to the console if not running quietly.'''
+    if not GLib.getenv('EOS_COMPANION_APP_SERVICE_QUIET'):
+        print(msg, file=file)
+
+
 @require_query_string_param('deviceUUID')
 def companion_app_server_device_authenticate_route(server, msg, path, query, *args):
     '''Authorize the client.'''
-    print('Authorize client: clientId={clientId}'.format(
+    log('Authorize client: clientId={clientId}'.format(
         clientId=query['deviceUUID'])
     )
     json_response(msg, {
@@ -236,7 +242,7 @@ def companion_app_server_list_applications_route(server, msg, path, query, *args
         })
         server.unpause_message(msg)
 
-    print('List applications: clientId={clientId}'.format(
+    log('List applications: clientId={clientId}'.format(
         clientId=query['deviceUUID'])
     )
     list_all_applications(_callback)
@@ -265,7 +271,7 @@ def companion_app_server_application_icon_route(server, msg, path, query, *args)
            })
        server.unpause_message(msg)
 
-    print('Get application icon: clientId={clientId}, iconName={iconName}'.format(
+    log('Get application icon: clientId={clientId}, iconName={iconName}'.format(
         iconName=query['iconName'],
         clientId=query['deviceUUID']
     ))
@@ -316,7 +322,7 @@ def companion_app_server_application_colors_route(server, msg, path, query, *arg
 
        server.unpause_message(msg)
 
-    print('Get application colors: clientId={clientId}, applicationId={applicationId}'.format(
+    log('Get application colors: clientId={clientId}, applicationId={applicationId}'.format(
         applicationId=query['applicationId'],
         clientId=query['deviceUUID']
     ))
@@ -479,7 +485,7 @@ def companion_app_server_list_application_sets_route(server, msg, path, query, *
 
            server.unpause_message(msg)
 
-    print('List application sets: clientId={clientId}, applicationId={applicationId}'.format(
+    log('List application sets: clientId={clientId}, applicationId={applicationId}'.format(
         applicationId=query['applicationId'], clientId=query['deviceUUID'])
     )
 
@@ -548,7 +554,7 @@ def companion_app_server_list_application_content_for_tags_route(server, msg, pa
 
        server.unpause_message(msg)
 
-    print('List application content for tags: clientId={clientId}, applicationId={applicationId}, tags={tags}'.format(
+    log('List application content for tags: clientId={clientId}, applicationId={applicationId}, tags={tags}'.format(
         tags=query['tags'], applicationId=query['applicationId'], clientId=query['deviceUUID'])
     )
 
@@ -763,7 +769,7 @@ def companion_app_server_content_data_route(server, msg, path, query, context):
                 bytes_written = src.splice_finish(result)
             except GLib.Error as error:
                 # Can't really do much here except log server side
-                print(
+                log(
                     'Splice operation on file failed: {error}'.format(error=error.message),
                     file=sys.stderr
                 )
@@ -825,7 +831,7 @@ def companion_app_server_content_data_route(server, msg, path, query, context):
             a tuple of an error or a stream and length.
             '''
             if error != None:
-                print(
+                log(
                     'Stream wrapping failed {error}'.format(error),
                     file=sys.stderr
                 )
@@ -898,7 +904,7 @@ def companion_app_server_content_data_route(server, msg, path, query, context):
                                        query,
                                        _on_got_wrapped_stream)
 
-    print('Get content stream: clientId={clientId}, applicationId={applicationId}, contentId={contentId}'.format(
+    log('Get content stream: clientId={clientId}, applicationId={applicationId}, contentId={contentId}'.format(
         contentId=query['contentId'], applicationId=query['applicationId'], clientId=query['deviceUUID'])
     )
 
@@ -993,7 +999,7 @@ def companion_app_server_content_metadata_route(server, msg, path, query, *args)
 
         server.unpause_message(msg)
 
-    print('Get content metadata: clientId={clientId}, applicationId={applicationId}, contentId={contentId}'.format(
+    log('Get content metadata: clientId={clientId}, applicationId={applicationId}, contentId={contentId}'.format(
         contentId=query['contentId'], applicationId=query['applicationId'], clientId=query['deviceUUID'])
     )
 
@@ -1153,16 +1159,17 @@ def companion_app_server_search_content_route(server, msg, path, query, *args):
     limit the scope of the search:
     “applicationId”: [machine readable application ID, returned
                       by /list_applications],
-    “setIds”: [machine readable set IDs, semicolon delimited,
-               returned by /list_application_sets],
+    “tags”: [machine readable set IDs, semicolon delimited,
+             returned by /list_application_sets],
     “limit”: [machine readable limit integer, default 50],
     “offset”: [machine readable offset integer, default 0],
     “searchTerm”: [search term, string]
     '''
-    def _on_received_results_list(truncated_models_for_applications,
-                                  matched_applications_ids,
+    def _on_received_results_list(models,
+                                  matched_application_ids,
                                   applications,
-                                  remaining):
+                                  global_limit,
+                                  global_offset):
         '''Called when we receive all models as a part of this search.
 
         truncated_models_for_applications should be a list of
@@ -1172,7 +1179,7 @@ def companion_app_server_search_content_route(server, msg, path, query, *args):
         "limit", if one was specified and offsetted by "offset", if one was
         specified, at this point.
 
-        matched_applications_ids is a list of application IDs
+        matched_application_ids is a list of application IDs
         for which the application name actually matched the search term.
 
         applications should be a list of ApplicationListing, which is
@@ -1182,6 +1189,11 @@ def companion_app_server_search_content_route(server, msg, path, query, *args):
         remaining is the number of models which have not been served as a
         part of this query.
         '''
+        # An 'end' of None here essentially means that the list will not
+        # be truncated. This is the choice if global_limit is set to None
+        start = global_offset if global_offset is not None else 0
+        end = start + global_limit if global_limit is not None else None
+
         # We need to construct an in-memory hashtable of application
         # IDs to names to at least get nlogn lookup
         applications_hashtable = {
@@ -1190,7 +1202,7 @@ def companion_app_server_search_content_route(server, msg, path, query, *args):
 
         # all_results is the application names that matched the search term,
         # plus all the models that matched the search term
-        all_results = list(itertools.chain.from_iterable([
+        all_results = sorted(list(itertools.chain.from_iterable([
             [
                 {
                     'displayName': applications_hashtable[app_id],
@@ -1199,7 +1211,7 @@ def companion_app_server_search_content_route(server, msg, path, query, *args):
                     },
                     'type': 'application'
                 }
-                for app_id in matched_applications_ids
+                for app_id in matched_application_ids
             ],
             [
                 {
@@ -1211,10 +1223,29 @@ def companion_app_server_search_content_route(server, msg, path, query, *args):
                 }
                 for app_id, display_name, model, model_type, model_payload_renderer in
                 search_models_from_application_models(
-                    truncated_models_for_applications
+                    models
                 )
             ]
-        ]))
+        ])), key=lambda r: r['displayName'])
+
+        # Determine which applications were seen in the truncated model
+        # set or if their name matched the search query and then include
+        # them in the results list
+        truncated_results = all_results[start:end]
+
+        seen_application_ids = set(itertools.chain.from_iterable([[
+            r['payload']['applicationId']
+            for r in truncated_results
+            if r['type'] != 'application'
+        ], [app_id for app_id in matched_application_ids]]))
+        relevant_applications = [
+            a for a in applications if a.app_id in seen_application_ids
+        ]
+
+        remaining = (
+            max(0, len(all_results) - global_limit)
+            if global_limit is not None else 0
+        )
 
         json_response(msg, {
             'status': 'ok',
@@ -1227,9 +1258,9 @@ def companion_app_server_search_content_route(server, msg, path, query, *args):
                         'icon': format_app_icon_uri(a.icon, query['deviceUUID']),
                         'language': a.language
                     }
-                    for a in applications
+                    for a in relevant_applications
                 ],
-                'results': all_results
+                'results': truncated_results
             }
         })
         server.unpause_message(msg)
@@ -1278,21 +1309,6 @@ def companion_app_server_search_content_route(server, msg, path, query, *args):
                     server.unpause_message(msg)
                     return
 
-            remaining = (
-                max(0, len(all_models) - global_limit)
-                if global_limit is not None else 0
-            )
-
-            # An 'end' of None here essentially means that the list will not
-            # be truncated. This is the choice if global_limit is set to None
-            start = global_offset if global_offset is not None else 0
-            end = start + global_limit if global_limit is not None else None
-
-            # Determine which applications were seen in the truncated model
-            # set or if their name matched the search query and then include
-            # them in the results list
-            truncated_models = all_models[start:end]
-
             # Search for applications. The g_desktop_app_info_search function
             # will search all applications using an in-memory index
             # according to its own internal criteria. The returned
@@ -1309,17 +1325,11 @@ def companion_app_server_search_content_route(server, msg, path, query, *args):
                 a.app_id for a in applications
             )
 
-            seen_application_ids = set(itertools.chain.from_iterable([[
-                m.app_id for m in truncated_models
-            ], [app_id for app_id in matched_application_ids]]))
-            relevant_applications = [
-                a for a in applications if a.app_id in seen_application_ids
-            ]
-
-            _on_received_results_list(truncated_models,
+            _on_received_results_list(all_models,
                                       matched_application_ids,
-                                      relevant_applications,
-                                      remaining)
+                                      applications,
+                                      global_limit,
+                                      global_offset)
 
         return _on_all_searches_complete
 
@@ -1376,8 +1386,21 @@ def companion_app_server_search_content_route(server, msg, path, query, *args):
         When searching all applications, we do not apply a per-application
         offset, but we do apply a per-application limit since the limit is
         meant to be the upper bound.
+
+        Note that the per-application limit actually needs to
+        be the upper bound of the slice that we take from all query
+        results, since the offset is applied to the reconciled
+        set and not each individual source. For instance, if we
+        have a limit of 1 and an offset of 1, then we need at least
+        two results from a single source in order to apply that
+        global limit and offset correctly, otherwise the slice would
+        run off the end of the result set when we could have had more.
         '''
-        _search_all_applications(applications, limit, offset, limit, 0)
+        _search_all_applications(applications,
+                                 limit,
+                                 offset,
+                                 (limit or 0) + (offset or 0),
+                                 0)
 
 
     def _on_got_application_info(src, result):
@@ -1637,10 +1660,10 @@ class CompanionAppApplication(Gio.Application):
         and the inhibit lock released.
         '''
         if error is not None:
-            print('Received error when attempting to take idle inhibit '
-                  'lock. Ensure that this user has sufficient permissions '
-                  '(eg, through org.freedesktop.login1.inhibit-block-idle). '
-                  'The error was: {}'.format(str(error)))
+            log('Received error when attempting to take idle inhibit '
+                'lock. Ensure that this user has sufficient permissions '
+                '(eg, through org.freedesktop.login1.inhibit-block-idle). '
+                'The error was: {}'.format(str(error)))
             return
 
         # Hang on to the fd so that we don't lose track of it, even though
@@ -1652,26 +1675,26 @@ class CompanionAppApplication(Gio.Application):
         try:
             connection = Gio.bus_get_finish(result)
         except GLib.Error as error:
-            print('Error getting the system bus: {}'.format(str(error)))
+            log('Error getting the system bus: {}'.format(str(error)))
             self.quit()
             return
 
-        print('Got system d-bus connection')
+        log('Got system d-bus connection')
         _inhibit_auto_idle(connection, self._on_got_inhibit_fd)
 
     def do_dbus_register(self, connection, path):
         '''Invoked when we get a D-Bus connection.'''
-        print('Got session d-bus connection at {path}'.format(path=path))
+        log('Got session d-bus connection at {path}'.format(path=path))
         return Gio.Application.do_dbus_register(self, connection, path)
 
     def do_dbus_unregister(self, connection, path):
         '''Invoked when we lose a D-Bus connection.'''
-        print('Lost session d-bus connection at {path}'.format(path=path))
+        log('Lost session d-bus connection at {path}'.format(path=path))
         return Gio.Application.do_dbus_unregister(self, connection, path)
 
     def do_activate(self):
         '''Invoked when the application is activated.'''
-        print('Activated')
+        log('Activated')
         return Gio.Application.do_activate(self)
 
 

@@ -47,12 +47,19 @@ class SubprocessWrapperTestCommand(TestCommand):
             'LD_LIBRARY_PATH': os.pathsep.join([os.path.join(_BUILD_DIRECTORY,
                                                              '.libs'),
                                                 os.environ.get('LD_LIBRARY_PATH',
-                                                               '')])
+                                                               '')]),
+            'GI_TYPELIB_PATH': os.pathsep.join([os.path.join(_BUILD_DIRECTORY),
+                                                os.environ.get('GI_TYPELIB_PATH',
+                                                               '')]),
+            'PYTHONPATH': os.pathsep.join([_CURRENT_DIRECTORY,
+                                           os.environ.get('PYTHONPATH', '')]),
+            'EOS_COMPANION_APP_SERVICE_QUIET': '1'
         })
         check_call(['python3',
                     '-m',
                     'unittest',
-                    'discover'],
+                    'discover',
+                    '-v'],
                    cwd=os.path.join(_CURRENT_DIRECTORY, 'test'),
                    env=env)
 
