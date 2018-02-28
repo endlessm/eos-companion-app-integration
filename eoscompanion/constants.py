@@ -20,3 +20,6 @@
 
 # Five minute inactivity timeout
 INACTIVITY_TIMEOUT = 1000 * 60 * 5
+
+# API Version
+SERVER_API_VERSION = 1
