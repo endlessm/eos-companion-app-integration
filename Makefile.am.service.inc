@@ -212,6 +212,7 @@ TESTS_ENVIRONMENT = \
 	$(NULL)
 TESTS = \
 	$(python_tests) \
+	run_pylint.pylint \
 	$(NULL)
 
 PY_LOG_COMPILER = $(abs_top_srcdir)/run-python-test.sh
@@ -224,5 +225,11 @@ EXTRA_DIST += \
 	run-python-test.sh \
 	$(NULL)
 endif
+
+EOS_PYLINT_FILES = \
+	$(app_PYTHON) \
+	$(python_tests) \
+	$(test_support) \
+	$(NULL)
 
 endif

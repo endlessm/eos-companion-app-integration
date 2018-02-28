@@ -40,7 +40,7 @@ def ascertain_application_sets_from_models(models,
                                            application_id,
                                            done_callback):
     '''Pass application sets or an entry for the global set to callback.'''
-    def _on_received_application_info(src, result):
+    def _on_received_application_info(_, result):
         '''Called when we receive requested application info.'''
         try:
             listing = application_listing_from_app_info(
@@ -85,4 +85,3 @@ def ascertain_application_sets_from_models(models,
                                                      callback=_on_received_application_info)
     except Exception as error:
         GLib.idle_add(done_callback, error, None)
-

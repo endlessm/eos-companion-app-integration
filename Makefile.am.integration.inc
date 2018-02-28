@@ -203,4 +203,13 @@ endif
 AM_DISTCHECK_CONFIGURE_FLAGS += \
 	--with-systemdsystemunitdir='$${DESTDIR}$${prefix}/lib/systemd/system' \
 	$(NULL)
+
+EOS_PYLINT_FILES = \
+	helper/eos-companion-app-avahi-helper \
+	$(NULL)
+
+TESTS = \
+	./run_pylint.pylint \
+	$(NULL)
+
 endif

@@ -70,7 +70,7 @@ AM_DISTCHECK_CONFIGURE_FLAGS = \
 	$(NULL)
 
 # Cannot have conditional contents, need to put it out here
-TEST_EXTENSIONS = .py
+TEST_EXTENSIONS = .py .pylint
 
 include $(top_srcdir)/Makefile.am.service.inc
 include $(top_srcdir)/Makefile.am.integration.inc
@@ -110,6 +110,14 @@ regenerate-pip-manifest-template:
 	python3 $(abs_top_srcdir)/tools/regenerate_pip_flatpak_manifest.py tools/flatpak-builder-tools/pip/flatpak-pip-generator $(abs_top_srcdir)/requirements.txt $(abs_top_srcdir)/com.endlessm.CompanionAppService.PipDependencies.json
 
 .PHONY: test-data test-data-video-app test-data-content-app
+
+# Needs to be in the toplevel otherwise it gets included twice, despite
+# the fact that it was in a conditional
+@EOS_PYLINT_RULES@
+
+EXTRA_DIST += \
+	.pylintrc \
+	$(NULL)
 
 # Add GObject Introspection files to the build
 gir_DATA += $(INTROSPECTION_GIRS)

@@ -45,7 +45,6 @@ from .content_streaming import (
 )
 from .ekn_data import (
     LOAD_FROM_ENGINE_NO_SUCH_APP,
-    LOAD_FROM_ENGINE_NO_SUCH_CONTENT,
     LOAD_FROM_ENGINE_SUCCESS,
     load_record_blob_from_engine,
     load_record_from_engine_async
@@ -58,7 +57,6 @@ from .format import (
 from .functional import all_asynchronous_function_calls_closure
 from .responses import (
     html_response,
-    jpeg_response,
     json_response,
     png_response,
     serialize_error_as_json_object
@@ -69,7 +67,9 @@ from .util import log
 def require_query_string_param(param):
     '''Require the uri to contain certain query parameter or raise.'''
     def decorator(handler):
+        '''Decorate the actual function.'''
         def middleware(server, msg, path, query, client):
+            '''Middleware to check the query parameters.'''
             rectified_query = query or {}
             if not rectified_query.get(param, None):
                 return json_response(msg, {
@@ -107,9 +107,13 @@ def companion_app_server_root_route(_, msg, *args):
 @require_query_string_param('deviceUUID')
 def companion_app_server_device_authenticate_route(server, msg, path, query, *args):
     '''Authorize the client.'''
+    del server
+    del path
+    del args
+
     log('Authorize client: clientId={clientId}'.format(
-        clientId=query['deviceUUID'])
-    )
+        clientId=query['deviceUUID']
+    ))
     json_response(msg, {
         'status': 'ok',
         'error': None
@@ -124,6 +128,9 @@ def desktop_id_to_app_id(desktop_id):
 @require_query_string_param('deviceUUID')
 def companion_app_server_list_applications_route(server, msg, path, query, *args):
     '''List all applications that are available on the system.'''
+    del path
+    del args
+
     def _callback(applications):
         '''Callback function that gets called when we are done.'''
         json_response(msg, {
@@ -141,8 +148,8 @@ def companion_app_server_list_applications_route(server, msg, path, query, *args
         server.unpause_message(msg)
 
     log('List applications: clientId={clientId}'.format(
-        clientId=query['deviceUUID'])
-    )
+        clientId=query['deviceUUID']
+    ))
     list_all_applications(_callback)
     server.pause_message(msg)
 
@@ -151,23 +158,26 @@ def companion_app_server_list_applications_route(server, msg, path, query, *args
 @require_query_string_param('iconName')
 def companion_app_server_application_icon_route(server, msg, path, query, *args):
     '''Return image/png data with the application icon.'''
-    def _callback(src, result):
-       '''Callback function that gets called when we are done.'''
-       try:
-           image_bytes = EosCompanionAppService.finish_load_application_icon_data_async(result)
-           png_response(msg, image_bytes)
-       except GLib.Error as error:
-           json_response(msg, {
-               'status': 'error',
-               'error': {
-                   'domain': GLib.quark_to_string(EosCompanionAppService.error_quark()),
-                   'code': EosCompanionAppService.Error.FAILED,
-                   'detail': {
-                       'server_error': str(error)
-                   }
-               }
-           })
-       server.unpause_message(msg)
+    del path
+    del args
+
+    def _callback(_, result):
+        '''Callback function that gets called when we are done.'''
+        try:
+            image_bytes = EosCompanionAppService.finish_load_application_icon_data_async(result)
+            png_response(msg, image_bytes)
+        except GLib.Error as error:
+            json_response(msg, {
+                'status': 'error',
+                'error': {
+                    'domain': GLib.quark_to_string(EosCompanionAppService.error_quark()),
+                    'code': EosCompanionAppService.Error.FAILED,
+                    'detail': {
+                        'server_error': str(error)
+                    }
+                }
+            })
+        server.unpause_message(msg)
 
     log('Get application icon: clientId={clientId}, iconName={iconName}'.format(
         iconName=query['iconName'],
@@ -183,42 +193,45 @@ def companion_app_server_application_icon_route(server, msg, path, query, *args)
 @require_query_string_param('applicationId')
 def companion_app_server_application_colors_route(server, msg, path, query, *args):
     '''Return a list of web-format primary application colors.'''
-    def _callback(src, result):
-       '''Callback function that gets called when we are done.'''
-       try:
-           color_strings = EosCompanionAppService.finish_load_application_colors(result)
-           json_response(msg, {
-               'status': 'ok',
-               'payload': {
-                   'colors': list(color_strings)
-               }
-           })
-       except GLib.Error as error:
-           if error.matches(EosCompanionAppService.error_quark(),
-                            EosCompanionAppService.Error.INVALID_APP_ID):
-               json_response(msg, {
-                   'status': 'error',
-                   'error': serialize_error_as_json_object(
-                       EosCompanionAppService.error_quark(),
-                       EosCompanionAppService.Error.INVALID_APP_ID,
-                       detail={
-                           'app_id': query['applicationId']
-                       }
-                   )
-               })
-           else:
-               json_response(msg, {
-                   'status': 'error',
-                   'error': serialize_error_as_json_object(
-                       EosCompanionAppService.error_quark(),
-                       EosCompanionAppService.Error.FAILED,
-                       detail={
-                           'server_error': str(error)
-                       }
-                   )
-               })
+    del path
+    del args
 
-       server.unpause_message(msg)
+    def _callback(_, result):
+        '''Callback function that gets called when we are done.'''
+        try:
+            color_strings = EosCompanionAppService.finish_load_application_colors(result)
+            json_response(msg, {
+                'status': 'ok',
+                'payload': {
+                    'colors': list(color_strings)
+                }
+            })
+        except GLib.Error as error:
+            if error.matches(EosCompanionAppService.error_quark(),
+                             EosCompanionAppService.Error.INVALID_APP_ID):
+                json_response(msg, {
+                    'status': 'error',
+                    'error': serialize_error_as_json_object(
+                        EosCompanionAppService.error_quark(),
+                        EosCompanionAppService.Error.INVALID_APP_ID,
+                        detail={
+                            'app_id': query['applicationId']
+                        }
+                    )
+                })
+            else:
+                json_response(msg, {
+                    'status': 'error',
+                    'error': serialize_error_as_json_object(
+                        EosCompanionAppService.error_quark(),
+                        EosCompanionAppService.Error.FAILED,
+                        detail={
+                            'server_error': str(error)
+                        }
+                    )
+                })
+
+        server.unpause_message(msg)
 
     log('Get application colors: clientId={clientId}, applicationId={applicationId}'.format(
         applicationId=query['applicationId'],
@@ -240,6 +253,9 @@ _SENSIBLE_QUERY_LIMIT = 500
 @require_query_string_param('applicationId')
 def companion_app_server_list_application_sets_route(server, msg, path, query, *args):
     '''Return json listing of all sets in an application.'''
+    del path
+    del args
+
     def _on_ascertained_sets(error, sets):
         '''Callback function for when we ascertain the true sets.
 
@@ -252,29 +268,29 @@ def companion_app_server_list_application_sets_route(server, msg, path, query, *
         Note that we will still want to load the application colors
         too, so we have do another asynchronous call to load them.
         '''
-        def _on_loaded_application_colors(src, result):
-           '''Callback function that gets called when we have the colors.'''
-           try:
-               color_strings = EosCompanionAppService.finish_load_application_colors(result)
-               json_response(msg, {
-                   'status': 'ok',
-                   'payload': {
-                       'colors': list(color_strings),
-                       'sets': sets
-                   }
-               })
-           except GLib.Error as error:
-               json_response(msg, {
-                   'status': 'error',
-                   'error': serialize_error_as_json_object(
-                       EosCompanionAppService.error_quark(),
-                       EosCompanionAppService.Error.FAILED,
-                       detail={
-                           'server_error': str(error)
-                       }
-                   )
-               })
-           server.unpause_message(msg)
+        def _on_loaded_application_colors(_, result):
+            '''Callback function that gets called when we have the colors.'''
+            try:
+                color_strings = EosCompanionAppService.finish_load_application_colors(result)
+                json_response(msg, {
+                    'status': 'ok',
+                    'payload': {
+                        'colors': list(color_strings),
+                        'sets': sets
+                    }
+                })
+            except GLib.Error as load_error:
+                json_response(msg, {
+                    'status': 'error',
+                    'error': serialize_error_as_json_object(
+                        EosCompanionAppService.error_quark(),
+                        EosCompanionAppService.Error.FAILED,
+                        detail={
+                            'server_error': str(load_error)
+                        }
+                    )
+                })
+            server.unpause_message(msg)
 
         if error:
             json_response(msg, {
@@ -284,7 +300,7 @@ def companion_app_server_list_application_sets_route(server, msg, path, query, *
                     EosCompanionAppService.Error.FAILED,
                     detail={
                         'server_error': str(error)
-                   }
+                    }
                 )
             })
             server.unpause_message(msg)
@@ -293,47 +309,47 @@ def companion_app_server_list_application_sets_route(server, msg, path, query, *
                                                            cancellable=None,
                                                            callback=_on_loaded_application_colors)
 
-    def _on_queried_sets(src, result):
-       '''Callback function that gets called when we are done querying.'''
-       try:
-           query_results = engine.query_finish(result)
-           models = query_results.get_models()
+    def _on_queried_sets(_, result):
+        '''Callback function that gets called when we are done querying.'''
+        try:
+            query_results = engine.query_finish(result)
+            models = query_results.get_models()
 
-           ascertain_application_sets_from_models(models,
-                                                  query['deviceUUID'],
-                                                  query['applicationId'],
-                                                  _on_ascertained_sets)
-       except GLib.Error as error:
-           # File not found, means that the app ID is not an installed
-           # app ID.
-           if error.matches(Gio.io_error_quark(), Gio.IOErrorEnum.NOT_FOUND):
-               json_response(msg, {
-                   'status': 'error',
-                   'error': serialize_error_as_json_object(
-                       EosCompanionAppService.error_quark(),
-                       EosCompanionAppService.Error.INVALID_APP_ID,
-                       detail={
-                           'app_id': query['applicationId']
-                       }
-                   )
-               })
-           else:
-               json_response(msg, {
-                   'status': 'error',
-                   'error': serialize_error_as_json_object(
-                       EosCompanionAppService.error_quark(),
-                       EosCompanionAppService.Error.FAILED,
-                       detail={
-                           'server_error': str(error)
-                       }
-                   )
-               })
+            ascertain_application_sets_from_models(models,
+                                                   query['deviceUUID'],
+                                                   query['applicationId'],
+                                                   _on_ascertained_sets)
+        except GLib.Error as error:
+            # File not found, means that the app ID is not an installed
+            # app ID.
+            if error.matches(Gio.io_error_quark(), Gio.IOErrorEnum.NOT_FOUND):
+                json_response(msg, {
+                    'status': 'error',
+                    'error': serialize_error_as_json_object(
+                        EosCompanionAppService.error_quark(),
+                        EosCompanionAppService.Error.INVALID_APP_ID,
+                        detail={
+                            'app_id': query['applicationId']
+                        }
+                    )
+                })
+            else:
+                json_response(msg, {
+                    'status': 'error',
+                    'error': serialize_error_as_json_object(
+                        EosCompanionAppService.error_quark(),
+                        EosCompanionAppService.Error.FAILED,
+                        detail={
+                            'server_error': str(error)
+                        }
+                    )
+                })
 
-           server.unpause_message(msg)
+            server.unpause_message(msg)
 
     log('List application sets: clientId={clientId}, applicationId={applicationId}'.format(
-        applicationId=query['applicationId'], clientId=query['deviceUUID'])
-    )
+        applicationId=query['applicationId'], clientId=query['deviceUUID']
+    ))
 
     app_id = query['applicationId']
     engine = Eknc.Engine.get_default()
@@ -351,57 +367,65 @@ def companion_app_server_list_application_sets_route(server, msg, path, query, *
 @require_query_string_param('tags')
 def companion_app_server_list_application_content_for_tags_route(server, msg, path, query, *args):
     '''Return json listing of all application content in a set.'''
-    def _callback(src, result):
-       '''Callback function that gets called when we are done.'''
-       try:
-           query_results = engine.query_finish(result)
-           models = query_results.get_models()
+    del path
+    del args
 
-           json_response(msg, {
-               'status': 'ok',
-               'payload': [
-                   {
-                       'displayName': model.get_property('title'),
-                       'contentType': model.get_property('content-type'),
-                       'thumbnail': format_thumbnail_uri(query['applicationId'],
-                                                         model,
-                                                         query['deviceUUID']),
-                       'id': urllib.parse.urlparse(model.get_property('ekn-id')).path[1:],
-                       'tags': model.get_property('tags')
-                   }
-                   for model in models
-               ]
-           })
-       except GLib.Error as error:
-           # File not found, means that the app ID is not an installed
-           # app ID.
-           if error.matches(Gio.io_error_quark(), Gio.IOErrorEnum.NOT_FOUND):
-               json_response(msg, {
-                   'status': 'error',
-                   'error': serialize_error_as_json_object(
-                       EosCompanionAppService.error_quark(),
-                       EosCompanionAppService.Error.INVALID_APP_ID,
-                       detail={
-                           'app_id': query['applicationId']
-                       }
-                   )
-               })
-           else:
-               json_response(msg, {
-                   'status': 'error',
-                   'error': serialize_error_as_json_object(
-                       EosCompanionAppService.error_quark(),
-                       EosCompanionAppService.Error.FAILED,
-                       detail={
-                           'server_error': str(error)
-                       }
-                   )
-               })
+    def _callback(_, result):
+        '''Callback function that gets called when we are done.'''
+        try:
+            query_results = engine.query_finish(result)
+            models = query_results.get_models()
 
-       server.unpause_message(msg)
+            json_response(msg, {
+                'status': 'ok',
+                'payload': [
+                    {
+                        'displayName': model.get_property('title'),
+                        'contentType': model.get_property('content-type'),
+                        'thumbnail': format_thumbnail_uri(query['applicationId'],
+                                                          model,
+                                                          query['deviceUUID']),
+                        'id': urllib.parse.urlparse(model.get_property('ekn-id')).path[1:],
+                        'tags': model.get_property('tags')
+                    }
+                    for model in models
+                ]
+            })
+        except GLib.Error as error:
+            # File not found, means that the app ID is not an installed
+            # app ID.
+            if error.matches(Gio.io_error_quark(), Gio.IOErrorEnum.NOT_FOUND):
+                json_response(msg, {
+                    'status': 'error',
+                    'error': serialize_error_as_json_object(
+                        EosCompanionAppService.error_quark(),
+                        EosCompanionAppService.Error.INVALID_APP_ID,
+                        detail={
+                            'app_id': query['applicationId']
+                        }
+                    )
+                })
+            else:
+                json_response(msg, {
+                    'status': 'error',
+                    'error': serialize_error_as_json_object(
+                        EosCompanionAppService.error_quark(),
+                        EosCompanionAppService.Error.FAILED,
+                        detail={
+                            'server_error': str(error)
+                        }
+                    )
+                })
 
-    log('List application content for tags: clientId={clientId}, applicationId={applicationId}, tags={tags}'.format(
-        tags=query['tags'], applicationId=query['applicationId'], clientId=query['deviceUUID'])
+        server.unpause_message(msg)
+
+    log(
+        'List application content for tags: clientId={clientId}, '
+        'applicationId={applicationId}, tags={tags}'.format(
+            tags=query['tags'],
+            applicationId=query['applicationId'],
+            clientId=query['deviceUUID']
+        )
     )
 
     app_id = query['applicationId']
@@ -445,7 +469,9 @@ def companion_app_server_content_data_route(server, msg, path, query, context):
     particular with what gets sent in the response headers and a single
     mistake will cause inexplicable loading failures part way through streams.
     '''
-    def _on_got_metadata_callback(src, result):
+    del path
+
+    def _on_got_metadata_callback(_, result):
         '''Callback function that gets called when we got the metadata.
 
         From here we can figure out what the content type is and load
@@ -454,18 +480,18 @@ def companion_app_server_content_data_route(server, msg, path, query, context):
         def on_splice_finished(src, result):
             '''Callback for when we are done splicing.'''
             try:
-                bytes_written = src.splice_finish(result)
+                src.splice_finish(result)
             except GLib.Error as error:
                 # Can't really do much here except log server side
                 log(
-                    'Splice operation on file failed: {error}'.format(error=error.message),
+                    'Splice operation on file failed: {error}'.format(error=error),
                     file=sys.stderr
                 )
                 return
 
-        def on_got_offsetted_stream(src, result):
+        def on_got_offsetted_stream(_, result):
             '''Use the offsetted stream to stream the rest of the content.'''
-            def on_wrote_headers(msg):
+            def on_wrote_headers(_):
                 '''Callback when headers are written.'''
                 stream = context.steal_connection()
                 ostream = stream.get_output_stream()
@@ -520,7 +546,7 @@ def companion_app_server_content_data_route(server, msg, path, query, context):
             '''
             if error != None:
                 log(
-                    'Stream wrapping failed {error}'.format(error),
+                    'Stream wrapping failed {error}'.format(error=error),
                     file=sys.stderr
                 )
                 json_response(msg, {
@@ -572,10 +598,12 @@ def companion_app_server_content_data_route(server, msg, path, query, context):
                 # last 6524 bytes of the stream and won't continue until all of
                 # those bytes have been sent by the client (at which point
                 # it actually loads from the correct place).
-                response_headers.replace('Content-Range',
-                                         'bytes {start}-{end}/{total}'.format(start=start,
-                                                                              end=end,
-                                                                              total=total_content_size))
+                response_headers.replace(
+                    'Content-Range',
+                    'bytes {start}-{end}/{total}'.format(start=start,
+                                                         end=end,
+                                                         total=total_content_size)
+                )
                 msg.set_status(Soup.Status.PARTIAL_CONTENT)
             else:
                 msg.set_status(Soup.Status.OK)
@@ -592,8 +620,13 @@ def companion_app_server_content_data_route(server, msg, path, query, context):
                                        query,
                                        _on_got_wrapped_stream)
 
-    log('Get content stream: clientId={clientId}, applicationId={applicationId}, contentId={contentId}'.format(
-        contentId=query['contentId'], applicationId=query['applicationId'], clientId=query['deviceUUID'])
+    log(
+        'Get content stream: clientId={clientId}, '
+        'applicationId={applicationId}, contentId={contentId}'.format(
+            contentId=query['contentId'],
+            applicationId=query['applicationId'],
+            clientId=query['deviceUUID']
+        )
     )
 
     result = load_record_from_engine_async(Eknc.Engine.get_default(),
@@ -646,7 +679,10 @@ def app_id_to_runtime_version(app_id):
 @require_query_string_param('contentId')
 def companion_app_server_content_metadata_route(server, msg, path, query, *args):
     '''Return application/json of content metadata.'''
-    def _on_got_metadata_callback(src, result):
+    del path
+    del args
+
+    def _on_got_metadata_callback(_, result):
         '''Callback function that gets called when we are done.'''
         try:
             metadata_bytes = EosCompanionAppService.finish_load_all_in_stream_to_bytes(result)
@@ -687,8 +723,13 @@ def companion_app_server_content_metadata_route(server, msg, path, query, *args)
 
         server.unpause_message(msg)
 
-    log('Get content metadata: clientId={clientId}, applicationId={applicationId}, contentId={contentId}'.format(
-        contentId=query['contentId'], applicationId=query['applicationId'], clientId=query['deviceUUID'])
+    log(
+        'Get content metadata: clientId={clientId}, '
+        'applicationId={applicationId}, contentId={contentId}'.format(
+            contentId=query['contentId'],
+            applicationId=query['applicationId'],
+            clientId=query['deviceUUID']
+        )
     )
 
     result = load_record_from_engine_async(Eknc.Engine.get_default(),
@@ -730,12 +771,12 @@ def search_single_application(app_id=None,
     '''
     query = Eknc.QueryObject(app_id=app_id,
                              tags_match_any=tags or [
-			         'EknArticleObject',
-			         'EknSetObject'
-			     ],
-			     limit=limit or _SENSIBLE_QUERY_LIMIT,
-			     offset=offset or 0,
-			     search_terms=search_term)
+			                              'EknArticleObject',
+			                              'EknSetObject'
+			                          ],
+			                          limit=limit or _SENSIBLE_QUERY_LIMIT,
+			                          offset=offset or 0,
+			                          search_terms=search_term)
     Eknc.Engine.get_default().query(query, None, callback)
 
 
@@ -771,7 +812,8 @@ _MODEL_PAYLOAD_RENDERER_FOR_TYPE = {
     'content': render_result_payload_for_content
 }
 
-SearchModel = namedtuple('SearchModel', 'app_id display_name model model_type model_payload_renderer')
+SearchModel = namedtuple('SearchModel',
+                         'app_id display_name model model_type model_payload_renderer')
 
 
 def search_models_from_application_models(application_models):
@@ -814,6 +856,9 @@ def companion_app_server_search_content_route(server, msg, path, query, *args):
     “offset”: [machine readable offset integer, default 0],
     “searchTerm”: [search term, string]
     '''
+    del path
+    del args
+
     def _on_received_results_list(models,
                                   matched_application_ids,
                                   applications,
@@ -1052,7 +1097,7 @@ def companion_app_server_search_content_route(server, msg, path, query, *args):
                                  0)
 
 
-    def _on_got_application_info(src, result):
+    def _on_got_application_info(_, result):
         '''Called when we receive info for a single application.
 
         Once we confirm that the application exists and we got
@@ -1161,6 +1206,9 @@ def heartbeat_route(server, msg, *args):
     should be invoked in the background if the client is in the foreground
     and does not want the server to go away.
     '''
+    del server
+    del args
+
     json_response(msg, {
         "status": "ok"
     })
@@ -1198,7 +1246,9 @@ COMPANION_APP_ROUTES = {
     '/application_icon': companion_app_server_application_icon_route,
     '/application_colors': companion_app_server_application_colors_route,
     '/list_application_sets': companion_app_server_list_application_sets_route,
-    '/list_application_content_for_tags': companion_app_server_list_application_content_for_tags_route,
+    '/list_application_content_for_tags': (
+        companion_app_server_list_application_content_for_tags_route
+    ),
     '/content_data': companion_app_server_content_data_route,
     '/content_metadata': companion_app_server_content_metadata_route,
     '/search_content': companion_app_server_search_content_route
@@ -1212,4 +1262,3 @@ def create_companion_app_webserver(application):
                                                              handler))
 
     return server
-

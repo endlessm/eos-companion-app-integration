@@ -4,3 +4,6 @@ six==1.11.0
 argparse==1.4.0
 testrepository==0.0.20
 testtools==2.3.0
+setuptools_scm==1.15.7
+pytest-runner==4.0.0
+pylint==1.8.2
