@@ -103,7 +103,7 @@ test-data: test-data-video-app test-data-content-app
 # # # MANIFEST TOOLS # # #
 # These targets exist to help manage the dependencies in the manifest file
 EXTRA_DIST += \
-	tools/regenerate_flatpak_manifest.py \
+	tools/regenerate_pip_flatpak_manifest.py \
 	$(NULL)
 
 regenerate-pip-manifest-template:
