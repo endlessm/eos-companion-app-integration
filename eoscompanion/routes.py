@@ -29,6 +29,7 @@ import urllib.parse
 from gi.repository import (
     EosCompanionAppService,
     EosKnowledgeContent as Eknc,
+    EosMetrics,
     Gio,
     GLib,
     Soup
@@ -91,6 +92,28 @@ def require_query_string_param(param):
     return decorator
 
 
+def record_metric(metric_id):
+    '''Middleware function to record all routes in the metrics system.
+
+    This middleware records both the route and the relevant querystring
+    encoded as a dictionary.
+    '''
+    def decorator(handler):
+        '''Wrap the actual function.'''
+        def middlware(server, msg, path, query, *args, **kwargs):
+            '''Middleware function.'''
+            if not GLib.getenv('EOS_COMPANION_APP_DISABLE_METRICS'):
+                metrics = EosMetrics.EventRecorder.get_default()
+                metrics.record_event(metric_id,
+                                     GLib.Variant('a{ss}', dict(query or {})))
+
+            return handler(server, msg, path, query, *args, **kwargs)
+
+        return middlware
+
+    return decorator
+
+
 def companion_app_server_root_route(_, msg, *args):
     '''Not a documented route, just show the user somewhere more useful.'''
     del args
@@ -108,6 +131,7 @@ def companion_app_server_root_route(_, msg, *args):
 
 
 @require_query_string_param('deviceUUID')
+@record_metric('6dad6c44-f52f-4bca-8b4c-dc203f175b97')
 def companion_app_server_device_authenticate_route(server, msg, path, query, *args):
     '''Authorize the client.'''
     del server
@@ -129,6 +153,7 @@ def desktop_id_to_app_id(desktop_id):
 
 
 @require_query_string_param('deviceUUID')
+@record_metric('337fa66d-5163-46ae-ab20-dc605b5d7307')
 def companion_app_server_list_applications_route(server, msg, path, query, *args):
     '''List all applications that are available on the system.'''
     del path
@@ -254,6 +279,7 @@ _SENSIBLE_QUERY_LIMIT = 500
 
 @require_query_string_param('deviceUUID')
 @require_query_string_param('applicationId')
+@record_metric('c02a5764-7f81-48c7-aea4-1413fd4e829c')
 def companion_app_server_list_application_sets_route(server, msg, path, query, *args):
     '''Return json listing of all sets in an application.'''
     del path
@@ -368,6 +394,7 @@ def companion_app_server_list_application_sets_route(server, msg, path, query, *
 @require_query_string_param('deviceUUID')
 @require_query_string_param('applicationId')
 @require_query_string_param('tags')
+@record_metric('bef3d12c-df9b-43cd-a67c-31abc5361f03')
 def companion_app_server_list_application_content_for_tags_route(server, msg, path, query, *args):
     '''Return json listing of all application content in a set.'''
     del path
@@ -444,6 +471,26 @@ def companion_app_server_list_application_content_for_tags_route(server, msg, pa
     server.pause_message(msg)
 
 
+def record_content_data_metric(device_uuid,
+                               application_id,
+                               content_title,
+                               content_type,
+                               referrer):
+    '''Record a metric about the content being accessed.'''
+    if GLib.getenv('EOS_COMPANION_APP_DISABLE_METRICS'):
+        return
+
+    metrics = EosMetrics.EventRecorder.get_default()
+    metrics.record_event('e6541049-9462-4db5-96df-1977f3051578',
+                         GLib.Variant('a{ss}', {
+                             'deviceUUID': device_uuid,
+                             'applicationId': application_id,
+                             'contentTitle': content_title,
+                             'contentType': content_type,
+                             'referrer': referrer
+                         }))
+
+
 @require_query_string_param('deviceUUID')
 @require_query_string_param('applicationId')
 @require_query_string_param('contentId')
@@ -514,9 +561,10 @@ def companion_app_server_content_data_route(server, msg, path, query, context):
         # Now that we have the metadata, deserialize it and use the
         # contentType hint to figure out the best way to load it.
         metadata_bytes = EosCompanionAppService.finish_load_all_in_stream_to_bytes(result)
-        content_type = json.loads(
+        content_metadata = json.loads(
             EosCompanionAppService.bytes_to_string(metadata_bytes)
-        )['contentType']
+        )
+        content_type = content_metadata['contentType']
 
         blob_result, blob = load_record_blob_from_engine(Eknc.Engine.get_default(),
                                                          query['applicationId'],
@@ -616,6 +664,13 @@ def companion_app_server_content_data_route(server, msg, path, query, context):
                                                           None,
                                                           on_got_offsetted_stream)
 
+        # Report a metric now
+        record_content_data_metric(query['deviceUUID'],
+                                   query['applicationId'],
+                                   query.get('title', 'Untitled'),
+                                   content_type,
+                                   query.get('referrer', None))
+
         # Need to conditionally wrap the blob in another stream
         # depending on whether it needs to be converted.
         conditionally_wrap_blob_stream(blob,
@@ -680,6 +735,7 @@ def app_id_to_runtime_version(app_id):
 @require_query_string_param('deviceUUID')
 @require_query_string_param('applicationId')
 @require_query_string_param('contentId')
+@record_metric('3a4eff55-5d01-48c8-a827-fca5732fd767')
 def companion_app_server_content_metadata_route(server, msg, path, query, *args):
     '''Return application/json of content metadata.'''
     del path
@@ -842,6 +898,7 @@ def search_models_from_application_models(application_models):
 
 
 @require_query_string_param('deviceUUID')
+@record_metric('9f06d0f7-677e-43ca-b732-ccbb40847a31')
 def companion_app_server_search_content_route(server, msg, path, query, *args):
     '''Return application/json of search results.
 
