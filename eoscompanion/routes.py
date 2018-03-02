@@ -669,7 +669,7 @@ def companion_app_server_content_data_route(server, msg, path, query, context):
                                    query['applicationId'],
                                    query.get('title', 'Untitled'),
                                    content_type,
-                                   query.get('referrer', None))
+                                   query.get('referrer', 'Unspecified'))
 
         # Need to conditionally wrap the blob in another stream
         # depending on whether it needs to be converted.
