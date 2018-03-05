@@ -480,15 +480,19 @@ def record_content_data_metric(device_uuid,
     if GLib.getenv('EOS_COMPANION_APP_DISABLE_METRICS'):
         return
 
+    payload = {
+        'deviceUUID': device_uuid,
+        'applicationId': application_id,
+        'contentTitle': content_title,
+        'contentType': content_type
+    }
+
+    if referrer:
+        payload['referrerr'] = referrer
+
     metrics = EosMetrics.EventRecorder.get_default()
     metrics.record_event('e6541049-9462-4db5-96df-1977f3051578',
-                         GLib.Variant('a{ss}', {
-                             'deviceUUID': device_uuid,
-                             'applicationId': application_id,
-                             'contentTitle': content_title,
-                             'contentType': content_type,
-                             'referrer': referrer
-                         }))
+                         GLib.Variant('a{ss}', payload))
 
 
 @require_query_string_param('deviceUUID')
@@ -669,7 +673,7 @@ def companion_app_server_content_data_route(server, msg, path, query, context):
                                    query['applicationId'],
                                    query.get('title', 'Untitled'),
                                    content_type,
-                                   query.get('referrer', 'Unspecified'))
+                                   query.get('referrer', None))
 
         # Need to conditionally wrap the blob in another stream
         # depending on whether it needs to be converted.
