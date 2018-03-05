@@ -62,6 +62,7 @@ from .functional import all_asynchronous_function_calls_closure
 from .responses import (
     html_response,
     json_response,
+    not_found_response,
     png_response,
     serialize_error_as_json_object
 )
@@ -1322,6 +1323,27 @@ def application_hold_middleware(application, handler):
     return _handler
 
 
+def handle_404_middleware(expected_path, handler):
+    '''Middleware function to return 404 if the path is not the expected one.
+
+    Soup's documentation says that when a matching route is not
+    found for a path, it will "strip path components one by one until
+    it finds a matching handler." This behaviour isn't particularly
+    desirable - if the route mismatches we should really just return
+    a 404. The best way to detect this is if the invoked route does
+    not match the path in the request.'''
+    def _handler(server, msg, path, query, *args):
+        '''Middleware function.'''
+        if path != expected_path:
+            msg.set_status(Soup.Status.OK)
+            not_found_response(msg, path)
+            return None
+
+        return handler(server, msg, path, query, *args)
+
+    return _handler
+
+
 COMPANION_APP_ROUTES = {
     '/': companion_app_server_root_route,
     '/heartbeat': heartbeat_route,
@@ -1343,7 +1365,13 @@ def create_companion_app_webserver(application):
     '''Create a HTTP server with companion app routes.'''
     server = Soup.Server()
     for path, handler in COMPANION_APP_ROUTES.items():
-        server.add_handler(path, application_hold_middleware(application,
-                                                             handler))
+        server.add_handler(
+            path,
+            handle_404_middleware(
+                path,
+                application_hold_middleware(application,
+                                            handler)
+            )
+        )
 
     return server
