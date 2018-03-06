@@ -65,3 +65,18 @@ def jpeg_response(msg, image_bytes):
     EosCompanionAppService.set_soup_message_response_bytes(msg,
                                                            'image/jpeg',
                                                            image_bytes)
+
+
+def not_found_response(msg, path):
+    '''Respond with an error message and 404.'''
+    msg.set_status(Soup.Status.NOT_FOUND)
+    error = serialize_error_as_json_object(
+        EosCompanionAppService.error_quark(),
+        EosCompanionAppService.Error.INVALID_REQUEST,
+        detail={
+            'invalid_path': path
+        }
+    )
+    EosCompanionAppService.set_soup_message_response(msg,
+                                                     'application/json',
+                                                     json.dumps(error))
