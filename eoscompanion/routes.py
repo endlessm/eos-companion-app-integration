@@ -28,7 +28,6 @@ import urllib.parse
 
 from gi.repository import (
     EosCompanionAppService,
-    EosKnowledgeContent as Eknc,
     EosMetrics,
     Gio,
     GLib,
@@ -52,10 +51,9 @@ from .content_streaming import (
 )
 from .ekn_data import (
     BYTE_CHUNK_SIZE,
-    LOAD_FROM_ENGINE_NO_SUCH_APP,
     LOAD_FROM_ENGINE_SUCCESS,
+    LOAD_FROM_ENGINE_NO_SUCH_CONTENT,
     load_record_blob_from_shards,
-    load_record_from_engine_async,
     load_record_from_shards_async
 )
 from .ekn_query import ascertain_application_sets_from_models
@@ -79,7 +77,7 @@ def require_query_string_param(param):
     '''Require the uri to contain certain query parameter or raise.'''
     def decorator(handler):
         '''Decorate the actual function.'''
-        def middleware(server, msg, path, query, client):
+        def middleware(server, msg, path, query, *args):
             '''Middleware to check the query parameters.'''
             rectified_query = query or {}
             if not rectified_query.get(param, None):
@@ -94,7 +92,7 @@ def require_query_string_param(param):
                     )
                 })
 
-            return handler(server, msg, path, rectified_query, client)
+            return handler(server, msg, path, rectified_query, *args)
         return middleware
     return decorator
 
@@ -406,10 +404,15 @@ _SENSIBLE_QUERY_LIMIT = 500
 @require_query_string_param('deviceUUID')
 @require_query_string_param('applicationId')
 @record_metric('c02a5764-7f81-48c7-aea4-1413fd4e829c')
-def companion_app_server_list_application_sets_route(server, msg, path, query, *args):
+def companion_app_server_list_application_sets_route(server,
+                                                     msg,
+                                                     path,
+                                                     query,
+                                                     context,
+                                                     content_db_conn):
     '''Return json listing of all sets in an application.'''
     del path
-    del args
+    del context
 
     def _on_ascertained_sets(error, sets):
         '''Callback function for when we ascertain the true sets.
@@ -464,56 +467,39 @@ def companion_app_server_list_application_sets_route(server, msg, path, query, *
                                                            cancellable=None,
                                                            callback=_on_loaded_application_colors)
 
-    def _on_queried_sets(_, result):
+    def _on_queried_sets(error, result):
         '''Callback function that gets called when we are done querying.'''
-        try:
-            query_results = engine.query_finish(result)
-            models = query_results.get_models()
-
-            ascertain_application_sets_from_models(models,
-                                                   query['deviceUUID'],
-                                                   query['applicationId'],
-                                                   _on_ascertained_sets)
-        except GLib.Error as error:
-            # File not found, means that the app ID is not an installed
-            # app ID.
-            if error.matches(Gio.io_error_quark(), Gio.IOErrorEnum.NOT_FOUND):
-                json_response(msg, {
-                    'status': 'error',
-                    'error': serialize_error_as_json_object(
-                        EosCompanionAppService.error_quark(),
-                        EosCompanionAppService.Error.INVALID_APP_ID,
-                        detail={
-                            'app_id': query['applicationId']
-                        }
-                    )
-                })
-            else:
-                json_response(msg, {
-                    'status': 'error',
-                    'error': serialize_error_as_json_object(
-                        EosCompanionAppService.error_quark(),
-                        EosCompanionAppService.Error.FAILED,
-                        detail={
-                            'server_error': str(error)
-                        }
-                    )
-                })
-
+        if error != None:
+            json_response(msg, {
+                'status': 'error',
+                'error': serialize_error_as_json_object(
+                    error.domain,
+                    error.code,
+                    detail={
+                        'app_id': query['applicationId']
+                    }
+                )
+            })
             server.unpause_message(msg)
+            return
+
+        _, models = result
+        ascertain_application_sets_from_models(models,
+                                               query['deviceUUID'],
+                                               query['applicationId'],
+                                               _on_ascertained_sets)
 
     log('List application sets: clientId={clientId}, applicationId={applicationId}'.format(
         applicationId=query['applicationId'], clientId=query['deviceUUID']
     ))
 
     app_id = query['applicationId']
-    engine = Eknc.Engine.get_default()
-
-    engine.query(Eknc.QueryObject(app_id=app_id,
-                                  tags_match_all=['EknSetObject'],
-                                  limit=_SENSIBLE_QUERY_LIMIT),
-                 cancellable=None,
-                 callback=_on_queried_sets)
+    content_db_conn.query(app_id=app_id,
+                          query={
+                              'tags-match-all': ['EknSetObject'],
+                              'limit': _SENSIBLE_QUERY_LIMIT
+                          },
+                          callback=_on_queried_sets)
     server.pause_message(msg)
 
 
@@ -521,58 +507,48 @@ def companion_app_server_list_application_sets_route(server, msg, path, query, *
 @require_query_string_param('applicationId')
 @require_query_string_param('tags')
 @record_metric('bef3d12c-df9b-43cd-a67c-31abc5361f03')
-def companion_app_server_list_application_content_for_tags_route(server, msg, path, query, *args):
+def companion_app_server_list_application_content_for_tags_route(server,
+                                                                 msg,
+                                                                 path,
+                                                                 query,
+                                                                 context,
+                                                                 content_db_conn):
     '''Return json listing of all application content in a set.'''
     del path
-    del args
+    del context
 
-    def _callback(_, result):
+    def _callback(error, result):
         '''Callback function that gets called when we are done.'''
-        try:
-            query_results = engine.query_finish(result)
-            models = query_results.get_models()
-
+        if error != None:
             json_response(msg, {
-                'status': 'ok',
-                'payload': [
-                    {
-                        'displayName': model.get_property('title'),
-                        'contentType': model.get_property('content-type'),
-                        'thumbnail': format_thumbnail_uri(query['applicationId'],
-                                                          model,
-                                                          query['deviceUUID']),
-                        'id': urllib.parse.urlparse(model.get_property('ekn-id')).path[1:],
-                        'tags': model.get_property('tags')
+                'status': 'error',
+                'error': serialize_error_as_json_object(
+                    error.domain,
+                    error.code,
+                    detail={
+                        'app_id': query['applicationId']
                     }
-                    for model in models
-                ]
+                )
             })
-        except GLib.Error as error:
-            # File not found, means that the app ID is not an installed
-            # app ID.
-            if error.matches(Gio.io_error_quark(), Gio.IOErrorEnum.NOT_FOUND):
-                json_response(msg, {
-                    'status': 'error',
-                    'error': serialize_error_as_json_object(
-                        EosCompanionAppService.error_quark(),
-                        EosCompanionAppService.Error.INVALID_APP_ID,
-                        detail={
-                            'app_id': query['applicationId']
-                        }
-                    )
-                })
-            else:
-                json_response(msg, {
-                    'status': 'error',
-                    'error': serialize_error_as_json_object(
-                        EosCompanionAppService.error_quark(),
-                        EosCompanionAppService.Error.FAILED,
-                        detail={
-                            'server_error': str(error)
-                        }
-                    )
-                })
+            server.unpause_message(msg)
+            return
 
+        _, models = result
+        json_response(msg, {
+            'status': 'ok',
+            'payload': [
+                {
+                    'displayName': model['title'],
+                    'contentType': model['content_type'],
+                    'thumbnail': format_thumbnail_uri(query['applicationId'],
+                                                      model,
+                                                      query['deviceUUID']),
+                    'id': urllib.parse.urlparse(model['ekn_id']).path[1:],
+                    'tags': model['tags']
+                }
+                for model in models
+            ]
+        })
         server.unpause_message(msg)
 
     log(
@@ -585,15 +561,15 @@ def companion_app_server_list_application_content_for_tags_route(server, msg, pa
     )
 
     app_id = query['applicationId']
-    engine = Eknc.Engine.get_default()
     tags = query['tags'].split(';')
 
-    engine.query(Eknc.QueryObject(app_id=app_id,
-                                  tags_match_any=tags,
-                                  tags_match_all=['EknArticleObject'],
-                                  limit=_SENSIBLE_QUERY_LIMIT),
-                 cancellable=None,
-                 callback=_callback)
+    content_db_conn.query(app_id=app_id,
+                          query={
+                              'tags-match-all': ['EknArticleObject'],
+                              'tags-match-any': tags,
+                              'limit': _SENSIBLE_QUERY_LIMIT
+                          },
+                          callback=_callback)
     server.pause_message(msg)
 
 
@@ -624,7 +600,12 @@ def record_content_data_metric(device_uuid,
 @require_query_string_param('deviceUUID')
 @require_query_string_param('applicationId')
 @require_query_string_param('contentId')
-def companion_app_server_content_data_route(server, msg, path, query, context):
+def companion_app_server_content_data_route(server,
+                                            msg,
+                                            path,
+                                            query,
+                                            context,
+                                            content_db_conn):
     '''Stream content, given contentId.
 
     Content-Type is content-defined. It will be determined based
@@ -651,79 +632,174 @@ def companion_app_server_content_data_route(server, msg, path, query, context):
     '''
     del path
 
-    def _on_got_metadata_callback(_, result):
-        '''Callback function that gets called when we got the metadata.
+    def _on_got_shards_callback(error, shards):
+        '''Callback for when we receive the shards for an application.'''
+        def _on_got_metadata_callback(_, result):
+            '''Callback function that gets called when we got the metadata.
 
-        From here we can figure out what the content type is and load
-        accordingly.
-        '''
-        def on_splice_finished(src, result):
-            '''Callback for when we are done splicing.'''
-            try:
-                src.splice_finish(result)
-            except GLib.Error as error:
-                # Can't really do much here except log server side
-                log(
-                    'Splice operation on file failed: {error}'.format(error=error),
-                    file=sys.stderr
-                )
+            From here we can figure out what the content type is and load
+            accordingly.
+            '''
+            def on_splice_finished(src, result):
+                '''Callback for when we are done splicing.'''
+                try:
+                    src.splice_finish(result)
+                except GLib.Error as splice_error:
+                    # Can't really do much here except log server side
+                    log(
+                        'Splice operation on file failed: {error}'.format(
+                            error=splice_error
+                        ),
+                        file=sys.stderr
+                    )
+                    return
+
+            def on_got_offsetted_stream(_, result):
+                '''Use the offsetted stream to stream the rest of the content.'''
+                def on_wrote_headers(_):
+                    '''Callback when headers are written.'''
+                    stream = context.steal_connection()
+                    ostream = stream.get_output_stream()
+                    ostream.splice_async(istream,
+                                         Gio.OutputStreamSpliceFlags.CLOSE_TARGET,
+                                         GLib.PRIORITY_DEFAULT,
+                                         None,
+                                         on_splice_finished)
+
+                # Now that we have the offseted stream, we can continue writing
+                # the message body and insert our spliced stream in place
+                istream = EosCompanionAppService.finish_fast_skip_stream(result)
+                msg.connect('wrote-headers', on_wrote_headers)
+
+                server.unpause_message(msg)
+
+            # Now that we have the metadata, deserialize it and use the
+            # contentType hint to figure out the best way to load it.
+            metadata_bytes = EosCompanionAppService.finish_load_all_in_stream_to_bytes(result)
+            content_metadata = json.loads(
+                EosCompanionAppService.bytes_to_string(metadata_bytes)
+            )
+            content_type = content_metadata['contentType']
+
+            blob_result, blob = load_record_blob_from_shards(shards,
+                                                             query['contentId'],
+                                                             'data')
+            if blob_result == LOAD_FROM_ENGINE_NO_SUCH_CONTENT:
+                # No corresponding record found, EKN ID must have been invalid,
+                # though it was valid for metadata...
+                json_response(msg, {
+                    'status': 'error',
+                    'error': serialize_error_as_json_object(
+                        EosCompanionAppService.error_quark(),
+                        EosCompanionAppService.Error.INVALID_CONTENT_ID,
+                        detail={
+                            'applicationId': query['applicationId'],
+                            'contentId': query['contentId']
+                        }
+                    )
+                })
+                server.unpause_message(msg)
                 return
 
-        def on_got_offsetted_stream(_, result):
-            '''Use the offsetted stream to stream the rest of the content.'''
-            def on_wrote_headers(_):
-                '''Callback when headers are written.'''
-                stream = context.steal_connection()
-                ostream = stream.get_output_stream()
-                ostream.splice_async(istream,
-                                     Gio.OutputStreamSpliceFlags.CLOSE_TARGET,
-                                     GLib.PRIORITY_DEFAULT,
-                                     None,
-                                     on_splice_finished)
+            def _on_got_wrapped_stream(error, result):
+                '''Take the wrapped stream, then go to an offset in it.
 
-            # Now that we have the offseted stream, we can continue writing
-            # the message body and insert our spliced stream in place
-            istream = EosCompanionAppService.finish_fast_skip_stream(result)
-            msg.connect('wrote-headers', on_wrote_headers)
+                Note that this is not a GAsyncReadyCallback, we instead get
+                a tuple of an error or a stream and length.
+                '''
+                if error != None:
+                    log(
+                        'Stream wrapping failed {error}'.format(error=error),
+                        file=sys.stderr
+                    )
+                    json_response(msg, {
+                        'status': 'error',
+                        'error': serialize_error_as_json_object(
+                            EosCompanionAppService.error_quark(),
+                            EosCompanionAppService.Error.FAILED
+                        )
+                    })
+                    server.unpause_message(msg)
+                    return
 
-            server.unpause_message(msg)
+                stream, total_content_size = result
 
-        # Now that we have the metadata, deserialize it and use the
-        # contentType hint to figure out the best way to load it.
-        try:
-            metadata_bytes = EosCompanionAppService.finish_load_all_in_stream_to_bytes(result)
-        except GLib.Error as error:
+                # Now that we have the stream, we can post back with how big the
+                # content is
+                response_headers = msg.get_property('response-headers')
+                request_headers = msg.get_property('request-headers')
+
+                start, end, length = define_content_range_from_headers_and_size(request_headers,
+                                                                                total_content_size)
+
+                # Note that the length we set here is the number of bytes that will
+                # be contained in the payload, but this is different from the
+                # 'total' that is sent in the Content-Range header
+                #
+                # Essentially, it is end - start + 1, taking into account the
+                # requirements for the end marker below.
+                response_headers.set_content_length(length)
+                response_headers.set_content_type(content_type)
+                response_headers.replace('Connection', 'keep-alive')
+
+                # If we did not get a Range header, then we do not want to set
+                # Content-Range, nor do we want to respond with PARTIAL_CONTENT as
+                # the status code. If we do that, browsers like Firefox will
+                # handle it fine, but Chrome and VLC just choke. Note that we
+                # not even want to send Accept-Ranges unless the
+                # requested a Range.
+                if request_headers.get_one('Range'):
+                    response_headers.replace('Accept-Ranges', 'bytes')
+
+                    # The format of this must be
+                    #
+                    #   'bytes start-end/total'
+                    #
+                    # The 'end' marker must be one byte less than 'total' and
+                    # all bytes up to 'end' must be sent by the implementation.
+                    # Browsers like Chrome will, upon seeking, attempt to load
+                    # last 6524 bytes of the stream and won't continue until all of
+                    # those bytes have been sent by the client (at which point
+                    # it actually loads from the correct place).
+                    response_headers.replace(
+                        'Content-Range',
+                        'bytes {start}-{end}/{total}'.format(start=start,
+                                                             end=end,
+                                                             total=total_content_size)
+                    )
+                    msg.set_status(Soup.Status.PARTIAL_CONTENT)
+                else:
+                    msg.set_status(Soup.Status.OK)
+
+                EosCompanionAppService.fast_skip_stream_async(stream,
+                                                              start,
+                                                              None,
+                                                              on_got_offsetted_stream)
+
+            # Report a metric now
+            record_content_data_metric(query['deviceUUID'],
+                                       query['applicationId'],
+                                       query.get('title', 'Untitled'),
+                                       content_type,
+                                       query.get('referrer', None))
+
+            # Need to conditionally wrap the blob in another stream
+            # depending on whether it needs to be converted.
+            conditionally_wrap_blob_stream(blob,
+                                           content_type,
+                                           query,
+                                           content_metadata,
+                                           content_db_conn,
+                                           shards,
+                                           _on_got_wrapped_stream)
+
+
+        if error != None:
             json_response(msg, {
                 'status': 'error',
                 'error': serialize_error_as_json_object(
-                    EosCompanionAppService.error_quark(),
-                    EosCompanionAppService.Error.FAILED,
-                    detail={
-                        'server_error': str(error)
-                    }
-                )
-            })
-            server.unpause_message(msg)
-            return
-
-        content_metadata = json.loads(
-            EosCompanionAppService.bytes_to_string(metadata_bytes)
-        )
-        content_type = content_metadata['contentType']
-
-        blob_result, blob = load_record_blob_from_shards(shards,
-                                                         query['contentId'],
-                                                         'data')
-        if blob_result != LOAD_FROM_ENGINE_SUCCESS:
-            # No corresponding record found, EKN ID must have been invalid,
-            # though it was valid for metadata...
-            json_response(msg, {
-                'status': 'error',
-                'error': serialize_error_as_json_object(
-                    EosCompanionAppService.error_quark(),
-                    EosCompanionAppService.Error.INVALID_APP_ID
-                    if blob_result == LOAD_FROM_ENGINE_NO_SUCH_APP
-                    else EosCompanionAppService.Error.INVALID_CONTENT_ID,
+                    error.domain,
+                    error.code,
                     detail={
                         'applicationId': query['applicationId'],
                         'contentId': query['contentId']
@@ -733,97 +809,28 @@ def companion_app_server_content_data_route(server, msg, path, query, context):
             server.unpause_message(msg)
             return
 
-        def _on_got_wrapped_stream(error, result):
-            '''Take the wrapped stream, then go to an offset in it.
+        result = load_record_from_shards_async(shards,
+                                               query['contentId'],
+                                               'metadata',
+                                               _on_got_metadata_callback)
 
-            Note that this is not a GAsyncReadyCallback, we instead get
-            a tuple of an error or a stream and length.
-            '''
-            if error != None:
-                log(
-                    'Stream wrapping failed {error}'.format(error=error),
-                    file=sys.stderr
+        if result != LOAD_FROM_ENGINE_SUCCESS:
+            json_response(msg, {
+                'status': 'error',
+                'error': serialize_error_as_json_object(
+                    EosCompanionAppService.error_quark(),
+                    EosCompanionAppService.Error.INVALID_CONTENT_ID,
+                    detail={
+                        'applicationId': query['applicationId'],
+                        'contentId': query['contentId']
+                    }
                 )
-                json_response(msg, {
-                    'status': 'error',
-                    'error': serialize_error_as_json_object(
-                        EosCompanionAppService.error_quark(),
-                        EosCompanionAppService.Error.FAILED
-                    )
-                })
-                server.unpause_message(msg)
-                return
+            })
+            server.unpause_message(msg)
+            return
 
-            stream, total_content_size = result
-
-            # Now that we have the stream, we can post back with how big the
-            # content is
-            response_headers = msg.get_property('response-headers')
-            request_headers = msg.get_property('request-headers')
-
-            start, end, length = define_content_range_from_headers_and_size(request_headers,
-                                                                            total_content_size)
-
-            # Note that the length we set here is the number of bytes that will
-            # be contained in the payload, but this is different from the
-            # 'total' that is sent in the Content-Range header
-            #
-            # Essentially, it is end - start + 1, taking into account the
-            # requirements for the end marker below.
-            response_headers.set_content_length(length)
-            response_headers.set_content_type(content_type)
-            response_headers.replace('Connection', 'keep-alive')
-
-            # If we did not get a Range header, then we do not want to set
-            # Content-Range, nor do we want to respond with PARTIAL_CONTENT as
-            # the status code. If we do that, browsers like Firefox will
-            # handle it fine, but Chrome and VLC just choke. Note that we
-            # not even want to send Accept-Ranges unless the
-            # requested a Range.
-            if request_headers.get_one('Range'):
-                response_headers.replace('Accept-Ranges', 'bytes')
-
-                # The format of this must be
-                #
-                #   'bytes start-end/total'
-                #
-                # The 'end' marker must be one byte less than 'total' and
-                # all bytes up to 'end' must be sent by the implementation.
-                # Browsers like Chrome will, upon seeking, attempt to load
-                # last 6524 bytes of the stream and won't continue until all of
-                # those bytes have been sent by the client (at which point
-                # it actually loads from the correct place).
-                response_headers.replace(
-                    'Content-Range',
-                    'bytes {start}-{end}/{total}'.format(start=start,
-                                                         end=end,
-                                                         total=total_content_size)
-                )
-                msg.set_status(Soup.Status.PARTIAL_CONTENT)
-            else:
-                msg.set_status(Soup.Status.OK)
-
-            EosCompanionAppService.fast_skip_stream_async(stream,
-                                                          start,
-                                                          None,
-                                                          on_got_offsetted_stream)
-
-        # Report a metric now
-        record_content_data_metric(query['deviceUUID'],
-                                   query['applicationId'],
-                                   query.get('title', 'Untitled'),
-                                   content_type,
-                                   query.get('referrer', None))
-
-        # Need to conditionally wrap the blob in another stream
-        # depending on whether it needs to be converted.
-        conditionally_wrap_blob_stream(blob,
-                                       content_type,
-                                       query,
-                                       content_metadata,
-                                       engine,
-                                       shards,
-                                       _on_got_wrapped_stream)
+    content_db_conn.shards_for_application(app_id=query['applicationId'],
+                                           callback=_on_got_shards_callback)
 
     log(
         'Get content stream: clientId={clientId}, '
@@ -833,60 +840,7 @@ def companion_app_server_content_data_route(server, msg, path, query, context):
             clientId=query['deviceUUID']
         )
     )
-
-    # Get the engine and shards so that we can use them later
-    engine = Eknc.Engine.get_default()
-    try:
-        shards = engine.get_domain_for_app(query['applicationId']).get_shards()
-    except GLib.Error as error:
-        if error.matches(Gio.io_error_quark(), Gio.IOErrorEnum.NOT_FOUND):
-            json_response(msg, {
-                'status': 'error',
-                'error': serialize_error_as_json_object(
-                    EosCompanionAppService.error_quark(),
-                    EosCompanionAppService.Error.INVALID_APP_ID,
-                    detail={
-                        'applicationId': query['applicationId'],
-                        'contentId': query['contentId']
-                    }
-                )
-            })
-            return
-
-        json_response(msg, {
-            'status': 'error',
-            'error': serialize_error_as_json_object(
-                EosCompanionAppService.error_quark(),
-                EosCompanionAppService.Error.FAILED,
-                detail={
-                    'server_error': str(error)
-                }
-            )
-        })
-        return
-
-    result = load_record_from_shards_async(shards,
-                                           query['contentId'],
-                                           'metadata',
-                                           _on_got_metadata_callback)
-
-    if result == LOAD_FROM_ENGINE_SUCCESS:
-        server.pause_message(msg)
-        return
-
-    json_response(msg, {
-        'status': 'error',
-        'error': serialize_error_as_json_object(
-            EosCompanionAppService.error_quark(),
-            EosCompanionAppService.Error.INVALID_APP_ID
-            if result == LOAD_FROM_ENGINE_NO_SUCH_APP
-            else EosCompanionAppService.Error.INVALID_CONTENT_ID,
-            detail={
-                'applicationId': query['applicationId'],
-                'contentId': query['contentId']
-            }
-        )
-    })
+    server.pause_message(msg)
 
 
 _RUNTIME_NAMES_FOR_APP_IDS = {}
@@ -913,51 +867,93 @@ def app_id_to_runtime_version(app_id):
 @require_query_string_param('applicationId')
 @require_query_string_param('contentId')
 @record_metric('3a4eff55-5d01-48c8-a827-fca5732fd767')
-def companion_app_server_content_metadata_route(server, msg, path, query, *args):
+def companion_app_server_content_metadata_route(server,
+                                                msg,
+                                                path,
+                                                query,
+                                                context,
+                                                content_db_conn):
     '''Return application/json of content metadata.'''
     del path
-    del args
+    del context
 
-    def _on_got_metadata_callback(_, result):
-        '''Callback function that gets called when we are done.'''
-        try:
-            metadata_bytes = EosCompanionAppService.finish_load_all_in_stream_to_bytes(result)
-            metadata_json = json.loads(EosCompanionAppService.bytes_to_string(metadata_bytes))
-            metadata_json['version'] = app_id_to_runtime_version(
-                runtime_name_for_app_id_cached(query['applicationId'])
-            )
-            msg.set_status(Soup.Status.OK)
+    def _on_got_shards_callback(error, shards):
+        '''Callback function that gets called when we get our shards.'''
+        def _on_got_metadata_callback(_, result):
+            '''Callback function that gets called when we are done.'''
+            try:
+                metadata_bytes = EosCompanionAppService.finish_load_all_in_stream_to_bytes(result)
+                metadata_json = json.loads(EosCompanionAppService.bytes_to_string(metadata_bytes))
+                metadata_json['version'] = app_id_to_runtime_version(
+                    runtime_name_for_app_id_cached(query['applicationId'])
+                )
+                msg.set_status(Soup.Status.OK)
+                json_response(msg, {
+                    'status': 'ok',
+                    'payload': metadata_json
+                })
+            except GLib.Error as load_metadata_error:
+                # File not found, means that the app ID is not an installed
+                # app ID.
+                if load_metadata_error.matches(Gio.io_error_quark(), Gio.IOErrorEnum.NOT_FOUND):
+                    json_response(msg, {
+                        'status': 'error',
+                        'error': serialize_error_as_json_object(
+                            EosCompanionAppService.error_quark(),
+                            EosCompanionAppService.Error.INVALID_APP_ID,
+                            detail={
+                                'app_id': query['applicationId']
+                            }
+                        )
+                    })
+                else:
+                    json_response(msg, {
+                        'status': 'error',
+                        'error': serialize_error_as_json_object(
+                            EosCompanionAppService.error_quark(),
+                            EosCompanionAppService.Error.FAILED,
+                            detail={
+                                'server_error': str(load_metadata_error)
+                            }
+                        )
+                    })
+
+            server.unpause_message(msg)
+
+        if error != None:
             json_response(msg, {
-                'status': 'ok',
-                'payload': metadata_json
+                'status': 'error',
+                'error': serialize_error_as_json_object(
+                    error.domain,
+                    error.code,
+                    detail={
+                        'applicationId': query['applicationId'],
+                        'contentId': query['contentId']
+                    }
+                )
             })
-        except GLib.Error as error:
-            # File not found, means that the app ID is not an installed
-            # app ID.
-            if error.matches(Gio.io_error_quark(), Gio.IOErrorEnum.NOT_FOUND):
-                json_response(msg, {
-                    'status': 'error',
-                    'error': serialize_error_as_json_object(
-                        EosCompanionAppService.error_quark(),
-                        EosCompanionAppService.Error.INVALID_APP_ID,
-                        detail={
-                            'app_id': query['applicationId']
-                        }
-                    )
-                })
-            else:
-                json_response(msg, {
-                    'status': 'error',
-                    'error': serialize_error_as_json_object(
-                        EosCompanionAppService.error_quark(),
-                        EosCompanionAppService.Error.FAILED,
-                        detail={
-                            'server_error': str(error)
-                        }
-                    )
-                })
+            server.unpause_message(msg)
+            return
 
-        server.unpause_message(msg)
+        result = load_record_from_shards_async(shards,
+                                               query['contentId'],
+                                               'metadata',
+                                               _on_got_metadata_callback)
+
+        if result != LOAD_FROM_ENGINE_SUCCESS:
+            json_response(msg, {
+                'status': 'error',
+                'error': serialize_error_as_json_object(
+                    EosCompanionAppService.error_quark(),
+                    EosCompanionAppService.Error.INVALID_CONTENT_ID,
+                    detail={
+                        'applicationId': query['applicationId'],
+                        'contentId': query['contentId']
+                    }
+                )
+            })
+            server.unpause_message(msg)
+            return
 
     log(
         'Get content metadata: clientId={clientId}, '
@@ -968,52 +964,35 @@ def companion_app_server_content_metadata_route(server, msg, path, query, *args)
         )
     )
 
-    result = load_record_from_engine_async(Eknc.Engine.get_default(),
-                                           query['applicationId'],
-                                           query['contentId'],
-                                           'metadata',
-                                           _on_got_metadata_callback)
-
-    if result == LOAD_FROM_ENGINE_SUCCESS:
-        server.pause_message(msg)
-        return
-
-    json_response(msg, {
-        'status': 'error',
-        'error': serialize_error_as_json_object(
-            EosCompanionAppService.error_quark(),
-            EosCompanionAppService.Error.INVALID_APP_ID
-            if result == LOAD_FROM_ENGINE_NO_SUCH_APP
-            else EosCompanionAppService.Error.INVALID_CONTENT_ID,
-            detail={
-                'applicationId': query['applicationId'],
-                'contentId': query['contentId']
-            }
-        )
-    })
+    server.pause_message(msg)
+    content_db_conn.shards_for_application(app_id=query['applicationId'],
+                                           callback=_on_got_shards_callback)
 
 
-def search_single_application(app_id=None,
+def search_single_application(content_db_conn,
+                              app_id=None,
                               tags=None,
                               limit=None,
                               offset=None,
                               search_term=None,
                               callback=None):
-    '''Use EkncEngine.Query to run a query on a single application.
+    '''Use :content_db_conn: to run a query on a single application.
 
     If :tags: is not passed, then we search over the default subset of
     all articles and media objects. Otherwise we search over those
     sets.
     '''
-    query = Eknc.QueryObject(app_id=app_id,
-                             tags_match_any=tags or [
-			                              'EknArticleObject',
-			                              'EknSetObject'
-			                          ],
-			                          limit=limit or _SENSIBLE_QUERY_LIMIT,
-			                          offset=offset or 0,
-			                          search_terms=search_term)
-    Eknc.Engine.get_default().query(query, None, callback)
+    content_db_conn.query(app_id,
+                          query={
+                              'tags-match-any': tags or [
+                                  'EknArticleObject',
+                                  'EknSetObject'
+                              ],
+                              'limit': limit or _SENSIBLE_QUERY_LIMIT,
+                              'offset': offset,
+                              'search-terms': search_term
+                          },
+                          callback=callback)
 
 
 ApplicationModel = namedtuple('ApplicationModel', 'app_id model')
@@ -1023,7 +1002,7 @@ def render_result_payload_for_set(app_id, model, device_uuid):
     '''Render a result payload for a set search model.'''
     return {
         'applicationId': app_id,
-        'tags': model.get_child_tags(),
+        'tags': model['child_tags'],
         'thumbnail': format_thumbnail_uri(app_id,
                                           model,
                                           device_uuid)
@@ -1034,9 +1013,9 @@ def render_result_payload_for_content(app_id, model, device_uuid):
     '''Render a result payload for a content search model.'''
     return {
         'applicationId': app_id,
-        'contentType': model.get_property('content-type'),
-        'id': urllib.parse.urlparse(model.get_property('ekn-id')).path[1:],
-        'tags': model.get_property('tags'),
+        'contentType': model['content_type'],
+        'id': urllib.parse.urlparse(model['ekn_id']).path[1:],
+        'tags': model['tags'],
         'thumbnail': format_thumbnail_uri(app_id,
                                           model,
                                           device_uuid)
@@ -1060,8 +1039,8 @@ def search_models_from_application_models(application_models):
     re-unpacked.
     '''
     for app_id, model in application_models:
-        display_name = model.get_property('title')
-        tags = model.get_property('tags')
+        display_name = model['title']
+        tags = model['tags']
         model_type = (
             'set' if 'EknSetObject' in tags else 'content'
         )
@@ -1076,7 +1055,12 @@ def search_models_from_application_models(application_models):
 
 @require_query_string_param('deviceUUID')
 @record_metric('9f06d0f7-677e-43ca-b732-ccbb40847a31')
-def companion_app_server_search_content_route(server, msg, path, query, *args):
+def companion_app_server_search_content_route(server,
+                                              msg,
+                                              path,
+                                              query,
+                                              context,
+                                              content_db_conn):
     '''Return application/json of search results.
 
     Search the system for content matching certain predicates, returning
@@ -1094,7 +1078,7 @@ def companion_app_server_search_content_route(server, msg, path, query, *args):
     “searchTerm”: [search term, string]
     '''
     del path
-    del args
+    del context
 
     def _on_received_results_list(models,
                                   matched_application_ids,
@@ -1218,16 +1202,9 @@ def companion_app_server_search_content_route(server, msg, path, query, *args):
             all_models = []
 
             for index, args_tuple in enumerate(search_results):
-                engine, result = args_tuple
+                error, result = args_tuple
 
-                try:
-                    query_results = engine.query_finish(result)
-                    all_models.extend([
-                        ApplicationModel(app_id=applications[index].app_id,
-                                         model=m)
-                        for m in query_results.get_models()
-                    ])
-                except GLib.Error as error:
+                if error != None:
                     json_response(msg, {
                         'status': 'error',
                         'error': serialize_error_as_json_object(
@@ -1240,6 +1217,14 @@ def companion_app_server_search_content_route(server, msg, path, query, *args):
                     })
                     server.unpause_message(msg)
                     return
+
+                _, models = result
+                all_models.extend([
+                    ApplicationModel(app_id=applications[index].app_id,
+                                     model=m)
+                    for m in models
+                ])
+
 
             # Search for applications. The g_desktop_app_info_search function
             # will search all applications using an in-memory index
@@ -1297,7 +1282,8 @@ def companion_app_server_search_content_route(server, msg, path, query, *args):
             '''
             def _thunk(callback):
                 '''Thunk that gets called.'''
-                return search_single_application(app_id=application.app_id,
+                return search_single_application(content_db_conn,
+                                                 app_id=application.app_id,
                                                  tags=tags,
                                                  limit=local_limit,
                                                  offset=local_offset,
@@ -1517,29 +1503,63 @@ def handle_404_middleware(expected_path, handler):
     return _handler
 
 
-COMPANION_APP_ROUTES = {
-    '/': companion_app_server_root_route,
-    '/heartbeat': heartbeat_route,
-    '/version': version_route,
-    '/v1/device_authenticate': companion_app_server_device_authenticate_route,
-    '/v1/list_applications': companion_app_server_list_applications_route,
-    '/v1/application_icon': companion_app_server_application_icon_route,
-    '/v1/application_colors': companion_app_server_application_colors_route,
-    '/v1/list_application_sets': companion_app_server_list_application_sets_route,
-    '/v1/list_application_content_for_tags': (
-        companion_app_server_list_application_content_for_tags_route
-    ),
-    '/v1/content_data': companion_app_server_content_data_route,
-    '/v1/content_metadata': companion_app_server_content_metadata_route,
-    '/v1/search_content': companion_app_server_search_content_route,
-    '/v1/feed': companion_app_server_feed_route,
-    '/v1/resource': companion_app_server_resource_route,
-}
+def add_content_db_conn(route, content_db_conn):
+    '''Partially apply content_db_conn to the end of route.'''
+    def wrapper(*args, **kwargs):
+        '''Call route with content_db_conn applied to the end.'''
+        all_args = itertools.chain(args, [content_db_conn])
+        return route(*all_args, **kwargs)
 
-def create_companion_app_webserver(application):
+    return wrapper
+
+
+def create_companion_app_routes(content_db_conn):
+    '''Create fully-applied routes from the passed content_db_conn.
+
+    :content_db_conn: will be bound as the final argument to routes
+                      that require it. This allows for a different
+                      query mechanism to be injected during test
+                      scenarios, where we don't want a dependency
+                      on the database, which may require network
+                      activity.
+    '''
+    return {
+        '/': companion_app_server_root_route,
+        '/heartbeat': heartbeat_route,
+        '/version': version_route,
+        '/v1/device_authenticate': companion_app_server_device_authenticate_route,
+        '/v1/list_applications': companion_app_server_list_applications_route,
+        '/v1/application_icon': companion_app_server_application_icon_route,
+        '/v1/application_colors': companion_app_server_application_colors_route,
+        '/v1/list_application_sets': add_content_db_conn(
+            companion_app_server_list_application_sets_route,
+            content_db_conn
+        ),
+        '/v1/list_application_content_for_tags': add_content_db_conn(
+            companion_app_server_list_application_content_for_tags_route,
+            content_db_conn
+        ),
+        '/v1/content_data': add_content_db_conn(
+            companion_app_server_content_data_route,
+            content_db_conn
+        ),
+        '/v1/content_metadata': add_content_db_conn(
+            companion_app_server_content_metadata_route,
+            content_db_conn
+        ),
+        '/v1/search_content': add_content_db_conn(
+            companion_app_server_search_content_route,
+            content_db_conn
+        ),
+        '/v1/feed': companion_app_server_feed_route,
+        '/v1/resource': companion_app_server_resource_route
+    }
+
+
+def create_companion_app_webserver(application, content_db_conn):
     '''Create a HTTP server with companion app routes.'''
     server = Soup.Server()
-    for path, handler in COMPANION_APP_ROUTES.items():
+    for path, handler in create_companion_app_routes(content_db_conn).items():
         server.add_handler(
             path,
             handle_404_middleware(

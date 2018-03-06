@@ -33,6 +33,7 @@ app_PYTHON += \
 	eoscompanion/content_adjusters.py \
 	eoscompanion/content_streaming.py \
 	eoscompanion/dummy_feed.py \
+	eoscompanion/eknservices_bridge.py \
 	eoscompanion/ekn_data.py \
 	eoscompanion/ekn_query.py \
 	eoscompanion/format.py \
