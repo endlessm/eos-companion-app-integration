@@ -18,6 +18,7 @@
         "--filesystem=/var/lib/flatpak:ro",
         "--filesystem=/var/endless-extra/flatpak:ro",
         "--talk-name=ca.desrt.dconf",
+        "--talk-name=com.endlessm.EknServices2.SearchProviderV2",
         "--env=DCONF_USER_CONFIG_DIR=.config/dconf",
         "--share=network",
         "--command=eos-companion-app-service"
