@@ -718,7 +718,11 @@ class TestCompanionAppService(TestCase):
                     'tags': MatchesSetwise(Equals('First Tag')),
                     'title': Equals('First Tag Set'),
                     'contentType': Equals('application/x-ekncontent-set'),
-                    'thumbnail': Equals(None),
+                    'thumbnail': matches_uri_query('/v1/content_data', {
+                        'contentId': MatchesSetwise(Equals(CONTENT_APP_THUMBNAIL_EKN_ID)),
+                        'applicationId': MatchesSetwise(Equals('org.test.ContentApp')),
+                        'deviceUUID': MatchesSetwise(Equals(FAKE_UUID))
+                    }),
                     'global': Equals(False)
                 })
             )
