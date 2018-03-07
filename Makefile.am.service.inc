@@ -202,9 +202,11 @@ python_tests = \
 	$(NULL)
 
 test_data = \
+	test_data/org.test.ContentApp/app/app.gresource \
 	test_data/org.test.ContentApp/app/org.test.ContentApp.desktop \
 	test_data/org.test.ContentApp/app/org.test.ContentApp.png \
 	test_data/org.test.ContentApp/app/overrides.scss \
+	test_data/org.test.VideoApp/app/app.gresource \
 	test_data/org.test.VideoApp/app/org.test.VideoApp.desktop \
 	test_data/org.test.VideoApp/app/org.test.VideoApp.png \
 	test_data/org.test.VideoApp/app/overrides.scss \
