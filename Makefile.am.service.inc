@@ -205,17 +205,9 @@ test_data = \
 	test_data/org.test.ContentApp/app/org.test.ContentApp.desktop \
 	test_data/org.test.ContentApp/app/org.test.ContentApp.png \
 	test_data/org.test.ContentApp/app/overrides.scss \
-	test_data/org.test.ContentApp/content/article1.html \
-	test_data/org.test.ContentApp/content/article2.html \
-	test_data/org.test.ContentApp/content/thumbnail.jpg \
-	test_data/org.test.ContentApp/content/image.jpg \
-	test_data/org.test.ContentApp/content/db.json \
 	test_data/org.test.VideoApp/app/org.test.VideoApp.desktop \
 	test_data/org.test.VideoApp/app/org.test.VideoApp.png \
 	test_data/org.test.VideoApp/app/overrides.scss \
-	test_data/org.test.VideoApp/content/file.mp4 \
-	test_data/org.test.VideoApp/content/thumbnail.jpg \
-	test_data/org.test.VideoApp/content/db.json \
 	$(NULL)
 
 test_support = \
