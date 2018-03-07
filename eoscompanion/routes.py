@@ -168,6 +168,7 @@ def companion_app_server_list_applications_route(server, msg, path, query, *args
                 {
                     'applicationId': a.app_id,
                     'displayName': a.display_name,
+                    'shortDescription': a.short_description,
                     'icon': format_app_icon_uri(a.icon, query['deviceUUID']),
                     'language': a.language
                 }
@@ -1014,6 +1015,7 @@ def companion_app_server_search_content_route(server, msg, path, query, *args):
                     {
                         'applicationId': a.app_id,
                         'displayName': a.display_name,
+                        'shortDescription': a.short_description,
                         'icon': format_app_icon_uri(a.icon, query['deviceUUID']),
                         'language': a.language
                     }
