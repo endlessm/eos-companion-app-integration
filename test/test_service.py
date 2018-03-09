@@ -458,6 +458,7 @@ class TestCompanionAppService(TestCase):
                 ContainsDict({
                     'applicationId': Equals('org.test.VideoApp'),
                     'displayName': Equals('Video App'),
+                    'shortDescription': Equals('A description about a Video App'),
                     'icon': matches_uri_query('/v1/application_icon', {
                         'iconName': MatchesSetwise(Equals('org.test.VideoApp')),
                         'deviceUUID': MatchesSetwise(Equals(FAKE_UUID))

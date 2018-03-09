@@ -26,7 +26,7 @@ from gi.repository import (
 )
 
 ApplicationListing = namedtuple('ApplicationListing',
-                                'app_id display_name icon language')
+                                'app_id display_name short_description icon language')
 
 
 def maybe_get_app_info_string(app_info, name):
@@ -44,6 +44,7 @@ def maybe_get_app_info_string(app_info, name):
 def application_listing_from_app_info(app_info):
     '''Convert a GDesktopAppInfo app_info to an ApplicationListing.'''
     display_name = app_info.get_display_name()
+    short_description = app_info.get_description()
     app_id = app_info.get_string('X-Flatpak')
     icon = app_info.get_string('Icon')
 
@@ -57,6 +58,7 @@ def application_listing_from_app_info(app_info):
 
     return ApplicationListing(app_id,
                               display_name,
+                              short_description,
                               icon,
                               language)
 
