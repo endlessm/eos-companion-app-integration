@@ -22,6 +22,8 @@ import os
 
 import re
 
+from collections import defaultdict
+
 from gi.repository import (
     EosCompanionAppService,
     EosShard,
@@ -163,6 +165,29 @@ def async_init_all_shards(shard_paths, callback):
     ], _on_finished_loading_shards)
 
 
+# pylint: disable=line-too-long
+_EKS_ERROR_TO_COMPANION_APP_ERROR = defaultdict(lambda: EosCompanionAppService.Error.FAILED, **{
+    # pylint: disable=line-too-long
+    'com.endlessm.EknServices.SearchProvider.AppNotFound': EosCompanionAppService.Error.INVALID_APP_ID,
+    # pylint: disable=line-too-long
+    'com.endlessm.EknServices.SearchProvider.UnsupportedVersion': EosCompanionAppService.Error.FAILED,
+    # pylint: disable=line-too-long
+    'com.endlessm.EknServices.SearchProvider.MalformedApp': EosCompanionAppService.Error.FAILED,
+    # pylint: disable=line-too-long
+    'com.endlessm.EknServices.SearchProvider.InvalidId': EosCompanionAppService.Error.INVALID_CONTENT_ID,
+    # pylint: disable=line-too-long
+    'com.endlessm.EknServices.SearchProvider.InvalidRequest': EosCompanionAppService.Error.INVALID_REQUEST
+})
+
+
+def _dbus_error_to_companion_app_error(error):
+    '''Translate the GDBusError from EknServices to a Companion App error.'''
+    code = _EKS_ERROR_TO_COMPANION_APP_ERROR[Gio.DBusError.get_remote_error(error)]
+    return GLib.Error(error.message,  # pylint: disable=no-member
+                      EosCompanionAppService.error_quark(),
+                      code)
+
+
 class EknServicesContentDbConnection(object):
     '''An EknDbConnection implemented through EknServices.'''
 
@@ -182,14 +207,7 @@ class EknServicesContentDbConnection(object):
             try:
                 response = src.call_finish(result)
             except GLib.Error as error:
-                # The DBus error that we get back is going to be rather
-                # useless. In pretty much every case the error that we
-                # get here is going to be because the app ID was invalid,
-                # so return that
-                callback(GLib.Error(error.message,  # pylint: disable=no-member
-                                    EosCompanionAppService.error_quark(),
-                                    EosCompanionAppService.Error.INVALID_APP_ID),
-                         None)
+                callback(_dbus_error_to_companion_app_error(error), None)
                 return
 
             shard_paths = response.unpack()[0]
@@ -205,14 +223,7 @@ class EknServicesContentDbConnection(object):
             try:
                 response = src.call_finish(result)
             except GLib.Error as error:
-                # The DBus error that we get back is going to be rather
-                # useless. In pretty much every case the error that we
-                # get here is going to be because the app ID was invalid,
-                # so return that
-                callback(GLib.Error(error.message,  # pylint: disable=no-member
-                                    EosCompanionAppService.error_quark(),
-                                    EosCompanionAppService.Error.INVALID_APP_ID),
-                         None)
+                callback(_dbus_error_to_companion_app_error(error), None)
                 return
 
             def _on_finished_loading_shards(error, shards):
