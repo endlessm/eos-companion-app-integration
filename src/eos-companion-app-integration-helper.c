@@ -555,7 +555,7 @@ eos_companion_app_service_list_application_infos (GCancellable        *cancellab
                                                   GAsyncReadyCallback  callback,
                                                   gpointer             user_data)
 {
-  g_autoptr(GTask) task = g_task_new (NULL, cancellable, callback, NULL);
+  g_autoptr(GTask) task = g_task_new (NULL, cancellable, callback, user_data);
 
   g_task_set_return_on_cancel (task, TRUE);
   g_task_run_in_thread (task, list_application_infos_thread);
