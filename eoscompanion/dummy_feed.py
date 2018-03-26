@@ -45,6 +45,16 @@ def dummy_feed():
                             'icon': '/v1/application_icon?iconName=com.endlessm.video_kids&deviceUUID=1234',
                             'displayName': 'Kids',
                             'shortDescription': 'Kids will love these videos'
+                        },
+                        {
+                            'type': 'application',
+                            'detail': 'com.endlessm.word_of_the_day.en',
+                            'displayName': 'Word of the day'
+                        },
+                        {
+                            'type': 'application',
+                            'detail': 'com.endlessm.quote_of_the_day.en',
+                            'displayName': 'Quote of the day'
                         }
                     ],
                     'entries': [
@@ -108,6 +118,45 @@ def dummy_feed():
                                     'thumbnail': '/v1/content_data?applicationId=com.endlessm.video_kids&deviceUUID=1234&contentId=3dfe56e4f28bacfebe9b7a800529dc9653267eff',
                                     'uri': 'bd794303e04e6d2bcc62858e47d813483056f88c',
                                     'duration': '121'
+                                }
+                            ]
+                        },
+                        {
+                            'contentType': 'WordOfTheDay',
+                            'source': [
+                                {
+                                    'type': 'application',
+                                    'detail': [
+                                        {
+                                            'applicationId': 'com.endlessm.word_of_the_day.en'
+                                        }
+                                    ]
+                                }
+                            ],
+                            'detail': [
+                                {
+                                    'word': 'spelunker',
+                                    'partOfSpeech': 'noun',
+                                    'definition': 'One who explores caves chiefly as a hobby; a caver.'
+                                }
+                            ]
+                        },
+                        {
+                            'contentType': 'QuoteOfTheDay',
+                            'source': [
+                                {
+                                    'type': 'application',
+                                    'detail': [
+                                        {
+                                            'applicationId': 'com.endlessm.quote_of_the_day.en'
+                                        }
+                                    ]
+                                }
+                            ],
+                            'detail': [
+                                {
+                                    'quote': 'Hitch your wagon to a star.',
+                                    'author': 'Ralph Waldo Emerson (1803-1882)'
                                 }
                             ]
                         }
