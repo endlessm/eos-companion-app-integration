@@ -32,38 +32,58 @@ def dummy_feed():
                     'sources': [
                         {
                             'type': 'application',
-                            'detail': 'com.endlessm.celebrities.en',
-                            'icon': '/v1/application_icon?deviceUUID=1234&iconName=com.endlessm.celebrities.en',
-                            'displayName': 'Celebrities',
-                            'shortDescription': 'Learn more about your favorite celebrities'
+                            'detail': [
+                                {
+                                    'applicationId': 'com.endlessm.celebrities.en',
+                                    'icon': '/v1/application_icon?deviceUUID=1234&iconName=com.endlessm.celebrities.en',
+                                    'displayName': 'Celebrities',
+                                    'shortDescription': 'Learn more about your favorite celebrities'
+                                }
+                             ]
                         },
                         {
                             'type': 'application',
-                            'detail': 'com.endlessm.wiki_art.en',
-                            'icon': '/v1/application_icon?deviceUUID=1234&iconName=com.endlessm.wiki_art.en',
-                            'displayName': 'WikiArt',
-                            'shortDescription': 'A collection of great visual works'
+                            'detail': [
+                                {
+                                    'applicationId': 'com.endlessm.wiki_art.en',
+                                    'icon': '/v1/application_icon?deviceUUID=1234&iconName=com.endlessm.wiki_art.en',
+                                    'displayName': 'WikiArt',
+                                    'shortDescription': 'A collection of great visual works'
+                                }
+                            ]
                         },
                         {
                             'type': 'application',
-                            'detail': 'com.endlessm.video_kids',
-                            'icon': '/v1/application_icon?iconName=com.endlessm.video_kids&deviceUUID=1234',
-                            'displayName': 'Kids',
-                            'shortDescription': 'Kids will love these videos'
+                            'detail': [
+                                {
+                                    'applicationId': 'com.endlessm.video_kids',
+                                    'icon': '/v1/application_icon?iconName=com.endlessm.video_kids&deviceUUID=1234',
+                                    'displayName': 'Kids',
+                                    'shortDescription': 'Kids will love these videos'
+                                }
+                            ]
                         },
                         {
                             'type': 'application',
-                            'detail': 'com.endlessm.word_of_the_day.en',
-                            'icon': '',
-                            'displayName': 'Word of the day',
-                            'shortDescription': ''
+                            'detail': [
+                                {
+                                    'applicationId': 'com.endlessm.word_of_the_day.en',
+                                    'icon': '',
+                                    'displayName': 'Word of the day',
+                                    'shortDescription': ''
+                                }
+                            ]
                         },
                         {
                             'type': 'application',
-                            'detail': 'com.endlessm.quote_of_the_day.en',
-                            'icon': '',
-                            'displayName': 'Quote of the day',
-                            'shortDescription': ''
+                            'detail': [
+                                {
+                                    'applicationId': 'com.endlessm.quote_of_the_day.en',
+                                    'icon': '',
+                                    'displayName': 'Quote of the day',
+                                    'shortDescription': ''
+                                }
+                            ]
                         }
                     ],
                     'entries': [
