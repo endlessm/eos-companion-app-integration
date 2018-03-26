@@ -59,7 +59,7 @@ def dummy_feed():
                     ],
                     'entries': [
                         {
-                            'contentType': 'Article',
+                            'contentType': 'article',
                             'source': [
                                 {
                                     'type': 'application',
@@ -80,7 +80,7 @@ def dummy_feed():
                             ]
                         },
                         {
-                            'contentType': 'Artwork',
+                            'contentType': 'artwork',
                             'source': [
                                 {
                                     'type': 'application',
@@ -101,7 +101,7 @@ def dummy_feed():
                             ]
                         },
                         {
-                            'contentType': 'Video',
+                            'contentType': 'video',
                             'source': [
                                 {
                                     'type': 'application',
@@ -122,7 +122,7 @@ def dummy_feed():
                             ]
                         },
                         {
-                            'contentType': 'WordOfTheDay',
+                            'contentType': 'wordOfTheDay',
                             'source': [
                                 {
                                     'type': 'application',
@@ -142,7 +142,7 @@ def dummy_feed():
                             ]
                         },
                         {
-                            'contentType': 'QuoteOfTheDay',
+                            'contentType': 'quoteOfTheDay',
                             'source': [
                                 {
                                     'type': 'application',
