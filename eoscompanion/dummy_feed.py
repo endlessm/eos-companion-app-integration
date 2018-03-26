@@ -117,7 +117,7 @@ def dummy_feed():
                                     'title': 'Nice Crystal Ball Juggler in Europe',
                                     'thumbnail': '/v1/content_data?applicationId=com.endlessm.video_kids&deviceUUID=1234&contentId=3dfe56e4f28bacfebe9b7a800529dc9653267eff',
                                     'uri': 'bd794303e04e6d2bcc62858e47d813483056f88c',
-                                    'duration': '121'
+                                    'duration': '2:01'
                                 }
                             ]
                         },
