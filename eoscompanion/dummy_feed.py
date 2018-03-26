@@ -24,6 +24,11 @@ def dummy_feed():
             'status': 'ok',
             'payload': [
                 {
+                    'state': {
+                        'sources': [
+                        ],
+                        'index': 5
+                     },
                     'sources': [
                         {
                             'type': 'application',
@@ -60,16 +65,14 @@ def dummy_feed():
                     'entries': [
                         {
                             'contentType': 'article',
-                            'source': [
-                                {
-                                    'type': 'application',
-                                    'detail': [
-                                        {
-                                            'applicationId': 'com.endlessm.celebrities.en'
-                                        }
-                                    ]
-                                }
-                            ],
+                            'source': {
+                                'type': 'application',
+                                'detail': [
+                                    {
+                                        'applicationId': 'com.endlessm.celebrities.en'
+                                    }
+                                ]
+                            },
                             'detail': [
                                 {
                                     'title': 'Lionel Messi',
@@ -81,16 +84,14 @@ def dummy_feed():
                         },
                         {
                             'contentType': 'artwork',
-                            'source': [
-                                {
-                                    'type': 'application',
-                                    'detail': [
-                                        {
-                                            'applicationId': 'com.endlessm.wiki_art.en'
-                                        }
-                                    ]
-                                }
-                            ],
+                            'source': {
+                                'type': 'application',
+                                'detail': [
+                                    {
+                                        'applicationId': 'com.endlessm.wiki_art.en'
+                                    }
+                                ]
+                            },
                             'detail': [
                                 {
                                     'title': 'Madonna with Child',
@@ -102,16 +103,14 @@ def dummy_feed():
                         },
                         {
                             'contentType': 'video',
-                            'source': [
-                                {
-                                    'type': 'application',
-                                    'detail': [
-                                        {
-                                            'applicationId': 'com.endlessm.video_kids'
-                                        }
-                                    ]
-                                }
-                            ],
+                            'source': {
+                                'type': 'application',
+                                'detail': [
+                                    {
+                                        'applicationId': 'com.endlessm.video_kids'
+                                    }
+                                ]
+                            },
                             'detail': [
                                 {
                                     'title': 'Nice Crystal Ball Juggler in Europe',
@@ -123,16 +122,14 @@ def dummy_feed():
                         },
                         {
                             'contentType': 'wordOfTheDay',
-                            'source': [
-                                {
-                                    'type': 'application',
-                                    'detail': [
-                                        {
-                                            'applicationId': 'com.endlessm.word_of_the_day.en'
-                                        }
-                                    ]
-                                }
-                            ],
+                            'source': {
+                                'type': 'application',
+                                'detail': [
+                                    {
+                                        'applicationId': 'com.endlessm.word_of_the_day.en'
+                                    }
+                                ]
+                            },
                             'detail': [
                                 {
                                     'word': 'spelunker',
@@ -143,16 +140,14 @@ def dummy_feed():
                         },
                         {
                             'contentType': 'quoteOfTheDay',
-                            'source': [
-                                {
-                                    'type': 'application',
-                                    'detail': [
-                                        {
-                                            'applicationId': 'com.endlessm.quote_of_the_day.en'
-                                        }
-                                    ]
-                                }
-                            ],
+                            'source': {
+                                'type': 'application',
+                                'detail': [
+                                    {
+                                        'applicationId': 'com.endlessm.quote_of_the_day.en'
+                                    }
+                                ]
+                            },
                             'detail': [
                                 {
                                     'quote': 'Hitch your wagon to a star.',
