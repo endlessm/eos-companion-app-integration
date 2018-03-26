@@ -54,12 +54,16 @@ def dummy_feed():
                         {
                             'type': 'application',
                             'detail': 'com.endlessm.word_of_the_day.en',
-                            'displayName': 'Word of the day'
+                            'icon': '',
+                            'displayName': 'Word of the day',
+                            'shortDescription': ''
                         },
                         {
                             'type': 'application',
                             'detail': 'com.endlessm.quote_of_the_day.en',
-                            'displayName': 'Quote of the day'
+                            'icon': '',
+                            'displayName': 'Quote of the day',
+                            'shortDescription': ''
                         }
                     ],
                     'entries': [
