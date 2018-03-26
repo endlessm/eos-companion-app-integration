@@ -27,7 +27,7 @@ def dummy_feed():
                     'state': {
                         'sources': [
                         ],
-                        'index': 5
+                        'index': 6
                      },
                     'sources': [
                         {
@@ -82,6 +82,17 @@ def dummy_feed():
                                     'icon': '',
                                     'displayName': 'Quote of the day',
                                     'shortDescription': ''
+                                }
+                            ]
+                        },
+                        {
+                            'type': 'application',
+                            'detail': [
+                                {
+                                    'applicationId': 'com.endlessm.okezone.id',
+                                    'icon': '/v1/application_icon?iconName=com.endlessm.okezone.id&deviceUUID=1234',
+                                    'displayName': 'Okezone',
+                                    'shortDescription': 'Aplikasi berita terkini'
                                 }
                             ]
                         }
@@ -176,6 +187,25 @@ def dummy_feed():
                                 {
                                     'quote': 'Hitch your wagon to a star.',
                                     'author': 'Ralph Waldo Emerson (1803-1882)'
+                                }
+                            ]
+                        },
+                        {
+                            'contentType': 'news',
+                            'source': {
+                                'type': 'application',
+                                'detail': [
+                                    {
+                                        'applicationId': 'com.endlessm.okezone.id'
+                                    }
+                                ]
+                            },
+                            'detail': [
+                                {
+                                    'title': 'KY Pantau Sidang Perdana Setya Novanto di Pengadilan Tipikor',
+                                    'synopis': 'Pemantauan dilakukan secara terbuka ataupun tertutup - Nasional - Okezone News',
+                                    'thumbnail': '/v1/content_data?applicationId=com.endlessm.okezone.id&deviceUUID=1234&contentId=746733c3eec7611da24cb67f06f8b9ea00fefdd6',
+                                    'uri': '05237c7d516e57e1830fc9afc1e6ac8bb251dd50'
                                 }
                             ]
                         }
