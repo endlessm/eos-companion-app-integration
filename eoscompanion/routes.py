@@ -156,6 +156,7 @@ def desktop_id_to_app_id(desktop_id):
     return os.path.splitext(desktop_id)[0]
 
 @require_query_string_param('deviceUUID')
+@require_query_string_param('mode')
 def companion_app_server_feed_route(server, msg, path, query, *args):
     '''Send feed.'''
     del server
