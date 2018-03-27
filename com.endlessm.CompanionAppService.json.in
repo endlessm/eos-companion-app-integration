@@ -25,6 +25,16 @@
     "modules": [
         "com.endlessm.CompanionAppService.PipDependencies.json",
         {
+            "name": "eos-knowledge-content-renderer",
+            "buildsystem": "meson",
+            "sources": [
+                {
+                    "type": "git",
+                    "url": "https://github.com/endlessm/eos-knowledge-content-renderer"
+                }
+            ]
+        },
+        {
             "config-opts": [
                 "--disable-integration",
                 "--enable-service"
