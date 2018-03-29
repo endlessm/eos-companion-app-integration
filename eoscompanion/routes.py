@@ -157,6 +157,7 @@ def desktop_id_to_app_id(desktop_id):
 
 @require_query_string_param('deviceUUID')
 @require_query_string_param('mode')
+@record_metric('af3e89b2-8293-4703-809c-8e0231c128cb')
 def companion_app_server_feed_route(server, msg, path, query, *args):
     '''Send feed.'''
     del server
