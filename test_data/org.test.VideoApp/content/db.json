@@ -2,8 +2,11 @@
     "content": [
         {
             "contentType": "video/mp4",
-            "source": "file.mp4",
             "tags": ["EknHomePageTag", "EknMediaObject", "EknArticleObject"],
+            "isServerTemplated": true,
+            "originalURI": "http://video.site/video",
+            "source": "file.mp4",
+            "sourceName": "YouTube",
             "title": "Sample Video",
             "thumbnail": "ekn:///b87d21e1d15fdb26f6dcf9f33eff11fbba6f43d5"
         },
