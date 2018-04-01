@@ -2,15 +2,21 @@
     "content": [
         {
             "contentType": "text/html",
-            "source": "article1.html",
             "tags": ["First Tag", "EknArticleObject"],
+            "licence": "CC-0",
+            "originalURI": "http://some.site/second",
+            "source": "article1.html",
+            "sourceName": "Wikipedia",
             "title": "Sample Article 1",
             "thumbnail": "ekn:///cd50d19784897085a8d0e3e413f8612b097c03f1"
         },
         {
             "contentType": "text/html",
-            "source": "article2.html",
             "tags": ["Second Tag", "EknArticleObject"],
+            "licence": "CC-0",
+            "originalURI": "http://some.site/second",
+            "source": "article2.html",
+            "sourceName": "Wikipedia",
             "title": "Sample Article 2",
             "thumbnail": "ekn:///cd50d19784897085a8d0e3e413f8612b097c03f1"
         },
@@ -36,6 +42,10 @@
             ],
             "tags": ["First Tag", "EknSetObject"],
             "featured": true,
+            "licence": "CC-0",
+            "originalURI": "http://some.site/first",
+            "source": "wikipedia",
+            "sourceName": "Wikipedia",
             "thumbnailURI": "thumbnail.jpeg",
             "title": "First Tag Set"
         },
