@@ -49,16 +49,28 @@ def _html_content_adjuster_closure():
         we might want to depend on beautifulsoup and use that instead.
         '''
         unrendered_html_string = EosCompanionAppService.bytes_to_string(content_bytes)
-        rendered_content = renderer.render_content(unrendered_html_string,
+        print(unrendered_html_string,
                                                    metadata.get('isServerTemplated',
                                                                 False),
                                                    metadata.get('source'),
                                                    metadata.get('sourceName'),
                                                    metadata.get('originalURI'),
                                                    metadata.get('license'),
-                                                   metadata.get('title'),
+                                                   metadata.get('title'))
+        rendered_content = renderer.render_content(unrendered_html_string,
+                                                   metadata.get('isServerTemplated',
+                                                                False),
+                                                   metadata.get('source', ''),
+                                                   metadata.get('sourceName',
+                                                                ''),
+                                                   metadata.get('originalURI',
+                                                                ''),
+                                                   metadata.get('license',
+                                                                ''),
+                                                   metadata.get('title',
+                                                                ''),
                                                    show_title=True,
-                                                   enable_scroll_manager=False)
+                                                   use_scroll_manager=False)
 
         return EosCompanionAppService.string_to_bytes(
             _RE_EKN_URL_CAPTURE.sub(ekn_url_rewriter(query), rendered_content)
