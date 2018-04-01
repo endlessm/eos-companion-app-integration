@@ -7,7 +7,7 @@ on build tools such as basin, which may break our build.
 
 To regenerate the content shards and gresource files use:
 
-    make test-content
+    make test-data
 
 and check in the resulting binary files.
 
