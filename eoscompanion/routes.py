@@ -700,6 +700,7 @@ def companion_app_server_content_data_route(server, msg, path, query, context):
         conditionally_wrap_blob_stream(blob,
                                        content_type,
                                        query,
+                                       content_metadata,
                                        _on_got_wrapped_stream)
 
     log(
