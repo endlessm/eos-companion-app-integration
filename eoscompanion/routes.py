@@ -51,6 +51,7 @@ from .content_streaming import (
     define_content_range_from_headers_and_size
 )
 from .ekn_data import (
+    BYTE_CHUNK_SIZE,
     LOAD_FROM_ENGINE_NO_SUCH_APP,
     LOAD_FROM_ENGINE_SUCCESS,
     load_record_blob_from_engine,
@@ -170,6 +171,94 @@ def companion_app_server_feed_route(server, msg, path, query, *args):
 
     feed = dummy_feed()
     json_response(msg, feed)
+
+
+@require_query_string_param('deviceUUID')
+@require_query_string_param('path')
+def companion_app_server_resource_route(server, msg, path, query, *args):
+    '''Fetch an internal resource from a rewritten link on the page.
+
+    This route is for fetching internal resources not tied to any particular
+    application ID or content shard. For instance, we might embed a link
+    to a CSS or JS file that we want to serve up to the client.
+
+    The querystring param "path" indicates the URI encoded path to the
+    internal GResource.
+    '''
+    resource_uri = os.path.join('resource://', Soup.URI.decode(query['path']))
+    resource_file = Gio.File.new_for_uri(resource_uri)
+
+    resource_suffix = os.path.basename(resource_uri)
+    return_content_type = infer_content_type_from_path(resource_suffix)
+
+    if return_content_type == None:
+        json_response(msg, {
+            'status': 'error',
+            'error': {
+                'domain': GLib.quark_to_string(EosCompanionAppService.error_quark()),
+                'code': EosCompanionAppService.Error.FAILED,
+                'detail': {
+                    'server_error': (
+                        'Don\'t know content type for suffix, {}'.format(resource_suffix)
+                    )
+                }
+            }
+        })
+        return
+
+    def _on_read_input_stream(src, result):
+        '''Callback for when we finish reading the input stream.'''
+        try:
+            content_bytes = EosCompanionAppService.load_all_in_stream_to_bytes_finish(result)
+        except GLib.Error as error:
+            json_response(msg, {
+                'status': 'error',
+                'error': {
+                    'domain': GLib.quark_to_string(EosCompanionAppService.error_quark()),
+                    'code': EosCompanionAppService.Error.FAILED,
+                    'detail': {
+                        'server_error': str(error)
+                    }
+                }
+            })
+            server.unpause_message(msg)
+            return
+
+        custom_response(msg, content_bytes, return_content_type)
+        server.unpause_message(msg)
+
+    def _on_read_resource(src, result):
+        '''Callback for once we finish reading the resource.'''
+        try:
+            input_stream = src.read_finish(result)
+        except GLib.Error as error:
+            if error.matches(Gio.io_error_quark(), Gio.IOErrorEnum.NOT_FOUND):
+                not_found_response(msg, path)
+            else:
+                json_response(msg, {
+                    'status': 'error',
+                    'error': {
+                        'domain': GLib.quark_to_string(EosCompanionAppService.error_quark()),
+                        'code': EosCompanionAppService.Error.FAILED,
+                        'detail': {
+                            'server_error': str(error)
+                        }
+                    }
+                })
+
+            server.unpause_message(msg)
+            return;
+
+        EosCompanionAppService.load_all_in_stream_to_bytes(input_stream,
+                                                           chunk_size=BYTE_CHUNK_SIZE,
+                                                           cancellable=None,
+                                                           callback=_on_read_input_stream)
+
+    resource_file.read_async(io_priority=Gio.PRIORITY_DEFAULT,
+                             cancellable=None,
+                             callback=_on_read_input_stream)
+    server.pause_message(msg)
+
 
 @require_query_string_param('deviceUUID')
 @record_metric('337fa66d-5163-46ae-ab20-dc605b5d7307')
@@ -1380,7 +1469,8 @@ COMPANION_APP_ROUTES = {
     '/v1/content_data': companion_app_server_content_data_route,
     '/v1/content_metadata': companion_app_server_content_metadata_route,
     '/v1/search_content': companion_app_server_search_content_route,
-    '/v1/feed': companion_app_server_feed_route
+    '/v1/feed': companion_app_server_feed_route,
+    '/v1/resource': companion_app_server_resource_route,
 }
 
 def create_companion_app_webserver(application):

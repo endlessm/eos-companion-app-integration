@@ -20,6 +20,8 @@
 
 import urllib
 
+from gi.repository import Soup
+
 
 def format_uri_with_querystring(uri, **params):
     '''Format the passed uri with the querystring params.'''
@@ -59,3 +61,18 @@ def rewrite_ekn_url(ekn_id, query):
         contentId=ekn_id
     )
     return formatted
+
+
+def rewrite_resource_url(path, query):
+    '''If the URL is an GResource url, rewrite it to be server-relative.
+
+    This causes the deviceUUID to be included in
+    the URL query-string and the resource path to be URI encoded.
+    '''
+    formatted = format_uri_with_querystring(
+        '/v1/resource',
+        deviceUUID=query['deviceUUID'],
+        path=Soup.URI.encode(path)
+    )
+    return formatted
+
