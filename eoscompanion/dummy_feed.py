@@ -28,13 +28,14 @@ def dummy_feed():
                     'sources': [
                     ],
                     'index': 6
-                 },
-                 'sources': [
+                },
+                'sources': [
                     {
                         'type': 'application',
                         'detail': [
                             {
                                 'applicationId': 'com.endlessm.celebrities.en',
+                                # pylint: disable=line-too-long
                                 'icon': '/v1/application_icon?deviceUUID=1234&iconName=com.endlessm.celebrities.en',
                                 'displayName': 'Celebrities',
                                 'shortDescription': 'Learn more about your favorite celebrities'
@@ -46,6 +47,7 @@ def dummy_feed():
                         'detail': [
                             {
                                 'applicationId': 'com.endlessm.wiki_art.en',
+                                # pylint: disable=line-too-long
                                 'icon': '/v1/application_icon?deviceUUID=1234&iconName=com.endlessm.wiki_art.en',
                                 'displayName': 'WikiArt',
                                 'shortDescription': 'A collection of great visual works'
@@ -57,6 +59,7 @@ def dummy_feed():
                         'detail': [
                             {
                                 'applicationId': 'com.endlessm.video_kids',
+                                # pylint: disable=line-too-long
                                 'icon': '/v1/application_icon?iconName=com.endlessm.video_kids&deviceUUID=1234',
                                 'displayName': 'Kids',
                                 'shortDescription': 'Kids will love these videos'
@@ -90,6 +93,7 @@ def dummy_feed():
                         'detail': [
                             {
                                 'applicationId': 'com.endlessm.okezone.id',
+                                # pylint: disable=line-too-long
                                 'icon': '/v1/application_icon?iconName=com.endlessm.okezone.id&deviceUUID=1234',
                                 'displayName': 'Okezone',
                                 'shortDescription': 'Aplikasi berita terkini'
@@ -112,6 +116,7 @@ def dummy_feed():
                             {
                                 'title': 'Lionel Messi',
                                 'synopis': '.',
+                                # pylint: disable=line-too-long
                                 'thumbnail': '/v1/content_data?applicationId=com.endlessm.celebrities.en&deviceUUID=1234&contentId=7743ae136927867094cd8c3bffa0f13d5ef63696',
                                 'uri': '7b4978ba82ecf6b992c395956e0adad4b4734dbe'
                             }
@@ -131,6 +136,7 @@ def dummy_feed():
                             {
                                 'title': 'Madonna with Child',
                                 'synopis': '.',
+                                # pylint: disable=line-too-long
                                 'thumbnail': '/v1/content_data?applicationId=com.endlessm.wiki_art.en&deviceUUID=1234&contentId=19db92f13325e93e4a7af18a997ed3941722c176',
                                 'uri': '7afc3eaf5805936f60404037112f08a41d0470cc'
                             }
@@ -149,6 +155,7 @@ def dummy_feed():
                         'detail': [
                             {
                                 'title': 'Nice Crystal Ball Juggler in Europe',
+                                # pylint: disable=line-too-long
                                 'thumbnail': '/v1/content_data?applicationId=com.endlessm.video_kids&deviceUUID=1234&contentId=3dfe56e4f28bacfebe9b7a800529dc9653267eff',
                                 'uri': 'bd794303e04e6d2bcc62858e47d813483056f88c',
                                 'duration': '2:01'
@@ -202,8 +209,11 @@ def dummy_feed():
                         },
                         'detail': [
                             {
+                                # pylint: disable=line-too-long
                                 'title': 'KY Pantau Sidang Perdana Setya Novanto di Pengadilan Tipikor',
+                                # pylint: disable=line-too-long
                                 'synopis': 'Pemantauan dilakukan secara terbuka ataupun tertutup - Nasional - Okezone News',
+                                # pylint: disable=line-too-long
                                 'thumbnail': '/v1/content_data?applicationId=com.endlessm.okezone.id&deviceUUID=1234&contentId=746733c3eec7611da24cb67f06f8b9ea00fefdd6',
                                 'uri': '05237c7d516e57e1830fc9afc1e6ac8bb251dd50'
                             }
