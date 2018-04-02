@@ -50,13 +50,13 @@ def _html_content_adjuster_closure():
         '''
         unrendered_html_string = EosCompanionAppService.bytes_to_string(content_bytes)
         print(unrendered_html_string,
-                                                   metadata.get('isServerTemplated',
-                                                                False),
-                                                   metadata.get('source'),
-                                                   metadata.get('sourceName'),
-                                                   metadata.get('originalURI'),
-                                                   metadata.get('license'),
-                                                   metadata.get('title'))
+              metadata.get('isServerTemplated',
+                           False),
+              metadata.get('source'),
+              metadata.get('sourceName'),
+              metadata.get('originalURI'),
+              metadata.get('license'),
+              metadata.get('title'))
         rendered_content = renderer.render_content(unrendered_html_string,
                                                    metadata.get('isServerTemplated',
                                                                 False),
