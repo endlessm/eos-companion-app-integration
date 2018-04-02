@@ -69,6 +69,12 @@ enum_sources = \
 	src/enums.c \
 	$(NULL)
 
+resources_sources = \
+	src/eos-companion-app-service-resources.h \
+	src/eos-companion-app-service-resources.c \
+	$(NULL)
+
+
 # Companion App D-Bus Library
 gdbus_generated = \
 	eos-companion-app-service-dbus.c \
@@ -93,9 +99,14 @@ dist_libeoscompanion_1_la_SOURCES = \
 	src/eos-companion-app-integration-helper.h \
 	$(NULL)
 
-nodist_libeoscompanion_1_la_SOURCES = \
+introspectable_nodist_eoscompanion_sources = \
 	src/config.h \
 	$(enum_sources) \
+	$(NULL)
+
+nodist_libeoscompanion_1_la_SOURCES = \
+	$(introspectable_nodist_eoscompanion_sources) \
+	$(resources_sources) \
 	$(NULL)
 
 libeoscompanion_1_la_CPPFLAGS = \
@@ -158,12 +169,20 @@ BUILT_SOURCES += $(enum_sources)
 CLEANFILES += $(enum_sources)
 EXTRA_DIST += $(enum_template_h_file) $(enum_template_c_file)
 
+# # # GRESOURCES # # #
+src/eos-companion-app-service-resources.%: com.endlessm.CompanionAppService.gresource.xml
+	$(AM_V_GEN) $(GLIB_COMPILE_RESOURCES) --generate $< --target=$@ --internal
+
+BUILT_SOURCES += $(resources_sources)
+CLEANFILES += $(resources_sources)
+EXTRA_DIST += com.endlessm.CompanionAppService.gresource.xml
+
 # # # GOBJECT INTROSPECTION FOR COMPANION APP SERVICE # # #
 if HAVE_INTROSPECTION
 introspection_sources = \
 	$(gdbus_generated) \
 	$(dist_libeoscompanion_1_la_SOURCES) \
-	$(nodist_libeoscompanion_1_la_SOURCES) \
+	$(introspectable_nodist_eoscompanion_sources) \
 	$(NULL)
 
 EosCompanionAppService-1.0.gir: libeoscompanion-dbus-1.la libeoscompanion-1.la
