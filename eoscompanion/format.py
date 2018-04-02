@@ -21,10 +21,11 @@
 import urllib
 
 
-def format_uri_with_querystring(uri, **params):
+
+def format_uri_with_querystring(base_uri, **params):
     '''Format the passed uri with the querystring params.'''
-    return '{uri}?{params}'.format(uri=uri,
-                                   params=urllib.parse.urlencode(params))
+    return '{base_uri}?{params}'.format(base_uri=base_uri,
+                                        params=urllib.parse.urlencode(params))
 
 
 def format_app_icon_uri(icon_name, device_uuid):
