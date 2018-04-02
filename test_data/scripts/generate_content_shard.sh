@@ -23,18 +23,18 @@
 # All rights reserved.
 
 function usage() {
-    echo "generate_content_shard.sh RUNTIME_VERSION DB_JSON CONTENT_SHARD"
+    echo "generate_content_shard.sh DB_JSON CONTENT_SHARD"
 }
 
-RUNTIME_VERSION=$1
-DB_JSON=$2
-CONTENT_SHARD=$3
+DB_JSON=$1
+CONTENT_SHARD=$2
 
 flatpak run \
 	"--filesystem=$(readlink -f $(dirname ${DB_JSON}))" \
 	"--filesystem=$(readlink -f $(dirname ${CONTENT_SHARD}))" \
-	"com.endlessm.apps.Sdk//${RUNTIME_VERSION}" \
-	basin \
+	"--devel" \
+	"--command=/app/bin/basin" \
+	"com.endlessm.CompanionAppService" \
 	"${DB_JSON}" \
 	"${CONTENT_SHARD}"
 
