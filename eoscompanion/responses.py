@@ -67,6 +67,14 @@ def jpeg_response(msg, image_bytes):
                                                            image_bytes)
 
 
+def custom_response(msg, content_type, content_bytes):
+    '''Respond with :content_type: using :content_bytes:.'''
+    msg.set_status(Soup.Status.OK)
+    EosCompanionAppService.set_soup_message_response_bytes(msg,
+                                                           content_type,
+                                                           content_bytes)
+
+
 def not_found_response(msg, path):
     '''Respond with an error message and 404.'''
     msg.set_status(Soup.Status.NOT_FOUND)
