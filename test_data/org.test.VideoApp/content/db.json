@@ -5,6 +5,7 @@
             "tags": ["EknHomePageTag", "EknMediaObject", "EknArticleObject"],
             "isServerTemplated": true,
             "originalURI": "http://video.site/video",
+            "path": "file.mp4",
             "source": "youtube",
             "sourceName": "YouTube",
             "title": "Sample Video",
