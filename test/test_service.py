@@ -928,7 +928,7 @@ class TestCompanionAppService(TestCase):
             '''Called when we receive a response from the server.'''
             self.assertThat(response['payload'], ContainsDict({
                 'title': Equals('Sample Video'),
-                'source': Equals('file.mp4'),
+                'source': Equals('youtube'),
                 'contentType': Equals('video/mp4'),
                 'tags': MatchesSetwise(
                     Equals('EknArticleObject'),
