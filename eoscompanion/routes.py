@@ -54,8 +54,9 @@ from .ekn_data import (
     BYTE_CHUNK_SIZE,
     LOAD_FROM_ENGINE_NO_SUCH_APP,
     LOAD_FROM_ENGINE_SUCCESS,
-    load_record_blob_from_engine,
-    load_record_from_engine_async
+    load_record_blob_from_shards,
+    load_record_from_engine_async,
+    load_record_from_shards_async
 )
 from .ekn_query import ascertain_application_sets_from_models
 from .format import (
@@ -689,14 +690,28 @@ def companion_app_server_content_data_route(server, msg, path, query, context):
 
         # Now that we have the metadata, deserialize it and use the
         # contentType hint to figure out the best way to load it.
-        metadata_bytes = EosCompanionAppService.finish_load_all_in_stream_to_bytes(result)
+        try:
+            metadata_bytes = EosCompanionAppService.finish_load_all_in_stream_to_bytes(result)
+        except GLib.Error as error:
+            json_response(msg, {
+                'status': 'error',
+                'error': serialize_error_as_json_object(
+                    EosCompanionAppService.error_quark(),
+                    EosCompanionAppService.Error.FAILED,
+                    detail={
+                        'server_error': str(error)
+                    }
+                )
+            })
+            server.unpause_message(msg)
+            return
+
         content_metadata = json.loads(
             EosCompanionAppService.bytes_to_string(metadata_bytes)
         )
         content_type = content_metadata['contentType']
 
-        blob_result, blob = load_record_blob_from_engine(Eknc.Engine.get_default(),
-                                                         query['applicationId'],
+        blob_result, blob = load_record_blob_from_shards(shards,
                                                          query['contentId'],
                                                          'data')
         if blob_result != LOAD_FROM_ENGINE_SUCCESS:
@@ -806,6 +821,8 @@ def companion_app_server_content_data_route(server, msg, path, query, context):
                                        content_type,
                                        query,
                                        content_metadata,
+                                       engine,
+                                       shards,
                                        _on_got_wrapped_stream)
 
     log(
@@ -817,8 +834,38 @@ def companion_app_server_content_data_route(server, msg, path, query, context):
         )
     )
 
-    result = load_record_from_engine_async(Eknc.Engine.get_default(),
-                                           query['applicationId'],
+    # Get the engine and shards so that we can use them later
+    engine = Eknc.Engine.get_default()
+    try:
+        shards = engine.get_domain_for_app(query['applicationId']).get_shards()
+    except GLib.Error as error:
+        if error.matches(Gio.io_error_quark(), Gio.IOErrorEnum.NOT_FOUND):
+            json_response(msg, {
+                'status': 'error',
+                'error': serialize_error_as_json_object(
+                    EosCompanionAppService.error_quark(),
+                    EosCompanionAppService.Error.INVALID_APP_ID,
+                    detail={
+                        'applicationId': query['applicationId'],
+                        'contentId': query['contentId']
+                    }
+                )
+            })
+            return
+
+        json_response(msg, {
+            'status': 'error',
+            'error': serialize_error_as_json_object(
+                EosCompanionAppService.error_quark(),
+                EosCompanionAppService.Error.FAILED,
+                detail={
+                    'server_error': str(error)
+                }
+            )
+        })
+        return
+
+    result = load_record_from_shards_async(shards,
                                            query['contentId'],
                                            'metadata',
                                            _on_got_metadata_callback)
