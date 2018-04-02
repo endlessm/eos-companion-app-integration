@@ -280,7 +280,10 @@ def companion_app_server_list_applications_route(server, msg, path, query, *args
         '''Callback function that gets called when we are done.'''
 
         # Blacklist com.endlessm.encyclopedia.*
-        filtered_applications = (application for application in applications if 'com.endlessm.encyclopedia.' not in application.app_id)
+        filtered_applications = (
+            application for application in applications
+            if 'com.endlessm.encyclopedia.' not in application.app_id
+        )
 
         json_response(msg, {
             'status': 'ok',
