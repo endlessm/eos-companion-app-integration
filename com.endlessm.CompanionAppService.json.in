@@ -25,6 +25,16 @@
     "modules": [
         "com.endlessm.CompanionAppService.PipDependencies.json",
         {
+            "name": "basin",
+            "sources": [
+                {
+                    "type": "git",
+                    "url": "https://github.com/endlessm/basin",
+                    "branch": "T21272-patch"
+                }
+            ]
+        },
+        {
             "name": "mustache-c",
             "sources": [
                 {
