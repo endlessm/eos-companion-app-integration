@@ -46,7 +46,7 @@ def define_content_range_from_headers_and_size(request_headers, content_size):
     return ranges[0].start, ranges[0].end, ranges[0].end - ranges[0].start + 1
 
 
-def conditionally_wrap_blob_stream(blob, content_type, query, callback):
+def conditionally_wrap_blob_stream(blob, content_type, query, metadata, callback):
     '''Inspect content_type and adjust blob stream content.'''
     def _read_stream_callback(_, result):
         '''Callback once we have finished loading the stream to bytes.'''
@@ -56,7 +56,7 @@ def conditionally_wrap_blob_stream(blob, content_type, query, callback):
             callback(error, None)
             return
 
-        adjusted = adjust_content(content_type, content_bytes, query)
+        adjusted = adjust_content(content_type, content_bytes, query, metadata)
         memory_stream = Gio.MemoryInputStream.new_from_bytes(adjusted)
         callback(None, (memory_stream, adjusted.get_size()))
 
