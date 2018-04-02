@@ -46,8 +46,23 @@ def define_content_range_from_headers_and_size(request_headers, content_size):
     return ranges[0].start, ranges[0].end, ranges[0].end - ranges[0].start + 1
 
 
-def conditionally_wrap_blob_stream(blob, content_type, query, metadata, callback):
+def conditionally_wrap_blob_stream(blob,
+                                   content_type,
+                                   query,
+                                   metadata,
+                                   engine,
+                                   shards,
+                                   callback):
     '''Inspect content_type and adjust blob stream content.'''
+    def _content_adjusted_callback(error, adjusted):
+        '''Callback once we have finished adjusting the content.'''
+        if error is not None:
+            callback(error, None)
+            return
+
+        memory_stream = Gio.MemoryInputStream.new_from_bytes(adjusted)
+        callback(None, (memory_stream, adjusted.get_size()))
+
     def _read_stream_callback(_, result):
         '''Callback once we have finished loading the stream to bytes.'''
         try:
@@ -56,10 +71,13 @@ def conditionally_wrap_blob_stream(blob, content_type, query, metadata, callback
             callback(error, None)
             return
 
-        adjusted = adjust_content(content_type, content_bytes, query, metadata)
-        memory_stream = Gio.MemoryInputStream.new_from_bytes(adjusted)
-        callback(None, (memory_stream, adjusted.get_size()))
-
+        adjust_content(content_type,
+                       content_bytes,
+                       query,
+                       metadata,
+                       engine,
+                       shards,
+                       _content_adjusted_callback)
 
     if content_type in CONTENT_TYPE_ADJUSTERS:
         EosCompanionAppService.load_all_in_stream_to_bytes(blob.get_stream(),
