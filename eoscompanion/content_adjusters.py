@@ -20,7 +20,7 @@
 
 import re
 
-from gi.repository import EosCompanionAppService
+from gi.repository import Eknr, EosCompanionAppService
 
 from .format import (
     rewrite_ekn_url
@@ -34,30 +34,56 @@ def ekn_url_rewriter(query):
     return lambda m: '"{}"'.format(rewrite_ekn_url(m.group('id'), query))
 
 
-def _html_content_adjuster(content_bytes, query):
-    '''Adjust HTML content by rewriting all the embedded URLs.
+def _html_content_adjuster_closure():
+    '''Closure for the HTML content adjuster.'''
+    renderer = Eknr.Renderer()
 
-    There will be images, video and links in the document, parse it
-    and rewrite it so that the links all go to somewhere that can
-    be resolved by the server.
+    def _html_content_adjuster(content_bytes, query, metadata):
+        '''Adjust HTML content by rewriting all the embedded URLs.
 
-    Right now the way that this is done is a total hack (regex), in future
-    we might want to depend on beautifulsoup and use that instead.
-    '''
-    return EosCompanionAppService.string_to_bytes(
-        _RE_EKN_URL_CAPTURE.sub(ekn_url_rewriter(query),
-                                EosCompanionAppService.bytes_to_string(content_bytes))
-    )
+        There will be images, video and links in the document, parse it
+        and rewrite it so that the links all go to somewhere that can
+        be resolved by the server.
+
+        Right now the way that this is done is a total hack (regex), in future
+        we might want to depend on beautifulsoup and use that instead.
+        '''
+        unrendered_html_string = EosCompanionAppService.bytes_to_string(content_bytes)
+        if not metadata.get('isServerTemplated', False):
+            rendered_content = renderer.render_legacy_content(
+                unrendered_html_string,
+                metadata.get('source', ''),
+                metadata.get('sourceName',
+                             ''),
+                metadata.get('originalURI',
+                             ''),
+                metadata.get('license',
+                             ''),
+                metadata.get('title',
+                             ''),
+                show_title=True,
+                use_scroll_manager=False
+            )
+        else:
+            rendered_content = unrendered_html_string
+
+        return EosCompanionAppService.string_to_bytes(
+            _RE_EKN_URL_CAPTURE.sub(ekn_url_rewriter(query), rendered_content)
+        )
+
+    return _html_content_adjuster
 
 
 CONTENT_TYPE_ADJUSTERS = {
-    'text/html': _html_content_adjuster
+    'text/html': _html_content_adjuster_closure()
 }
 
 
-def adjust_content(content_type, content_bytes, query):
+def adjust_content(content_type, content_bytes, query, metadata):
     '''Adjust content if necessary.'''
     if content_type in CONTENT_TYPE_ADJUSTERS:
-        return CONTENT_TYPE_ADJUSTERS[content_type](content_bytes, query)
+        return CONTENT_TYPE_ADJUSTERS[content_type](content_bytes,
+                                                    query,
+                                                    metadata)
 
     return content_bytes
