@@ -59,3 +59,17 @@ def rewrite_ekn_url(ekn_id, query):
         contentId=ekn_id
     )
     return formatted
+
+
+def rewrite_resource_url(uri, query):
+    '''If the URL is an internal resource url, rewrite it to be server-relative.
+
+    This causes the deviceUUID to be included in
+    the URL query-string and the resource path to be URI encoded.
+    '''
+    formatted = format_uri_with_querystring(
+        '/v1/resource',
+        deviceUUID=query['deviceUUID'],
+        uri=uri
+    )
+    return formatted

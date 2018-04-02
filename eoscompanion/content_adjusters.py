@@ -23,15 +23,32 @@ import re
 from gi.repository import Eknr, EosCompanionAppService
 
 from .format import (
-    rewrite_ekn_url
+    rewrite_ekn_url,
+    rewrite_resource_url
 )
 
 _RE_EKN_URL_CAPTURE = re.compile(r'"ekn\:\/\/[a-z0-9\-_\.\\\/]*\/(?P<id>[a-z0-9]+)"')
+_RE_RESOURCE_URL_CAPTURE = re.compile(r'"(?P<uri>(?:resource|file)\:\/\/[A-Za-z0-9\/\-\._]+)"')
 
 
 def ekn_url_rewriter(query):
     '''Higher order function to rewrite a URL based on query.'''
     return lambda m: '"{}"'.format(rewrite_ekn_url(m.group('id'), query))
+
+
+def resource_url_rewriter(query):
+    '''Higher order function to rewrite a URL based on query.'''
+    return lambda m: '"{}"'.format(rewrite_resource_url(m.group('uri'), query))
+
+
+def pipeline(src, *funcs):
+    '''Apply each function in funcs to src, in sequence.'''
+    output = src
+
+    for func in funcs:
+        output = func(output)
+
+    return output
 
 
 def _html_content_adjuster_closure():
@@ -68,7 +85,11 @@ def _html_content_adjuster_closure():
             rendered_content = unrendered_html_string
 
         return EosCompanionAppService.string_to_bytes(
-            _RE_EKN_URL_CAPTURE.sub(ekn_url_rewriter(query), rendered_content)
+            pipeline(rendered_content,
+                     lambda content: _RE_EKN_URL_CAPTURE.sub(ekn_url_rewriter(query),
+                                                             content),
+                     lambda content: _RE_RESOURCE_URL_CAPTURE.sub(resource_url_rewriter(query),
+                                                                  content))
         )
 
     return _html_content_adjuster
