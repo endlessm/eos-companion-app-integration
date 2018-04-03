@@ -26,7 +26,7 @@ from .format import (
     rewrite_ekn_url
 )
 
-_RE_EKN_URL_CAPTURE = re.compile(r'"ekn\:\/\/\/(?P<id>[a-z0-9]+)"')
+_RE_EKN_URL_CAPTURE = re.compile(r'"ekn\:\/\/[a-z0-9\-_\.\\\/]*\/(?P<id>[a-z0-9]+)"')
 
 
 def ekn_url_rewriter(query):
