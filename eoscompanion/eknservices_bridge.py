@@ -77,7 +77,7 @@ def to_variant(obj):
     ))
 
 
-def eknservices_query(conn, app_id, query, callback):
+def eknservices_query(conn, app_id, queries, callback):
     '''Make a query on eknservices and send the result to callback.
 
     :app_id: is the id of the application to make the query on,
@@ -90,10 +90,10 @@ def eknservices_query(conn, app_id, query, callback):
                            encode_dbus_name(app_id)),
               _METADATA_INTERFACE,
               'Query',
-              GLib.Variant('(a{sv})', ({
+              GLib.Variant('(aa{sv})', ([{
                   k: to_variant(v) for k, v in query.items() if v is not None
-              }, )),
-              GLib.VariantType('(as(iaa{sv}))'),
+              } for query in queries], )),
+              GLib.VariantType('(asa(a{sv}aa{sv}))'),
               Gio.DBusCallFlags.NONE,
               -1,
               None,
@@ -237,9 +237,12 @@ class EknServicesContentDbConnection(object):
                     callback(error, None)
                     return
 
+                # Take the first result, for now
+                _, models = result_tuples[0]
                 callback(None, [shards, models])
 
-            shard_paths, (_, models) = response.unpack()
+            shard_paths, result_tuples = response.unpack()
             async_init_all_shards(shard_paths, _on_finished_loading_shards)
 
-        eknservices_query(self._dbus_connection, app_id, query, _internal_callback)
+        # Wrap the query in an array of length 1 to satisfy the interface
+        eknservices_query(self._dbus_connection, app_id, [query], _internal_callback)
