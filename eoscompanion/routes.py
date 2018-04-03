@@ -365,7 +365,8 @@ def companion_app_server_application_colors_route(server, msg, path, query, *arg
                         EosCompanionAppService.error_quark(),
                         EosCompanionAppService.Error.INVALID_APP_ID,
                         detail={
-                            'app_id': query['applicationId']
+                            'app_id': query['applicationId'],
+                            'message': str(error)
                         }
                     )
                 })
@@ -376,7 +377,7 @@ def companion_app_server_application_colors_route(server, msg, path, query, *arg
                         EosCompanionAppService.error_quark(),
                         EosCompanionAppService.Error.FAILED,
                         detail={
-                            'server_error': str(error)
+                            'message': str(error)
                         }
                     )
                 })
@@ -442,7 +443,7 @@ def companion_app_server_list_application_sets_route(server,
                         EosCompanionAppService.error_quark(),
                         EosCompanionAppService.Error.FAILED,
                         detail={
-                            'server_error': str(load_error)
+                            'message': str(load_error)
                         }
                     )
                 })
@@ -455,7 +456,7 @@ def companion_app_server_list_application_sets_route(server,
                     EosCompanionAppService.error_quark(),
                     EosCompanionAppService.Error.FAILED,
                     detail={
-                        'server_error': str(error)
+                        'message': str(error)
                     }
                 )
             })
@@ -474,7 +475,8 @@ def companion_app_server_list_application_sets_route(server,
                     error.domain,
                     error.code,
                     detail={
-                        'app_id': query['applicationId']
+                        'app_id': query['applicationId'],
+                        'message': str(error)
                     }
                 )
             })
@@ -524,7 +526,8 @@ def companion_app_server_list_application_content_for_tags_route(server,
                     error.domain,
                     error.code,
                     detail={
-                        'app_id': query['applicationId']
+                        'app_id': query['applicationId'],
+                        'message': str(error)
                     }
                 )
             })
@@ -681,7 +684,7 @@ def companion_app_server_content_data_route(server,
                         detail={
                             'applicationId': query['applicationId'],
                             'contentId': query['contentId'],
-                            'message': load_metadata_error.message
+                            'message': str(load_metadata_error)
                         }
                     )
                 })
@@ -730,7 +733,10 @@ def companion_app_server_content_data_route(server,
                         'status': 'error',
                         'error': serialize_error_as_json_object(
                             EosCompanionAppService.error_quark(),
-                            EosCompanionAppService.Error.FAILED
+                            EosCompanionAppService.Error.FAILED,
+                            detail={
+                                'message': str(error)
+                            }
                         )
                     })
                     server.unpause_message(msg)
@@ -806,7 +812,6 @@ def companion_app_server_content_data_route(server,
                                            content_db_conn,
                                            shards,
                                            _on_got_wrapped_stream)
-
 
         if shards_error != None:
             json_response(msg, {
@@ -889,7 +894,8 @@ def companion_app_server_content_metadata_route(server,
                             EosCompanionAppService.error_quark(),
                             EosCompanionAppService.Error.INVALID_APP_ID,
                             detail={
-                                'app_id': query['applicationId']
+                                'app_id': query['applicationId'],
+                                'message': str(load_metadata_error)
                             }
                         )
                     })
@@ -900,7 +906,7 @@ def companion_app_server_content_metadata_route(server,
                             load_metadata_error.domain,
                             load_metadata_error.code,
                             detail={
-                                'server_error': str(load_metadata_error)
+                                'message': str(load_metadata_error)
                             }
                         )
                     })
@@ -926,7 +932,8 @@ def companion_app_server_content_metadata_route(server,
                     shards_error.code,
                     detail={
                         'applicationId': query['applicationId'],
-                        'contentId': query['contentId']
+                        'contentId': query['contentId'],
+                        'message': str(shards_error)
                     }
                 )
             })
@@ -1193,7 +1200,7 @@ def companion_app_server_search_content_route(server,
                             EosCompanionAppService.error_quark(),
                             EosCompanionAppService.Error.FAILED,
                             detail={
-                                'server_error': str(error)
+                                'message': str(error)
                             }
                         )
                     })
@@ -1319,7 +1326,7 @@ def companion_app_server_search_content_route(server,
                     EosCompanionAppService.error_quark(),
                     EosCompanionAppService.Error.FAILED,
                     detail={
-                        'server_error': str(error)
+                        'message': str(error)
                     }
                 )
             })
@@ -1369,7 +1376,7 @@ def companion_app_server_search_content_route(server,
                 EosCompanionAppService.error_quark(),
                 EosCompanionAppService.Error.INVALID_REQUEST,
                 detail={
-                    'error': str(error)
+                    'message': str(error)
                 }
             )
         })
@@ -1385,7 +1392,7 @@ def companion_app_server_search_content_route(server,
                 EosCompanionAppService.error_quark(),
                 EosCompanionAppService.Error.INVALID_REQUEST,
                 detail={
-                    'error': 'One of "applicationId", "searchTerm", or "tags" must be specified'
+                    'message': 'One of "applicationId", "searchTerm", or "tags" must be specified'
                 }
             )
         })
