@@ -35,6 +35,9 @@ from gi.repository import (
     Soup
 )
 
+from .dummy_feed import (
+    dummy_feed
+)
 from .applications_query import (
     application_listing_from_app_info,
     list_all_applications
@@ -152,6 +155,21 @@ def desktop_id_to_app_id(desktop_id):
     '''Remove .desktop suffix from desktop_id.'''
     return os.path.splitext(desktop_id)[0]
 
+@require_query_string_param('deviceUUID')
+@require_query_string_param('mode')
+@record_metric('af3e89b2-8293-4703-809c-8e0231c128cb')
+def companion_app_server_feed_route(server, msg, path, query, *args):
+    '''Send feed.'''
+    del server
+    del path
+    del args
+
+    log('Feed: for clientId={clientId}'.format(
+        clientId=query['deviceUUID']
+    ))
+
+    feed = dummy_feed()
+    json_response(msg, feed)
 
 @require_query_string_param('deviceUUID')
 @record_metric('337fa66d-5163-46ae-ab20-dc605b5d7307')
@@ -1360,7 +1378,8 @@ COMPANION_APP_ROUTES = {
     ),
     '/v1/content_data': companion_app_server_content_data_route,
     '/v1/content_metadata': companion_app_server_content_metadata_route,
-    '/v1/search_content': companion_app_server_search_content_route
+    '/v1/search_content': companion_app_server_search_content_route,
+    '/v1/feed': companion_app_server_feed_route
 }
 
 def create_companion_app_webserver(application):
