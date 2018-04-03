@@ -650,7 +650,7 @@ def companion_app_server_content_data_route(server, msg, path, query, context):
     '''
     del path
 
-    def _on_got_metadata_callback(_, result):
+    def _on_got_metadata_callback(load_metadata_error, metadata_bytes):
         '''Callback function that gets called when we got the metadata.
 
         From here we can figure out what the content type is and load
@@ -687,9 +687,25 @@ def companion_app_server_content_data_route(server, msg, path, query, context):
 
             server.unpause_message(msg)
 
+        # If an error occurred, return it now
+        if load_metadata_error is not None:
+            json_response(msg, {
+                'status': 'error',
+                'error': serialize_error_as_json_object(
+                    load_metadata_error.domain,
+                    load_metadata_error.code,
+                    detail={
+                        'applicationId': query['applicationId'],
+                        'contentId': query['contentId'],
+                        'message': load_metadata_error.message
+                    }
+                )
+            })
+            server.unpause_message(msg)
+            return
+
         # Now that we have the metadata, deserialize it and use the
         # contentType hint to figure out the best way to load it.
-        metadata_bytes = EosCompanionAppService.finish_load_all_in_stream_to_bytes(result)
         content_metadata = json.loads(
             EosCompanionAppService.bytes_to_string(metadata_bytes)
         )
@@ -817,29 +833,12 @@ def companion_app_server_content_data_route(server, msg, path, query, context):
         )
     )
 
-    result = load_record_from_engine_async(Eknc.Engine.get_default(),
-                                           query['applicationId'],
-                                           query['contentId'],
-                                           'metadata',
-                                           _on_got_metadata_callback)
-
-    if result == LOAD_FROM_ENGINE_SUCCESS:
-        server.pause_message(msg)
-        return
-
-    json_response(msg, {
-        'status': 'error',
-        'error': serialize_error_as_json_object(
-            EosCompanionAppService.error_quark(),
-            EosCompanionAppService.Error.INVALID_APP_ID
-            if result == LOAD_FROM_ENGINE_NO_SUCH_APP
-            else EosCompanionAppService.Error.INVALID_CONTENT_ID,
-            detail={
-                'applicationId': query['applicationId'],
-                'contentId': query['contentId']
-            }
-        )
-    })
+    load_record_from_engine_async(Eknc.Engine.get_default(),
+                                  query['applicationId'],
+                                  query['contentId'],
+                                  'metadata',
+                                  _on_got_metadata_callback)
+    server.pause_message(msg)
 
 
 _RUNTIME_NAMES_FOR_APP_IDS = {}
@@ -871,23 +870,11 @@ def companion_app_server_content_metadata_route(server, msg, path, query, *args)
     del path
     del args
 
-    def _on_got_metadata_callback(_, result):
+    def _on_got_metadata_callback(load_metadata_error, metadata_bytes):
         '''Callback function that gets called when we are done.'''
-        try:
-            metadata_bytes = EosCompanionAppService.finish_load_all_in_stream_to_bytes(result)
-            metadata_json = json.loads(EosCompanionAppService.bytes_to_string(metadata_bytes))
-            metadata_json['version'] = app_id_to_runtime_version(
-                runtime_name_for_app_id_cached(query['applicationId'])
-            )
-            msg.set_status(Soup.Status.OK)
-            json_response(msg, {
-                'status': 'ok',
-                'payload': metadata_json
-            })
-        except GLib.Error as error:
-            # File not found, means that the app ID is not an installed
-            # app ID.
-            if error.matches(Gio.io_error_quark(), Gio.IOErrorEnum.NOT_FOUND):
+        if load_metadata_error is not None:
+            if load_metadata_error.matches(Gio.io_error_quark(),
+                                           Gio.IOErrorEnum.NOT_FOUND):
                 json_response(msg, {
                     'status': 'error',
                     'error': serialize_error_as_json_object(
@@ -902,14 +889,25 @@ def companion_app_server_content_metadata_route(server, msg, path, query, *args)
                 json_response(msg, {
                     'status': 'error',
                     'error': serialize_error_as_json_object(
-                        EosCompanionAppService.error_quark(),
-                        EosCompanionAppService.Error.FAILED,
+                        load_metadata_error.domain,
+                        load_metadata_error.code,
                         detail={
-                            'server_error': str(error)
+                            'server_error': str(load_metadata_error)
                         }
                     )
                 })
+            server.unpause_message(msg)
+            return
 
+        metadata_json = json.loads(EosCompanionAppService.bytes_to_string(metadata_bytes))
+        metadata_json['version'] = app_id_to_runtime_version(
+            runtime_name_for_app_id_cached(query['applicationId'])
+        )
+        msg.set_status(Soup.Status.OK)
+        json_response(msg, {
+            'status': 'ok',
+            'payload': metadata_json
+        })
         server.unpause_message(msg)
 
     log(
@@ -921,29 +919,12 @@ def companion_app_server_content_metadata_route(server, msg, path, query, *args)
         )
     )
 
-    result = load_record_from_engine_async(Eknc.Engine.get_default(),
-                                           query['applicationId'],
-                                           query['contentId'],
-                                           'metadata',
-                                           _on_got_metadata_callback)
-
-    if result == LOAD_FROM_ENGINE_SUCCESS:
-        server.pause_message(msg)
-        return
-
-    json_response(msg, {
-        'status': 'error',
-        'error': serialize_error_as_json_object(
-            EosCompanionAppService.error_quark(),
-            EosCompanionAppService.Error.INVALID_APP_ID
-            if result == LOAD_FROM_ENGINE_NO_SUCH_APP
-            else EosCompanionAppService.Error.INVALID_CONTENT_ID,
-            detail={
-                'applicationId': query['applicationId'],
-                'contentId': query['contentId']
-            }
-        )
-    })
+    load_record_from_engine_async(Eknc.Engine.get_default(),
+                                  query['applicationId'],
+                                  query['contentId'],
+                                  'metadata',
+                                  _on_got_metadata_callback)
+    server.pause_message(msg)
 
 
 def search_single_application(app_id=None,
