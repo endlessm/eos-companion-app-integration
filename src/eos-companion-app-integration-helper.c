@@ -34,7 +34,6 @@
 
 #define SUPPORTED_RUNTIME_NAME "com.endlessm.apps.Platform"
 #define SUPPORTED_RUNTIME_BRANCH "3"
-#define ENCYCLOPEDIA_APP_PREFIX "com.endlessm.encyclopedia."
 
 /* Needed to get autocleanups of GResource files */
 G_DEFINE_AUTOPTR_CLEANUP_FUNC (GResource, g_resource_unref)
@@ -499,10 +498,6 @@ list_application_infos (GCancellable  *cancellable,
            * it is using */
           if (!examine_flatpak_metadata (flatpak_directory, &app_name, &runtime_name, error))
             return NULL;
-
-	  /* Blacklist com.endlessm.encyclopedia.* */
-          if (g_str_has_prefix (app_name, ENCYCLOPEDIA_APP_PREFIX))
-            continue;
 
           /* Check if the application is an eligible content app */
           if (!app_is_compatible (app_name, runtime_name, &is_compatible_app, error))
