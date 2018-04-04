@@ -115,7 +115,8 @@ def dummy_feed():
                     },
                     'detail': {
                         'title': 'Madonna with Child',
-                        'synopis': '.',
+                        'author': 'Fernando Botero',
+                        'firstDate': '1965',
                         # pylint: disable=line-too-long
                         'thumbnail': '/v1/content_data?applicationId=com.endlessm.wiki_art.en&deviceUUID=1234&contentId=19db92f13325e93e4a7af18a997ed3941722c176',
                         'uri': '7afc3eaf5805936f60404037112f08a41d0470cc'
