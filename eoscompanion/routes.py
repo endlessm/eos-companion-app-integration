@@ -724,7 +724,7 @@ def companion_app_server_content_data_route(server,
                 Note that this is not a GAsyncReadyCallback, we instead get
                 a tuple of an error or a stream and length.
                 '''
-                if error != None:
+                if error is not None:
                     log(
                         'Stream wrapping failed {error}'.format(error=error),
                         file=sys.stderr
@@ -813,7 +813,7 @@ def companion_app_server_content_data_route(server,
                                            shards,
                                            _on_got_wrapped_stream)
 
-        if shards_error != None:
+        if shards_error is not None:
             json_response(msg, {
                 'status': 'error',
                 'error': serialize_error_as_json_object(
