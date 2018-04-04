@@ -180,6 +180,10 @@ def companion_app_server_list_applications_route(server, msg, path, query, *args
 
     def _callback(applications):
         '''Callback function that gets called when we are done.'''
+
+        # Blacklist com.endlessm.encyclopedia.*
+        filtered_applications = (application for application in applications if 'com.endlessm.encyclopedia.' not in application.app_id)
+
         json_response(msg, {
             'status': 'ok',
             'payload': [
@@ -190,7 +194,7 @@ def companion_app_server_list_applications_route(server, msg, path, query, *args
                     'icon': format_app_icon_uri(a.icon, query['deviceUUID']),
                     'language': a.language
                 }
-                for a in applications
+                for a in filtered_applications
             ]
         })
         server.unpause_message(msg)
