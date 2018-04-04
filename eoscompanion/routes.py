@@ -924,7 +924,7 @@ def companion_app_server_content_metadata_route(server,
             })
             server.unpause_message(msg)
 
-        if shards_error != None:
+        if shards_error is not None:
             json_response(msg, {
                 'status': 'error',
                 'error': serialize_error_as_json_object(
