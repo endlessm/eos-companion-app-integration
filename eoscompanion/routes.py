@@ -519,7 +519,7 @@ def companion_app_server_list_application_content_for_tags_route(server,
 
     def _callback(error, result):
         '''Callback function that gets called when we are done.'''
-        if error != None:
+        if error is not None:
             json_response(msg, {
                 'status': 'error',
                 'error': serialize_error_as_json_object(
