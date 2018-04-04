@@ -468,7 +468,7 @@ def companion_app_server_list_application_sets_route(server,
 
     def _on_queried_sets(error, result):
         '''Callback function that gets called when we are done querying.'''
-        if error != None:
+        if error is not None:
             json_response(msg, {
                 'status': 'error',
                 'error': serialize_error_as_json_object(
