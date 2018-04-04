@@ -1193,7 +1193,7 @@ def companion_app_server_search_content_route(server,
             for index, args_tuple in enumerate(search_results):
                 error, result = args_tuple
 
-                if error != None:
+                if error is not None:
                     json_response(msg, {
                         'status': 'error',
                         'error': serialize_error_as_json_object(
