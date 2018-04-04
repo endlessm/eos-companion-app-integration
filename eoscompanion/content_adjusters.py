@@ -125,7 +125,7 @@ def render_mobile_wrapper(renderer,
     '''
     def _on_queried_sets(error, result):
         '''Called when we finish querying set objects.'''
-        if error != None:
+        if error is not None:
             callback(error, None)
             return
 
