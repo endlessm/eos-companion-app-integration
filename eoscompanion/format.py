@@ -21,10 +21,11 @@
 import urllib
 
 
-def format_uri_with_querystring(uri, **params):
+
+def format_uri_with_querystring(base_uri, **params):
     '''Format the passed uri with the querystring params.'''
-    return '{uri}?{params}'.format(uri=uri,
-                                   params=urllib.parse.urlencode(params))
+    return '{base_uri}?{params}'.format(base_uri=base_uri,
+                                        params=urllib.parse.urlencode(params))
 
 
 def format_app_icon_uri(icon_name, device_uuid):
@@ -57,5 +58,19 @@ def rewrite_ekn_url(ekn_id, query):
         deviceUUID=query['deviceUUID'],
         applicationId=query['applicationId'],
         contentId=ekn_id
+    )
+    return formatted
+
+
+def rewrite_resource_url(uri, query):
+    '''If the URL is an internal resource url, rewrite it to be server-relative.
+
+    This causes the deviceUUID to be included in
+    the URL query-string and the resource path to be URI encoded.
+    '''
+    formatted = format_uri_with_querystring(
+        '/v1/resource',
+        deviceUUID=query['deviceUUID'],
+        uri=uri
     )
     return formatted

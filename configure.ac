@@ -38,6 +38,12 @@ AS_IF([test "$GLIB_MKENUMS" == ""],[
   AC_MSG_ERROR([glib-mkenums not found])
 ])
 
+# glib-compile-resources
+AC_PATH_PROG([GLIB_COMPILE_RESOURCES],[glib-compile-resources])
+AS_IF([test "$GLIB_COMPILE_RESOURCES" == ""],[
+  AC_MSG_ERROR([glib-compile-resources not found])
+])
+
 systemdsystemunitdir="$($PKG_CONFIG systemd --variable=systemdsystemunitdir)"
 dnl Allow overriding systemdsystemunitdir during distcheck in order to trick
 dnl Automake into allowing an install outside of $prefix

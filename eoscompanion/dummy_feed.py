@@ -143,7 +143,7 @@ def dummy_feed():
                     'source': {
                         'type': 'application',
                         'detail': {
-                            'applicationId': 'com.endlessm.word_of_the_day.en'                         
+                            'applicationId': 'com.endlessm.word_of_the_day.en'
                         }
                     },
                     'detail': {

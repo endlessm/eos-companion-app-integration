@@ -51,10 +51,12 @@ from .content_streaming import (
     define_content_range_from_headers_and_size
 )
 from .ekn_data import (
+    BYTE_CHUNK_SIZE,
     LOAD_FROM_ENGINE_NO_SUCH_APP,
     LOAD_FROM_ENGINE_SUCCESS,
-    load_record_blob_from_engine,
-    load_record_from_engine_async
+    load_record_blob_from_shards,
+    load_record_from_engine_async,
+    load_record_from_shards_async
 )
 from .ekn_query import ascertain_application_sets_from_models
 from .format import (
@@ -63,6 +65,7 @@ from .format import (
 )
 from .functional import all_asynchronous_function_calls_closure
 from .responses import (
+    custom_response,
     html_response,
     json_response,
     not_found_response,
@@ -171,6 +174,102 @@ def companion_app_server_feed_route(server, msg, path, query, *args):
     feed = dummy_feed()
     json_response(msg, feed)
 
+
+_SUFFIX_CONTENT_TYPES = {
+    '.css': 'text/css',
+    '.js': 'application/javascript'
+}
+
+
+@require_query_string_param('deviceUUID')
+@require_query_string_param('uri')
+def companion_app_server_resource_route(server, msg, path, query, *args):
+    '''Fetch an internal resource from a rewritten link on the page.
+
+    This route is for fetching internal resources not tied to any particular
+    application ID or content shard. For instance, we might embed a link
+    to a CSS or JS file that we want to serve up to the client.
+
+    The querystring param "uri" indicates the URI encoded path to the
+    internal resource (it may be a GResource or a file).
+    '''
+    del args
+
+    resource_uri = Soup.URI.decode(query['uri'])
+    resource_file = Gio.File.new_for_uri(resource_uri)
+
+    resource_suffix = os.path.splitext(resource_uri)[1]
+    return_content_type = _SUFFIX_CONTENT_TYPES.get(resource_suffix, None)
+
+    if return_content_type is None:
+        json_response(msg, {
+            'status': 'error',
+            'error': serialize_error_as_json_object(
+                EosCompanionAppService.error_quark(),
+                EosCompanionAppService.Error.FAILED,
+                detail={
+                    'server_error': (
+                        'Don\'t know content type for suffix, {}'.format(resource_suffix)
+                    )
+                }
+            )
+        })
+        return
+
+    def _on_read_input_stream(_, result):
+        '''Callback for when we finish reading the input stream.'''
+        try:
+            content_bytes = EosCompanionAppService.finish_load_all_in_stream_to_bytes(result)
+        except GLib.Error as error:
+            json_response(msg, {
+                'status': 'error',
+                'error': serialize_error_as_json_object(
+                    EosCompanionAppService.error_quark(),
+                    EosCompanionAppService.Error.FAILED,
+                    detail={
+                        'server_error': str(error)
+                    }
+                )
+            })
+            server.unpause_message(msg)
+            return
+
+        custom_response(msg, return_content_type, content_bytes)
+        server.unpause_message(msg)
+
+    def _on_read_resource(src, result):
+        '''Callback for once we finish reading the resource.'''
+        try:
+            input_stream = src.read_finish(result)
+        except GLib.Error as error:
+            if error.matches(Gio.io_error_quark(), Gio.IOErrorEnum.NOT_FOUND):
+                not_found_response(msg, path)
+            else:
+                json_response(msg, {
+                    'status': 'error',
+                    'error': serialize_error_as_json_object(
+                        EosCompanionAppService.error_quark(),
+                        EosCompanionAppService.Error.FAILED,
+                        detail={
+                            'server_error': str(error)
+                        }
+                    )
+                })
+
+            server.unpause_message(msg)
+            return
+
+        EosCompanionAppService.load_all_in_stream_to_bytes(input_stream,
+                                                           chunk_size=BYTE_CHUNK_SIZE,
+                                                           cancellable=None,
+                                                           callback=_on_read_input_stream)
+
+    resource_file.read_async(io_priority=GLib.PRIORITY_DEFAULT,
+                             cancellable=None,
+                             callback=_on_read_resource)
+    server.pause_message(msg)
+
+
 @require_query_string_param('deviceUUID')
 @record_metric('337fa66d-5163-46ae-ab20-dc605b5d7307')
 def companion_app_server_list_applications_route(server, msg, path, query, *args):
@@ -182,7 +281,10 @@ def companion_app_server_list_applications_route(server, msg, path, query, *args
         '''Callback function that gets called when we are done.'''
 
         # Blacklist com.endlessm.encyclopedia.*
-        filtered_applications = (application for application in applications if 'com.endlessm.encyclopedia.' not in application.app_id)
+        filtered_applications = (
+            application for application in applications
+            if 'com.endlessm.encyclopedia.' not in application.app_id
+        )
 
         json_response(msg, {
             'status': 'ok',
@@ -549,7 +651,7 @@ def companion_app_server_content_data_route(server, msg, path, query, context):
     '''
     del path
 
-    def _on_got_metadata_callback(_, result):
+    def _on_got_metadata_callback(load_metadata_error, metadata_bytes):
         '''Callback function that gets called when we got the metadata.
 
         From here we can figure out what the content type is and load
@@ -586,16 +688,31 @@ def companion_app_server_content_data_route(server, msg, path, query, context):
 
             server.unpause_message(msg)
 
+        # If an error occurred, return it now
+        if load_metadata_error is not None:
+            json_response(msg, {
+                'status': 'error',
+                'error': serialize_error_as_json_object(
+                    load_metadata_error.domain,
+                    load_metadata_error.code,
+                    detail={
+                        'applicationId': query['applicationId'],
+                        'contentId': query['contentId'],
+                        'message': load_metadata_error.message
+                    }
+                )
+            })
+            server.unpause_message(msg)
+            return
+
         # Now that we have the metadata, deserialize it and use the
         # contentType hint to figure out the best way to load it.
-        metadata_bytes = EosCompanionAppService.finish_load_all_in_stream_to_bytes(result)
         content_metadata = json.loads(
             EosCompanionAppService.bytes_to_string(metadata_bytes)
         )
         content_type = content_metadata['contentType']
 
-        blob_result, blob = load_record_blob_from_engine(Eknc.Engine.get_default(),
-                                                         query['applicationId'],
+        blob_result, blob = load_record_blob_from_shards(shards,
                                                          query['contentId'],
                                                          'data')
         if blob_result != LOAD_FROM_ENGINE_SUCCESS:
@@ -704,6 +821,9 @@ def companion_app_server_content_data_route(server, msg, path, query, context):
         conditionally_wrap_blob_stream(blob,
                                        content_type,
                                        query,
+                                       content_metadata,
+                                       engine,
+                                       shards,
                                        _on_got_wrapped_stream)
 
     log(
@@ -715,29 +835,42 @@ def companion_app_server_content_data_route(server, msg, path, query, context):
         )
     )
 
-    result = load_record_from_engine_async(Eknc.Engine.get_default(),
-                                           query['applicationId'],
-                                           query['contentId'],
-                                           'metadata',
-                                           _on_got_metadata_callback)
+    # Get the engine and shards so that we can use them later
+    engine = Eknc.Engine.get_default()
+    try:
+        shards = engine.get_domain_for_app(query['applicationId']).get_shards()
+    except GLib.Error as error:
+        if error.matches(Gio.io_error_quark(), Gio.IOErrorEnum.NOT_FOUND):
+            json_response(msg, {
+                'status': 'error',
+                'error': serialize_error_as_json_object(
+                    EosCompanionAppService.error_quark(),
+                    EosCompanionAppService.Error.INVALID_APP_ID,
+                    detail={
+                        'applicationId': query['applicationId'],
+                        'contentId': query['contentId']
+                    }
+                )
+            })
+            return
 
-    if result == LOAD_FROM_ENGINE_SUCCESS:
-        server.pause_message(msg)
+        json_response(msg, {
+            'status': 'error',
+            'error': serialize_error_as_json_object(
+                EosCompanionAppService.error_quark(),
+                EosCompanionAppService.Error.FAILED,
+                detail={
+                    'server_error': str(error)
+                }
+            )
+        })
         return
 
-    json_response(msg, {
-        'status': 'error',
-        'error': serialize_error_as_json_object(
-            EosCompanionAppService.error_quark(),
-            EosCompanionAppService.Error.INVALID_APP_ID
-            if result == LOAD_FROM_ENGINE_NO_SUCH_APP
-            else EosCompanionAppService.Error.INVALID_CONTENT_ID,
-            detail={
-                'applicationId': query['applicationId'],
-                'contentId': query['contentId']
-            }
-        )
-    })
+    load_record_from_shards_async(shards,
+                                  query['contentId'],
+                                  'metadata',
+                                  _on_got_metadata_callback)
+    server.pause_message(msg)
 
 
 _RUNTIME_NAMES_FOR_APP_IDS = {}
@@ -769,23 +902,11 @@ def companion_app_server_content_metadata_route(server, msg, path, query, *args)
     del path
     del args
 
-    def _on_got_metadata_callback(_, result):
+    def _on_got_metadata_callback(load_metadata_error, metadata_bytes):
         '''Callback function that gets called when we are done.'''
-        try:
-            metadata_bytes = EosCompanionAppService.finish_load_all_in_stream_to_bytes(result)
-            metadata_json = json.loads(EosCompanionAppService.bytes_to_string(metadata_bytes))
-            metadata_json['version'] = app_id_to_runtime_version(
-                runtime_name_for_app_id_cached(query['applicationId'])
-            )
-            msg.set_status(Soup.Status.OK)
-            json_response(msg, {
-                'status': 'ok',
-                'payload': metadata_json
-            })
-        except GLib.Error as error:
-            # File not found, means that the app ID is not an installed
-            # app ID.
-            if error.matches(Gio.io_error_quark(), Gio.IOErrorEnum.NOT_FOUND):
+        if load_metadata_error is not None:
+            if load_metadata_error.matches(Gio.io_error_quark(),
+                                           Gio.IOErrorEnum.NOT_FOUND):
                 json_response(msg, {
                     'status': 'error',
                     'error': serialize_error_as_json_object(
@@ -800,14 +921,25 @@ def companion_app_server_content_metadata_route(server, msg, path, query, *args)
                 json_response(msg, {
                     'status': 'error',
                     'error': serialize_error_as_json_object(
-                        EosCompanionAppService.error_quark(),
-                        EosCompanionAppService.Error.FAILED,
+                        load_metadata_error.domain,
+                        load_metadata_error.code,
                         detail={
-                            'server_error': str(error)
+                            'server_error': str(load_metadata_error)
                         }
                     )
                 })
+            server.unpause_message(msg)
+            return
 
+        metadata_json = json.loads(EosCompanionAppService.bytes_to_string(metadata_bytes))
+        metadata_json['version'] = app_id_to_runtime_version(
+            runtime_name_for_app_id_cached(query['applicationId'])
+        )
+        msg.set_status(Soup.Status.OK)
+        json_response(msg, {
+            'status': 'ok',
+            'payload': metadata_json
+        })
         server.unpause_message(msg)
 
     log(
@@ -819,29 +951,12 @@ def companion_app_server_content_metadata_route(server, msg, path, query, *args)
         )
     )
 
-    result = load_record_from_engine_async(Eknc.Engine.get_default(),
-                                           query['applicationId'],
-                                           query['contentId'],
-                                           'metadata',
-                                           _on_got_metadata_callback)
-
-    if result == LOAD_FROM_ENGINE_SUCCESS:
-        server.pause_message(msg)
-        return
-
-    json_response(msg, {
-        'status': 'error',
-        'error': serialize_error_as_json_object(
-            EosCompanionAppService.error_quark(),
-            EosCompanionAppService.Error.INVALID_APP_ID
-            if result == LOAD_FROM_ENGINE_NO_SUCH_APP
-            else EosCompanionAppService.Error.INVALID_CONTENT_ID,
-            detail={
-                'applicationId': query['applicationId'],
-                'contentId': query['contentId']
-            }
-        )
-    })
+    load_record_from_engine_async(Eknc.Engine.get_default(),
+                                  query['applicationId'],
+                                  query['contentId'],
+                                  'metadata',
+                                  _on_got_metadata_callback)
+    server.pause_message(msg)
 
 
 def search_single_application(app_id=None,
@@ -1383,7 +1498,8 @@ COMPANION_APP_ROUTES = {
     '/v1/content_data': companion_app_server_content_data_route,
     '/v1/content_metadata': companion_app_server_content_metadata_route,
     '/v1/search_content': companion_app_server_search_content_route,
-    '/v1/feed': companion_app_server_feed_route
+    '/v1/feed': companion_app_server_feed_route,
+    '/v1/resource': companion_app_server_resource_route,
 }
 
 def create_companion_app_webserver(application):
