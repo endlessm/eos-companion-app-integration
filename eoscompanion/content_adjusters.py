@@ -27,7 +27,6 @@ import re
 from urllib.parse import urlparse
 
 from gi.repository import (
-    EosKnowledgeContent as Eknc,
     Eknr,
     EosCompanionAppService,
     GLib,
@@ -112,7 +111,7 @@ def render_mobile_wrapper(renderer,
                           app_id,
                           rendered_content,
                           metadata,
-                          engine,
+                          content_db_conn,
                           shards,
                           query,
                           callback):
@@ -124,14 +123,13 @@ def render_mobile_wrapper(renderer,
     of outgoing links to internal links. Then we inject some javascript which
     at browser-render time, rewrites the page to resolve all those links.
     '''
-    def _on_queried_sets(src, result):
+    def _on_queried_sets(error, result):
         '''Called when we finish querying set objects.'''
-        try:
-            results = src.query_finish(result)
-        except GLib.Error as error:
+        if error is not None:
             callback(error, None)
             return
 
+        _, set_objects = result
         content_metadata = {
             'title': metadata.get('title', ''),
             'published': metadata.get('published', ''),
@@ -142,14 +140,14 @@ def render_mobile_wrapper(renderer,
             'originalURI': metadata.get('originalURI', ''),
             'sets': [
                 {
-                    'child_tags': set_object.get_property('child-tags'),
-                    'ekn_id': set_object.get_property('ekn-id'),
-                    'title': set_object.get_property('title'),
-                    'tags': set_object.get_property('tags')
+                    'child_tags': set_object['child_tags'],
+                    'ekn_id': set_object['ekn_id'],
+                    'title': set_object['title'],
+                    'tags': set_object['tags']
                 }
-                for set_object in results.get_property('models')
+                for set_object in set_objects
                 if any([
-                    tag in set_object.get_property('child-tags')
+                    tag in set_object['child_tags']
                     for tag in metadata.get('tags', [])
                     if not tag.startswith('Ekn')
                 ])
@@ -176,8 +174,8 @@ def render_mobile_wrapper(renderer,
             template_file = Gio.File.new_for_uri(_MOBILE_WRAPPER_TEMPLATE_URI)
             rendered_page = renderer.render_mustache_document_from_file(template_file,
                                                                         variables)
-        except GLib.Error as error:
-            callback(error, None)
+        except GLib.Error as page_render_error:
+            callback(page_render_error, None)
             return
 
         callback(None, rendered_page)
@@ -191,17 +189,23 @@ def render_mobile_wrapper(renderer,
         for l in metadata.get('outgoingLinks', [])
     ]
 
-    engine.query(Eknc.QueryObject(app_id=app_id,
-                                  tags_match_all=['EknSetObject']),
-                 cancellable=None,
-                 callback=_on_queried_sets)
+    content_db_conn.query(app_id,
+                          query={
+                              'tags-match-all': ['EknSetObject']
+                          },
+                          callback=_on_queried_sets)
 
 
 def _html_content_adjuster_closure():
     '''Closure for the HTML content adjuster.'''
     renderer = Eknr.Renderer()
 
-    def _html_content_adjuster(content_bytes, query, metadata, engine, shards, callback):
+    def _html_content_adjuster(content_bytes,
+                               query,
+                               metadata,
+                               content_db_conn,
+                               shards,
+                               callback):
         '''Adjust HTML content by rewriting all the embedded URLs.
 
         There will be images, video and links in the document, parse it
@@ -252,7 +256,7 @@ def _html_content_adjuster_closure():
                               query['applicationId'],
                               rendered_content,
                               metadata,
-                              engine,
+                              content_db_conn,
                               shards,
                               query,
                               _on_rendered_wrapper)
@@ -266,13 +270,19 @@ CONTENT_TYPE_ADJUSTERS = {
 }
 
 
-def adjust_content(content_type, content_bytes, query, metadata, engine, shards, callback):
+def adjust_content(content_type,
+                   content_bytes,
+                   query,
+                   metadata,
+                   content_db_conn,
+                   shards,
+                   callback):
     '''Adjust content if necessary.'''
     if content_type in CONTENT_TYPE_ADJUSTERS:
         CONTENT_TYPE_ADJUSTERS[content_type](content_bytes,
                                              query,
                                              metadata,
-                                             engine,
+                                             content_db_conn,
                                              shards,
                                              callback)
         return
