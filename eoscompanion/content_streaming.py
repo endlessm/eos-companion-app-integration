@@ -50,7 +50,7 @@ def conditionally_wrap_blob_stream(blob,
                                    content_type,
                                    query,
                                    metadata,
-                                   content_db_conn,
+                                   engine,
                                    shards,
                                    callback):
     '''Inspect content_type and adjust blob stream content.'''
@@ -75,7 +75,7 @@ def conditionally_wrap_blob_stream(blob,
                        content_bytes,
                        query,
                        metadata,
-                       content_db_conn,
+                       engine,
                        shards,
                        _content_adjusted_callback)
 

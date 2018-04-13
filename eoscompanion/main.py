@@ -25,6 +25,7 @@ import gi
 
 gi.require_version('Eknr', '0')
 gi.require_version('EosCompanionAppService', '1.0')
+gi.require_version('EosKnowledgeContent', '0')
 gi.require_version('EosMetrics', '0')
 gi.require_version('EosShard', '0')
 
@@ -35,7 +36,6 @@ from gi.repository import (
     GLib,
 )
 from .constants import INACTIVITY_TIMEOUT
-from .eknservices_bridge import EknServicesContentDbConnection
 from .service import CompanionAppService
 from .util import log
 
@@ -104,6 +104,7 @@ class CompanionAppApplication(Gio.Application):
             self.hold()
 
         Gio.bus_get(Gio.BusType.SYSTEM, None, self._on_got_system_bus)
+        self._service = CompanionAppService(self, 1110)
 
     def _on_got_inhibit_fd(self, error, filedes):
         '''Report inhibit error or store returned fd.
@@ -140,9 +141,6 @@ class CompanionAppApplication(Gio.Application):
     def do_dbus_register(self, connection, object_path):  # pylint: disable=arguments-differ
         '''Invoked when we get a D-Bus connection.'''
         log('Got session d-bus connection at {path}'.format(path=object_path))
-        self._service = CompanionAppService(self,
-                                            1110,
-                                            EknServicesContentDbConnection(connection))
         return Gio.Application.do_dbus_register(self,
                                                 connection,
                                                 object_path)

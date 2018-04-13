@@ -16,7 +16,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 # All rights reserved.
-'''Functions to query an EKN database provider for content.'''
+'''Functions to query EKN databases for content.'''
 
 import urllib
 
@@ -64,13 +64,13 @@ def ascertain_application_sets_from_models(models,
     try:
         application_sets_response = [
             {
-                'tags': model['child_tags'],
-                'title': model['title'],
+                'tags': model.get_child_tags(),
+                'title': model.get_property('title'),
                 'contentType': 'application/x-ekncontent-set',
                 'thumbnail': format_thumbnail_uri(application_id,
                                                   model,
                                                   device_uuid),
-                'id': urllib.parse.urlparse(model['ekn_id']).path[1:],
+                'id': urllib.parse.urlparse(model.get_property('ekn-id')).path[1:],
                 'global': False
             }
             for model in models

@@ -43,8 +43,8 @@ def format_thumbnail_uri(application_id, model, device_uuid):
         '/v1/content_data',
         deviceUUID=device_uuid,
         applicationId=application_id,
-        contentId=urllib.parse.urlparse(model['thumbnail_uri']).path[1:]
-    ) if model.get('thumbnail_uri', None) else None
+        contentId=urllib.parse.urlparse(model.get_property('thumbnail-uri')).path[1:]
+    ) if model.get_property('thumbnail-uri') else None
 
 
 def rewrite_ekn_url(ekn_id, query):

@@ -29,25 +29,15 @@ from .routes import create_companion_app_webserver
 class CompanionAppService(GObject.Object):
     '''A container object for the services.'''
 
-    def __init__(self, application, port, content_db_query, *args, **kwargs):
-        '''Initialize the service and create webserver on port.
-
-        :content_db_query: is a function satisfying the signature
-                           def content_db_query(app_id: str,
-                                                query: dict,
-                                                callback: GAsyncReadyCallback)
-                           which can be used by a route to query a content
-                           database of some sort for an app_id.
-
-        '''
+    def __init__(self, application, port, *args, **kwargs):
+        '''Initialize the service and create webserver on port.'''
         super().__init__(*args, **kwargs)
 
         # Create the server now and start listening.
         #
         # We want to listen right away as we'll probably be started by
         # socket activation
-        self._server = create_companion_app_webserver(application,
-                                                      content_db_query)
+        self._server = create_companion_app_webserver(application)
         EosCompanionAppService.soup_server_listen_on_sd_fd_or_port(self._server,
                                                                    port,
                                                                    0)
