@@ -11,13 +11,13 @@
     "finish-args": [
         "--share=ipc",
         "--system-talk-name=com.endlessm.Metrics",
-        "--system-talk-name=org.freedesktop.Avahi",
         "--system-talk-name=org.freedesktop.login1",
         "--filesystem=xdg-run/dconf",
         "--filesystem=~/.config/dconf:ro",
         "--filesystem=/var/lib/flatpak:ro",
         "--filesystem=/var/endless-extra/flatpak:ro",
         "--talk-name=ca.desrt.dconf",
+        "--talk-name=com.endlessm.EknServices2.SearchProviderV2",
         "--env=DCONF_USER_CONFIG_DIR=.config/dconf",
         "--share=network",
         "--command=eos-companion-app-service"

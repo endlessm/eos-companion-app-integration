@@ -18,25 +18,17 @@
 # All rights reserved.
 '''Helper functions to build fake apps for tests.'''
 
-import hashlib
-import json
 import os
 import shutil
 
-from collections import namedtuple
 from contextlib import contextmanager
-from datetime import datetime
 from subprocess import (
     PIPE,
     run as subprocess_run
 )
 from tempfile import mkdtemp
 
-import gi
-
-gi.require_version('EosShard', '0')
-
-from gi.repository import EosShard, GLib
+from gi.repository import GLib
 
 
 def run(*args, **kwargs):
@@ -59,102 +51,6 @@ def run_only_print_errors(*args, **kwargs):
         'stderr': PIPE
     })
     run(*args, **kwargs)
-
-
-def sha256_hexdigest(content_bytes):
-    '''Generate a SHA256 digest of some bytes.'''
-    hashval = hashlib.sha256()
-    hashval.update(content_bytes)
-    return hashval.hexdigest()
-
-
-def yield_chunks(fileobj):
-    '''Yield chunks from a fileobj.'''
-    while True:
-        chunk = fileobj.read(1024)
-        if not chunk:
-            break
-
-        yield chunk
-
-
-def sha256_hexdigest_path(path):
-    '''Generate a sha256 digest of a file at the given path.'''
-    with open(path, 'rb') as fileobj:
-        hashval = hashlib.sha256()
-        for chunk in yield_chunks(fileobj):
-            hashval.update(chunk)
-
-    return hashval.hexdigest()
-
-
-SubscriptionsLocation = namedtuple('SubscriptionsLocation',
-                                   'shard subscriptions_json subscription_id')
-
-
-def generate_subscriptions_locations(app_id, output_directory):
-    '''Generate a valid path for a shard location.'''
-    hash_app_id = sha256_hexdigest(app_id.encode('utf-8'))
-    subs_path = os.path.join(output_directory,
-                             'share',
-                             'ekn',
-                             'data',
-                             app_id,
-                             'com.endlessm.subscriptions',
-                             hash_app_id)
-
-    os.makedirs(subs_path, exist_ok=True)
-
-    return SubscriptionsLocation(shard=os.path.join(subs_path, 'content.shard'),
-                                 subscriptions_json=os.path.join(subs_path,
-                                                                 'manifest.json'),
-                                 subscription_id=hash_app_id)
-
-
-def find_xapian_db_offset(shard_path):
-    '''Open the shard and work out where the Xapian database is.'''
-    # Having to linear-search the shard like this seems wasteful, but it
-    # does not look like there is a clear way to look up the xapian
-    # database by a content-type index.
-    shard = EosShard.ShardFile(path=shard_path)
-    shard.init(None)
-    for record in shard.list_records():
-        for blob in record.list_blobs():
-            if blob.get_content_type() == 'application/x-endlessm-xapian-db':
-                return blob.get_offset()
-
-    raise RuntimeError('Could not find a Xapian database in {}'.format(shard_path))
-
-
-def compile_content_into_subscription(subscriptions):
-    '''Run basin from the system to build the app database.
-
-    Note that we need to run the system-level basin here since we are
-    testing using the system-level knowledge-lib and database versions
-    can differ between SDKs.
-    '''
-    timestamp = datetime.now().isoformat()
-    with open(subscriptions.subscriptions_json, 'w') as subscriptions_json_f:
-        json.dump({
-            'version': '1',
-            'timestamp': timestamp,
-            'subscription_id': subscriptions.subscription_id,
-            'xapian_databases': [
-                {
-                    'offset': find_xapian_db_offset(subscriptions.shard),
-                    'path': 'content.shard'
-                }
-            ],
-            'shards': [
-                {
-                    'id': 'content',
-                    'path': 'content.shard',
-                    'published_timestamp': timestamp,
-                    'sha256_csum': sha256_hexdigest_path(subscriptions.shard),
-                    'category_tags': []
-                }
-            ]
-        }, fp=subscriptions_json_f)
 
 
 def generate_resources_location(app_id, output_directory):
@@ -188,15 +84,8 @@ def compile_app_structure(app_id, directory, output_directory):
     os.makedirs(output_directory, exist_ok=True)
 
     app_directory = os.path.join(directory, 'app')
-    content_directory = os.path.join(directory, 'content')
 
     files_output_directory = os.path.join(output_directory, 'files')
-
-    subscriptions = generate_subscriptions_locations(app_id,
-                                                     files_output_directory)
-    shutil.copy(os.path.join(content_directory, 'content.shard'),
-                subscriptions.shard)
-    compile_content_into_subscription(subscriptions)
 
     resources = generate_resources_location(app_id, files_output_directory)
     shutil.copy(os.path.join(app_directory, 'app.gresource'), resources)
