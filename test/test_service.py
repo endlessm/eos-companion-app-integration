@@ -36,10 +36,11 @@ from test.build_app import (force_remove_directory, setup_fake_apps)
 import gi
 
 gi.require_version('EosCompanionAppService', '1.0')
+gi.require_version('EosKnowledgeContent', '0')
 gi.require_version('EosMetrics', '0')
 gi.require_version('EosShard', '0')
 
-from gi.repository import EosCompanionAppService, Gio, GLib, Soup
+from gi.repository import EosCompanionAppService, GLib, Soup
 
 from testtools import (
     TestCase
@@ -302,20 +303,13 @@ TEST_DATA_DIRECTORY = os.path.join(TOPLEVEL_DIRECTORY, 'test_data')
 FAKE_APPS = ['org.test.ContentApp', 'org.test.VideoApp']
 FAKE_UUID = 'Some UUID'
 
-# Valid characters for EKN IDs are 0-9a-z
-VIDEO_APP_THUMBNAIL_EKN_ID = 'videofilethumbnail'
-CONTENT_APP_THUMBNAIL_EKN_ID = 'thumbnailforarticles'
-CONTENT_APP_EMBEDDED_IMAGE_EKN_ID = 'embeddedimage'
+VIDEO_APP_THUMBNAIL_EKN_ID = 'b87d21e1d15fdb26f6dcf9f33eff11fbba6f43d5'
+CONTENT_APP_THUMBNAIL_EKN_ID = 'cd50d19784897085a8d0e3e413f8612b097c03f1'
 
 VIDEO_APP_FAKE_CONTENT = (
     'Not actually an MPEG-4 file, just a placeholder for tests\n'
 )
-EMBEDDED_IMAGE_FAKE_CONTENT = (
-    'Not actually an embedded image, just a placeholder\n'
-)
-THUMBNAIL_FAKE_CONTENT = (
-    'Not actually a thumbnail JPEG file, just a placeholder\n'
-)
+
 
 def generate_flatpak_installation_directory():
     '''Generate a path for a flatpak installation directory.
@@ -366,289 +360,6 @@ def matches_uri_query(path, expected_query):
     '''
     return MatchesAll(url_matches_path(path),
                       url_matches_query(expected_query))
-
-
-FAKE_SHARD_CONTENT = {
-    'org.test.VideoApp': {
-        'video_file': {
-            'metadata': {
-                'contentType': 'video/mp4',
-                'isServerTemplated': True,
-                'license': 'CC-0',
-                'originalURI': 'http://video.site/video',
-                'source': 'youtube',
-                'sourceName': 'YouTube',
-                'tags': ['EknHomePageTag', 'EknMediaObject', 'EknArticleObject'],
-                'thumbnailURI': 'ekn:///'+ VIDEO_APP_THUMBNAIL_EKN_ID,
-                'title': 'Sample Video'
-            },
-            'data': VIDEO_APP_FAKE_CONTENT.encode('utf-8')
-        },
-        'video_file_thumbnail': {
-            'metadata': {
-                'contentType': 'image/jpeg',
-                '@id': 'video_file_thumbnail',
-                'tags': ['EknMediaObject'],
-                'title': 'Thumbnail for video'
-            },
-            'data': 'Not actually a thumbnail JPEG file, just a placeholder'.encode('utf-8')
-        }
-    },
-    'org.test.ContentApp': {
-        'sample_article_1': {
-            'metadata': {
-                'contentType': 'text/html',
-                'license': 'CC-0',
-                'originalURI': 'http://some.site/first',
-                'source': 'wikipedia',
-                'sourceName': 'Wikipedia',
-                'tags': ['First Tag', 'EknArticleObject'],
-                'title': 'Sample Article 1',
-                'thumbnailURI': 'ekn:///' + CONTENT_APP_THUMBNAIL_EKN_ID
-            },
-            'data': (
-                '''
-                <html>
-                  <head>
-                    <title>First Article</title>
-                  </head>
-                  <body>
-                    <img src="ekn:///{}" />
-                  </body>
-                </html>
-                '''
-            ).format(CONTENT_APP_EMBEDDED_IMAGE_EKN_ID).encode('utf-8')
-        },
-        'sample_article_2': {
-            'metadata': {
-                'contentType': 'text/html',
-                'license': 'CC-0',
-                'originalURI': 'http://some.site/second',
-                'source': 'wikipedia',
-                'sourceName': 'Wikipedia',
-                'tags': ['Second Tag', 'EknArticleObject'],
-                'title': 'Sample Article 2',
-                'thumbnailURI': 'ekn:///' + CONTENT_APP_THUMBNAIL_EKN_ID
-            },
-            'data': (
-                '''
-                <html>
-                  <head>
-                    <title>Second Article</title>
-                  </head>
-                  <body>
-                    <p>Some content</p>
-                  </body>
-                </html>
-                '''
-            ).encode('utf-8')
-        },
-        'thumbnail_for_articles': {
-            'metadata': {
-                'contentType': 'image/jpeg',
-                '@id': 'thumbnail_for_articles',
-                'tags': ['EknMediaObject'],
-                'title': 'Thumbnail for articles'
-            },
-            'data': THUMBNAIL_FAKE_CONTENT.encode('utf-8')
-        },
-        'embedded_image': {
-            'metadata': {
-                'contentType': 'image/jpeg',
-                '@id': 'embedded_image',
-                'tags': ['EknMediaObject'],
-                'title': 'Embedded image'
-            },
-            'data': EMBEDDED_IMAGE_FAKE_CONTENT.encode('utf-8')
-        },
-        'first_set': {
-            'metadata': {
-                'childTags': [
-                    'First Tag'
-                ],
-                'tags': ['First Tag', 'EknSetObject'],
-                'featured': True,
-                'thumbnailURI': 'ekn:///' + CONTENT_APP_THUMBNAIL_EKN_ID,
-                'title': 'First Tag Set'
-            },
-            'data': None
-        },
-        'second_set': {
-            'metadata': {
-                'childTags': [
-                    'Second Tag'
-                ],
-                'tags': ['Second Tag', 'EknSetObject'],
-                'featured': True,
-                'thumbnailURI': 'ekn:///' + CONTENT_APP_THUMBNAIL_EKN_ID,
-                'title': 'Second Tag Set'
-            },
-            'data': None
-        }
-    }
-}
-
-_METADATA_KEY_TO_MODEL_KEY = {
-    '@id': 'ekn_id',
-    'childTags': 'child_tags',
-    'contentType': 'content_type',
-    'featured': 'featured',
-    'isServerTemplated': 'is_server_templated',
-    'license': 'license',
-    'originalURI': 'original_uri',
-    'source': 'source',
-    'sourceName': 'source_name',
-    'tags': 'tags',
-    'title': 'title',
-    'thumbnailURI': 'thumbnail_uri'
-}
-
-def convert_metadata_keys_to_model_keys(metadata_entry):
-    '''Convert between the camel-case keys and underscore style keys.'''
-    return {
-        _METADATA_KEY_TO_MODEL_KEY[k]: v for k, v in metadata_entry.items()
-    }
-
-
-def apply_key(key, entry):
-    '''Add key as the ekn_id.'''
-    entry['@id'] = 'ekn:///{}'.format(key)
-    return entry
-
-
-class FakeEosShardBlob(object):
-    '''A fake implementation of EosShardBlob.'''
-
-    def __init__(self, blob_content):
-        '''Initialize with binary blob_content.'''
-        super().__init__()
-        self._blob_content = blob_content
-
-    def get_stream(self):
-        '''Get a GInputStream from the data.'''
-        return Gio.MemoryInputStream.new_from_data(self._blob_content)
-
-    def get_content_size(self):
-        '''Get the size in bytes of the data.'''
-        return len(self._blob_content)
-
-
-class FakeEosShardRecord(object):
-    '''A fake implementation of EosShardRecord.'''
-
-    def __init__(self, record_content):
-        '''Initialize with record_content.'''
-        super().__init__()
-        self.metadata = (
-            None if record_content['metadata'] is None
-            else FakeEosShardBlob(json.dumps(record_content['metadata']).encode('utf-8'))
-        )
-        self.data = (
-            None if record_content['data'] is None
-            else FakeEosShardBlob(record_content['data'])
-        )
-
-
-class FakeEosShard(object):
-    '''A fake implementation of EosShard with various bits mocked out.'''
-
-    def __init__(self, shard_content):
-        '''Initialize with shard_content.'''
-        super().__init__()
-        self.shard_content = shard_content
-
-    def find_record_by_hex_name(self, hex_name):
-        '''Attempt to get a record by its ID.'''
-        child_content = self.shard_content.get(hex_name, None)
-        if child_content is None:
-            return None
-
-        return FakeEosShardRecord(child_content)
-
-
-class FakeContentDbConnection(object):
-    '''An EknDbConnection with mocked out data.
-
-    Note that we have to be careful to run any callbacks here
-    asynchronously to preserve the expected invariant that callbacks
-    are always executed after the route handler is first paused.
-    '''
-
-    def __init__(self, data):
-        '''Initialize with data.'''
-        super().__init__()
-        self.data = data
-
-    def shards_for_application(self, app_id, callback):
-        '''Create shards for the application and return them.'''
-        app_data = self.data.get(app_id, None)
-        if app_data is None:
-            GLib.idle_add(callback,
-                          GLib.Error('Invalid App ID {}'.format(app_id),
-                                     EosCompanionAppService.error_quark(),
-                                     EosCompanionAppService.Error.INVALID_APP_ID),
-                          None)
-            return
-
-        GLib.idle_add(callback, None, [FakeEosShard(app_data)])
-
-    def query(self, app_id, query, callback):
-        '''Run a query on the fake data.
-
-        This isn't a reimplementation of how EknQueryObject works, but it
-        should be as close as possible.
-        '''
-        app_data = self.data.get(app_id, None)
-        if app_data is None:
-            GLib.idle_add(callback,
-                          GLib.Error('Invalid App ID {}'.format(app_id),
-                                     EosCompanionAppService.error_quark(),
-                                     EosCompanionAppService.Error.INVALID_APP_ID),
-                          None)
-            return
-
-        shards = [FakeEosShard(app_data)]
-        filtered_metadata = [
-            apply_key(k, entry['metadata'])
-            for k, entry in app_data.items()
-        ]
-
-        search_terms = query.get('search-terms', None)
-        if search_terms is not None:
-            filtered_metadata = [
-                entry for entry in filtered_metadata
-                if entry['title'].startswith(search_terms)
-            ]
-
-        tags_match_any = query.get('tags-match-any', None)
-        if tags_match_any is not None:
-            filtered_metadata = [
-                entry for entry in filtered_metadata
-                if any([t in entry['tags'] for t in tags_match_any])
-            ]
-
-        tags_match_all = query.get('tags-match-all', None)
-        if tags_match_all is not None:
-            filtered_metadata = [
-                entry for entry in filtered_metadata
-                if all([t in entry['tags'] for t in tags_match_all])
-            ]
-
-        # Sort by title, then apply limit and offset
-        filtered_metadata = sorted(filtered_metadata, key=lambda e: e['title'])
-
-        offset = query.get('offset', None)
-        if offset is not None:
-            filtered_metadata = filtered_metadata[offset:]
-
-        limit = query.get('limit', None)
-        if limit is not None:
-            filtered_metadata = filtered_metadata[:limit]
-
-        models = [
-            convert_metadata_keys_to_model_keys(m) for m in filtered_metadata
-        ]
-        GLib.idle_add(callback, None, [shards, models])
 
 
 class TestCompanionAppService(TestCase):
@@ -713,9 +424,7 @@ class TestCompanionAppService(TestCase):
             '''Called when we receive a response from the server.'''
             self.assertTrue(response['status'] == 'ok')
 
-        self.service = CompanionAppService(Holdable(),
-                                           self.port,
-                                           FakeContentDbConnection(FAKE_SHARD_CONTENT))
+        self.service = CompanionAppService(Holdable(), self.port)
         json_http_request_with_uuid(FAKE_UUID,
                                     local_endpoint(self.port,
                                                    'device_authenticate'),
@@ -731,9 +440,7 @@ class TestCompanionAppService(TestCase):
             self.assertTrue(response['status'] == 'error')
             self.assertTrue(response['error']['code'] == 'INVALID_REQUEST')
 
-        self.service = CompanionAppService(Holdable(),
-                                           self.port,
-                                           FakeContentDbConnection(FAKE_SHARD_CONTENT))
+        self.service = CompanionAppService(Holdable(), self.port)
         json_http_request_with_uuid('',
                                     local_endpoint(self.port,
                                                    'device_authenticate'),
@@ -759,9 +466,7 @@ class TestCompanionAppService(TestCase):
                     'language': Equals('en')
                 })
             )
-        self.service = CompanionAppService(Holdable(),
-                                           self.port,
-                                           FakeContentDbConnection(FAKE_SHARD_CONTENT))
+        self.service = CompanionAppService(Holdable(), self.port)
         json_http_request_with_uuid(FAKE_UUID,
                                     local_endpoint(self.port,
                                                    'list_applications'),
@@ -782,9 +487,7 @@ class TestCompanionAppService(TestCase):
                 })
             }))
 
-        self.service = CompanionAppService(Holdable(),
-                                           self.port,
-                                           FakeContentDbConnection(FAKE_SHARD_CONTENT))
+        self.service = CompanionAppService(Holdable(), self.port)
         json_http_request_with_uuid('',
                                     local_endpoint(self.port,
                                                    'list_applications'),
@@ -801,9 +504,7 @@ class TestCompanionAppService(TestCase):
             '''Called when we receive a response from the server.'''
             self.assertEqual(headers.get_content_type()[0], 'image/png')
 
-        self.service = CompanionAppService(Holdable(),
-                                           self.port,
-                                           FakeContentDbConnection(FAKE_SHARD_CONTENT))
+        self.service = CompanionAppService(Holdable(), self.port)
         json_http_request_with_uuid(FAKE_UUID,
                                     local_endpoint(self.port,
                                                    'application_icon'),
@@ -825,9 +526,7 @@ class TestCompanionAppService(TestCase):
                 })
             }))
 
-        self.service = CompanionAppService(Holdable(),
-                                           self.port,
-                                           FakeContentDbConnection(FAKE_SHARD_CONTENT))
+        self.service = CompanionAppService(Holdable(), self.port)
         json_http_request_with_uuid('',
                                     local_endpoint(self.port,
                                                    'application_icon'),
@@ -849,9 +548,7 @@ class TestCompanionAppService(TestCase):
                 })
             }))
 
-        self.service = CompanionAppService(Holdable(),
-                                           self.port,
-                                           FakeContentDbConnection(FAKE_SHARD_CONTENT))
+        self.service = CompanionAppService(Holdable(), self.port)
         json_http_request_with_uuid('',
                                     local_endpoint(self.port,
                                                    'application_icon'),
@@ -872,9 +569,7 @@ class TestCompanionAppService(TestCase):
                 })
             }))
 
-        self.service = CompanionAppService(Holdable(),
-                                           self.port,
-                                           FakeContentDbConnection(FAKE_SHARD_CONTENT))
+        self.service = CompanionAppService(Holdable(), self.port)
         json_http_request_with_uuid('',
                                     local_endpoint(self.port,
                                                    'application_icon'),
@@ -892,9 +587,7 @@ class TestCompanionAppService(TestCase):
             self.assertThat(response['payload']['colors'],
                             MatchesSetwise(Equals('#4573d9'), Equals('#98b8ff')))
 
-        self.service = CompanionAppService(Holdable(),
-                                           self.port,
-                                           FakeContentDbConnection(FAKE_SHARD_CONTENT))
+        self.service = CompanionAppService(Holdable(), self.port)
         json_http_request_with_uuid(FAKE_UUID,
                                     local_endpoint(self.port,
                                                    'application_colors'),
@@ -916,9 +609,7 @@ class TestCompanionAppService(TestCase):
                 })
             }))
 
-        self.service = CompanionAppService(Holdable(),
-                                           self.port,
-                                           FakeContentDbConnection(FAKE_SHARD_CONTENT))
+        self.service = CompanionAppService(Holdable(), self.port)
         json_http_request_with_uuid('',
                                     local_endpoint(self.port,
                                                    'application_colors'),
@@ -940,9 +631,7 @@ class TestCompanionAppService(TestCase):
                 })
             }))
 
-        self.service = CompanionAppService(Holdable(),
-                                           self.port,
-                                           FakeContentDbConnection(FAKE_SHARD_CONTENT))
+        self.service = CompanionAppService(Holdable(), self.port)
         json_http_request_with_uuid(FAKE_UUID,
                                     local_endpoint(self.port,
                                                    'application_colors'),
@@ -963,9 +652,7 @@ class TestCompanionAppService(TestCase):
                 })
             }))
 
-        self.service = CompanionAppService(Holdable(),
-                                           self.port,
-                                           FakeContentDbConnection(FAKE_SHARD_CONTENT))
+        self.service = CompanionAppService(Holdable(), self.port)
         json_http_request_with_uuid(FAKE_UUID,
                                     local_endpoint(self.port,
                                                    'application_colors'),
@@ -984,9 +671,7 @@ class TestCompanionAppService(TestCase):
                             MatchesSetwise(Equals('#4573d9'),
                                            Equals('#98b8ff')))
 
-        self.service = CompanionAppService(Holdable(),
-                                           self.port,
-                                           FakeContentDbConnection(FAKE_SHARD_CONTENT))
+        self.service = CompanionAppService(Holdable(), self.port)
         json_http_request_with_uuid(FAKE_UUID,
                                     local_endpoint(self.port,
                                                    'list_application_sets'),
@@ -1013,9 +698,7 @@ class TestCompanionAppService(TestCase):
                 'global': Equals(True)
             }))
 
-        self.service = CompanionAppService(Holdable(),
-                                           self.port,
-                                           FakeContentDbConnection(FAKE_SHARD_CONTENT))
+        self.service = CompanionAppService(Holdable(), self.port)
         json_http_request_with_uuid(FAKE_UUID,
                                     local_endpoint(self.port,
                                                    'list_application_sets'),
@@ -1036,18 +719,12 @@ class TestCompanionAppService(TestCase):
                     'tags': MatchesSetwise(Equals('First Tag')),
                     'title': Equals('First Tag Set'),
                     'contentType': Equals('application/x-ekncontent-set'),
-                    'thumbnail': matches_uri_query('/v1/content_data', {
-                        'contentId': MatchesSetwise(Equals(CONTENT_APP_THUMBNAIL_EKN_ID)),
-                        'applicationId': MatchesSetwise(Equals('org.test.ContentApp')),
-                        'deviceUUID': MatchesSetwise(Equals(FAKE_UUID))
-                    }),
+                    'thumbnail': Equals(None),
                     'global': Equals(False)
                 })
             )
 
-        self.service = CompanionAppService(Holdable(),
-                                           self.port,
-                                           FakeContentDbConnection(FAKE_SHARD_CONTENT))
+        self.service = CompanionAppService(Holdable(), self.port)
         json_http_request_with_uuid(FAKE_UUID,
                                     local_endpoint(self.port,
                                                    'list_application_sets'),
@@ -1069,9 +746,7 @@ class TestCompanionAppService(TestCase):
                 })
             }))
 
-        self.service = CompanionAppService(Holdable(),
-                                           self.port,
-                                           FakeContentDbConnection(FAKE_SHARD_CONTENT))
+        self.service = CompanionAppService(Holdable(), self.port)
         json_http_request_with_uuid('',
                                     local_endpoint(self.port,
                                                    'list_application_sets'),
@@ -1093,9 +768,7 @@ class TestCompanionAppService(TestCase):
                 })
             }))
 
-        self.service = CompanionAppService(Holdable(),
-                                           self.port,
-                                           FakeContentDbConnection(FAKE_SHARD_CONTENT))
+        self.service = CompanionAppService(Holdable(), self.port)
         json_http_request_with_uuid(FAKE_UUID,
                                     local_endpoint(self.port,
                                                    'list_application_sets'),
@@ -1116,9 +789,7 @@ class TestCompanionAppService(TestCase):
                 })
             }))
 
-        self.service = CompanionAppService(Holdable(),
-                                           self.port,
-                                           FakeContentDbConnection(FAKE_SHARD_CONTENT))
+        self.service = CompanionAppService(Holdable(), self.port)
         json_http_request_with_uuid(FAKE_UUID,
                                     local_endpoint(self.port,
                                                    'list_application_sets'),
@@ -1149,9 +820,7 @@ class TestCompanionAppService(TestCase):
                 })
             }))
 
-        self.service = CompanionAppService(Holdable(),
-                                           self.port,
-                                           FakeContentDbConnection(FAKE_SHARD_CONTENT))
+        self.service = CompanionAppService(Holdable(), self.port)
         json_http_request_with_uuid(FAKE_UUID,
                                     local_endpoint(self.port,
                                                    'list_application_content_for_tags'),
@@ -1174,9 +843,7 @@ class TestCompanionAppService(TestCase):
                 })
             }))
 
-        self.service = CompanionAppService(Holdable(),
-                                           self.port,
-                                           FakeContentDbConnection(FAKE_SHARD_CONTENT))
+        self.service = CompanionAppService(Holdable(), self.port)
         json_http_request_with_uuid('',
                                     local_endpoint(self.port,
                                                    'list_application_content_for_tags'),
@@ -1199,9 +866,7 @@ class TestCompanionAppService(TestCase):
                 })
             }))
 
-        self.service = CompanionAppService(Holdable(),
-                                           self.port,
-                                           FakeContentDbConnection(FAKE_SHARD_CONTENT))
+        self.service = CompanionAppService(Holdable(), self.port)
         json_http_request_with_uuid(FAKE_UUID,
                                     local_endpoint(self.port,
                                                    'list_application_content_for_tags'),
@@ -1223,9 +888,7 @@ class TestCompanionAppService(TestCase):
                 })
             }))
 
-        self.service = CompanionAppService(Holdable(),
-                                           self.port,
-                                           FakeContentDbConnection(FAKE_SHARD_CONTENT))
+        self.service = CompanionAppService(Holdable(), self.port)
         json_http_request_with_uuid(FAKE_UUID,
                                     local_endpoint(self.port,
                                                    'list_application_content_for_tags'),
@@ -1247,9 +910,7 @@ class TestCompanionAppService(TestCase):
                 })
             }))
 
-        self.service = CompanionAppService(Holdable(),
-                                           self.port,
-                                           FakeContentDbConnection(FAKE_SHARD_CONTENT))
+        self.service = CompanionAppService(Holdable(), self.port)
         json_http_request_with_uuid(FAKE_UUID,
                                     local_endpoint(self.port,
                                                    'list_application_content_for_tags'),
@@ -1288,9 +949,7 @@ class TestCompanionAppService(TestCase):
                                         handle_json(autoquit(on_received_response,
                                                              quit_cb)))
 
-        self.service = CompanionAppService(Holdable(),
-                                           self.port,
-                                           FakeContentDbConnection(FAKE_SHARD_CONTENT))
+        self.service = CompanionAppService(Holdable(), self.port)
         fetch_first_content_id('org.test.VideoApp',
                                ['EknHomePageTag'],
                                self.port,
@@ -1321,9 +980,7 @@ class TestCompanionAppService(TestCase):
                                         handle_json(autoquit(on_received_response,
                                                              quit_cb)))
 
-        self.service = CompanionAppService(Holdable(),
-                                           self.port,
-                                           FakeContentDbConnection(FAKE_SHARD_CONTENT))
+        self.service = CompanionAppService(Holdable(), self.port)
         fetch_first_content_id('org.test.VideoApp',
                                ['EknHomePageTag'],
                                self.port,
@@ -1353,9 +1010,7 @@ class TestCompanionAppService(TestCase):
                                         handle_json(autoquit(on_received_response,
                                                              quit_cb)))
 
-        self.service = CompanionAppService(Holdable(),
-                                           self.port,
-                                           FakeContentDbConnection(FAKE_SHARD_CONTENT))
+        self.service = CompanionAppService(Holdable(), self.port)
         fetch_first_content_id('org.test.VideoApp',
                                ['EknHomePageTag'],
                                self.port,
@@ -1385,9 +1040,7 @@ class TestCompanionAppService(TestCase):
                                         handle_json(autoquit(on_received_response,
                                                              quit_cb)))
 
-        self.service = CompanionAppService(Holdable(),
-                                           self.port,
-                                           FakeContentDbConnection(FAKE_SHARD_CONTENT))
+        self.service = CompanionAppService(Holdable(), self.port)
         fetch_first_content_id('org.test.VideoApp',
                                ['EknHomePageTag'],
                                self.port,
@@ -1418,9 +1071,7 @@ class TestCompanionAppService(TestCase):
                                         handle_json(autoquit(on_received_response,
                                                              quit_cb),))
 
-        self.service = CompanionAppService(Holdable(),
-                                           self.port,
-                                           FakeContentDbConnection(FAKE_SHARD_CONTENT))
+        self.service = CompanionAppService(Holdable(), self.port)
         fetch_first_content_id('org.test.VideoApp',
                                ['EknHomePageTag'],
                                self.port,
@@ -1451,9 +1102,7 @@ class TestCompanionAppService(TestCase):
                                         handle_json(autoquit(on_received_response,
                                                              quit_cb)))
 
-        self.service = CompanionAppService(Holdable(),
-                                           self.port,
-                                           FakeContentDbConnection(FAKE_SHARD_CONTENT))
+        self.service = CompanionAppService(Holdable(), self.port)
         fetch_first_content_id('org.test.VideoApp',
                                ['EknHomePageTag'],
                                self.port,
@@ -1482,9 +1131,7 @@ class TestCompanionAppService(TestCase):
                                         handle_headers_bytes(autoquit(on_received_response,
                                                                       quit_cb)))
 
-        self.service = CompanionAppService(Holdable(),
-                                           self.port,
-                                           FakeContentDbConnection(FAKE_SHARD_CONTENT))
+        self.service = CompanionAppService(Holdable(), self.port)
         fetch_first_content_id('org.test.VideoApp',
                                ['EknHomePageTag'],
                                self.port,
@@ -1517,9 +1164,7 @@ class TestCompanionAppService(TestCase):
                                         handle_headers_bytes(autoquit(on_received_response,
                                                                       quit_cb)))
 
-        self.service = CompanionAppService(Holdable(),
-                                           self.port,
-                                           FakeContentDbConnection(FAKE_SHARD_CONTENT))
+        self.service = CompanionAppService(Holdable(), self.port)
         fetch_first_content_id('org.test.ContentApp',
                                ['First Tag'],
                                self.port,
@@ -1557,9 +1202,7 @@ class TestCompanionAppService(TestCase):
                                             'Range': 'bytes=1-10'
                                         })
 
-        self.service = CompanionAppService(Holdable(),
-                                           self.port,
-                                           FakeContentDbConnection(FAKE_SHARD_CONTENT))
+        self.service = CompanionAppService(Holdable(), self.port)
         fetch_first_content_id('org.test.VideoApp',
                                ['EknHomePageTag'],
                                self.port,
@@ -1590,9 +1233,7 @@ class TestCompanionAppService(TestCase):
                                         handle_json(autoquit(on_received_response,
                                                              quit_cb)))
 
-        self.service = CompanionAppService(Holdable(),
-                                           self.port,
-                                           FakeContentDbConnection(FAKE_SHARD_CONTENT))
+        self.service = CompanionAppService(Holdable(), self.port)
         fetch_first_content_id('org.test.VideoApp',
                                ['EknHomePageTag'],
                                self.port,
@@ -1622,9 +1263,7 @@ class TestCompanionAppService(TestCase):
                                         handle_json(autoquit(on_received_response,
                                                              quit_cb)))
 
-        self.service = CompanionAppService(Holdable(),
-                                           self.port,
-                                           FakeContentDbConnection(FAKE_SHARD_CONTENT))
+        self.service = CompanionAppService(Holdable(), self.port)
         fetch_first_content_id('org.test.VideoApp',
                                ['EknHomePageTag'],
                                self.port,
@@ -1654,9 +1293,7 @@ class TestCompanionAppService(TestCase):
                                         handle_json(autoquit(on_received_response,
                                                              quit_cb)))
 
-        self.service = CompanionAppService(Holdable(),
-                                           self.port,
-                                           FakeContentDbConnection(FAKE_SHARD_CONTENT))
+        self.service = CompanionAppService(Holdable(), self.port)
         fetch_first_content_id('org.test.VideoApp',
                                ['EknHomePageTag'],
                                self.port,
@@ -1687,9 +1324,7 @@ class TestCompanionAppService(TestCase):
                                         handle_json(autoquit(on_received_response,
                                                              quit_cb)))
 
-        self.service = CompanionAppService(Holdable(),
-                                           self.port,
-                                           FakeContentDbConnection(FAKE_SHARD_CONTENT))
+        self.service = CompanionAppService(Holdable(), self.port)
         fetch_first_content_id('org.test.VideoApp',
                                ['EknHomePageTag'],
                                self.port,
@@ -1720,9 +1355,7 @@ class TestCompanionAppService(TestCase):
                                         handle_json(autoquit(on_received_response,
                                                              quit_cb)))
 
-        self.service = CompanionAppService(Holdable(),
-                                           self.port,
-                                           FakeContentDbConnection(FAKE_SHARD_CONTENT))
+        self.service = CompanionAppService(Holdable(), self.port)
         fetch_first_content_id('org.test.VideoApp',
                                ['EknHomePageTag'],
                                self.port,
@@ -1758,9 +1391,7 @@ class TestCompanionAppService(TestCase):
                 })
             }))
 
-        self.service = CompanionAppService(Holdable(),
-                                           self.port,
-                                           FakeContentDbConnection(FAKE_SHARD_CONTENT))
+        self.service = CompanionAppService(Holdable(), self.port)
         json_http_request_with_uuid(FAKE_UUID,
                                     local_endpoint(self.port,
                                                    'search_content'),
@@ -1801,9 +1432,7 @@ class TestCompanionAppService(TestCase):
                 })
             }))
 
-        self.service = CompanionAppService(Holdable(),
-                                           self.port,
-                                           FakeContentDbConnection(FAKE_SHARD_CONTENT))
+        self.service = CompanionAppService(Holdable(), self.port)
         json_http_request_with_uuid(FAKE_UUID,
                                     local_endpoint(self.port,
                                                    'search_content'),
@@ -1881,9 +1510,7 @@ class TestCompanionAppService(TestCase):
                 })
             ))
 
-        self.service = CompanionAppService(Holdable(),
-                                           self.port,
-                                           FakeContentDbConnection(FAKE_SHARD_CONTENT))
+        self.service = CompanionAppService(Holdable(), self.port)
         json_http_request_with_uuid(FAKE_UUID,
                                     local_endpoint(self.port,
                                                    'search_content'),
@@ -1927,9 +1554,7 @@ class TestCompanionAppService(TestCase):
                 })
             ))
 
-        self.service = CompanionAppService(Holdable(),
-                                           self.port,
-                                           FakeContentDbConnection(FAKE_SHARD_CONTENT))
+        self.service = CompanionAppService(Holdable(), self.port)
         json_http_request_with_uuid(FAKE_UUID,
                                     local_endpoint(self.port,
                                                    'search_content'),
@@ -1963,9 +1588,7 @@ class TestCompanionAppService(TestCase):
                 })
             ))
 
-        self.service = CompanionAppService(Holdable(),
-                                           self.port,
-                                           FakeContentDbConnection(FAKE_SHARD_CONTENT))
+        self.service = CompanionAppService(Holdable(), self.port)
         json_http_request_with_uuid(FAKE_UUID,
                                     local_endpoint(self.port,
                                                    'search_content'),
@@ -1987,9 +1610,7 @@ class TestCompanionAppService(TestCase):
                 })
             }))
 
-        self.service = CompanionAppService(Holdable(),
-                                           self.port,
-                                           FakeContentDbConnection(FAKE_SHARD_CONTENT))
+        self.service = CompanionAppService(Holdable(), self.port)
         json_http_request_with_uuid(FAKE_UUID,
                                     local_endpoint(self.port,
                                                    'search_content'),
@@ -2010,9 +1631,7 @@ class TestCompanionAppService(TestCase):
                 })
             }))
 
-        self.service = CompanionAppService(Holdable(),
-                                           self.port,
-                                           FakeContentDbConnection(FAKE_SHARD_CONTENT))
+        self.service = CompanionAppService(Holdable(), self.port)
         json_http_request_with_uuid(FAKE_UUID,
                                     local_endpoint(self.port,
                                                    'search_content'),

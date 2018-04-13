@@ -18,12 +18,17 @@
 # All rights reserved.
 '''Functions to load content from EKN shards.'''
 
-from gi.repository import (EosCompanionAppService, GLib)
+from gi.repository import (
+    EosCompanionAppService,
+    GLib,
+    Gio
+)
 
 BYTE_CHUNK_SIZE = 256
 
 LOAD_FROM_ENGINE_SUCCESS = 0
-LOAD_FROM_ENGINE_NO_SUCH_CONTENT = 1
+LOAD_FROM_ENGINE_NO_SUCH_APP = 1
+LOAD_FROM_ENGINE_NO_SUCH_CONTENT = 2
 
 
 def load_record_blob_from_shards(shards, content_id, attr):
@@ -42,21 +47,27 @@ def load_record_blob_from_shards(shards, content_id, attr):
     return LOAD_FROM_ENGINE_NO_SUCH_CONTENT, None
 
 
-def load_record_from_shards_async(shards,
-                                  content_id,
-                                  attr,
-                                  callback):
-    '''Load bytes from stream for app and content_id.
+def load_record_blob_from_engine(engine, app_id, content_id, attr):
+    '''Load a blob for app and content_id.
 
     :attr: must be one of 'data' or 'metadata'.
 
-    Once loading is complete, callback will be invoked with a GAsyncResult,
-    use EosCompanionAppService.finish_load_all_in_stream_to_bytes
-    to get the result or handle the corresponding error.
-
-    Returns LOAD_FROM_ENGINE_SUCCESS if a stream could be loaded,
-    LOAD_FROM_ENGINE_NO_SUCH_CONTENT if the content wasn't found.
+    Returns the a tuple of a (status code, blob) on success,
+    (status code, None) otherwise.
     '''
+    try:
+        shards = engine.get_domain_for_app(app_id).get_shards()
+    except GLib.Error as error:
+        if (error.matches(Gio.io_error_quark(), Gio.IOErrorEnum.FAILED) or
+                error.matches(Gio.io_error_quark(), Gio.IOErrorEnum.NOT_FOUND)):
+            return LOAD_FROM_ENGINE_NO_SUCH_APP, None
+        raise error
+
+    return load_record_blob_from_shards(shards, content_id, attr)
+
+
+def load_record_from_shards_async(shards, content_id, attr, callback):
+    '''Load bytes from stream for app and content_id if you have shards.'''
     def _callback(_, result):
         '''Marshal the GAsyncReady callback into an (error, data) callback.'''
         try:
@@ -78,6 +89,65 @@ def load_record_from_shards_async(shards,
                     'EKN ID {} not found in shards'.format(content_id),
                     EosCompanionAppService.error_quark(),
                     EosCompanionAppService.Error.INVALID_CONTENT_ID
+                ),
+                None
+            )
+        )
+        return
+
+    EosCompanionAppService.load_all_in_stream_to_bytes(blob.get_stream(),
+                                                       chunk_size=BYTE_CHUNK_SIZE,
+                                                       cancellable=None,
+                                                       callback=_callback)
+
+
+def load_record_from_engine_async(engine, app_id, content_id, attr, callback):
+    '''Load bytes from stream for app and content_id.
+
+    :attr: must be one of 'data' or 'metadata'.
+
+    Once loading is complete, callback will be invoked with a GAsyncResult,
+    use EosCompanionAppService.finish_load_all_in_stream_to_bytes
+    to get the result or handle the corresponding error.
+
+    Returns LOAD_FROM_ENGINE_SUCCESS if a stream could be loaded,
+    LOAD_FROM_ENGINE_NO_SUCH_APP if the app wasn't found and
+    LOAD_FROM_ENGINE_NO_SUCH_CONTENT if the content wasn't found.
+    '''
+    def _callback(_, result):
+        '''Marshal the GAsyncReady callback into an (error, data) callback.'''
+        try:
+            bytes_data = EosCompanionAppService.finish_load_all_in_stream_to_bytes(result)
+        except GLib.Error as error:
+            callback(error, None)
+            return
+
+        callback(None, bytes_data)
+
+    status, blob = load_record_blob_from_engine(engine,
+                                                app_id,
+                                                content_id,
+                                                attr)
+
+    if status == LOAD_FROM_ENGINE_NO_SUCH_CONTENT:
+        GLib.idle_add(
+            lambda: callback(
+                GLib.Error(
+                    'EKN ID {} not found in shards'.format(content_id),
+                    EosCompanionAppService.error_quark(),
+                    EosCompanionAppService.Error.INVALID_CONTENT_ID
+                ),
+                None
+            )
+        )
+        return
+    elif status == LOAD_FROM_ENGINE_NO_SUCH_APP:
+        GLib.idle_add(
+            lambda: callback(
+                GLib.Error(
+                    'App ID {} not available'.format(app_id),
+                    EosCompanionAppService.error_quark(),
+                    EosCompanionAppService.Error.INVALID_APP_ID
                 ),
                 None
             )
