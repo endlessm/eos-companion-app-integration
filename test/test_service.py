@@ -489,7 +489,7 @@ FAKE_SHARD_CONTENT = {
 }
 
 _METADATA_KEY_TO_MODEL_KEY = {
-    '@id': 'ekn_id',
+    '@id': 'id',
     'childTags': 'child_tags',
     'contentType': 'content_type',
     'featured': 'featured',

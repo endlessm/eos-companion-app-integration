@@ -544,7 +544,7 @@ def companion_app_server_list_application_content_for_tags_route(server,
                     'thumbnail': format_thumbnail_uri(query['applicationId'],
                                                       model,
                                                       query['deviceUUID']),
-                    'id': urllib.parse.urlparse(model['ekn_id']).path[1:],
+                    'id': urllib.parse.urlparse(model['id']).path[1:],
                     'tags': model['tags']
                 }
                 for model in models
@@ -1003,7 +1003,7 @@ def render_result_payload_for_content(app_id, model, device_uuid):
     return {
         'applicationId': app_id,
         'contentType': model['content_type'],
-        'id': urllib.parse.urlparse(model['ekn_id']).path[1:],
+        'id': urllib.parse.urlparse(model['id']).path[1:],
         'tags': model['tags'],
         'thumbnail': format_thumbnail_uri(app_id,
                                           model,

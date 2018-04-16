@@ -47,7 +47,7 @@ def format_thumbnail_uri(application_id, model, device_uuid):
     ) if model.get('thumbnail_uri', None) else None
 
 
-def rewrite_ekn_url(ekn_id, query):
+def rewrite_ekn_url(content_id, query):
     '''If the URL is an EKN url, rewrite it to be server-relative.
 
     This causes the applicationId and deviceUUID to be included in
@@ -57,7 +57,7 @@ def rewrite_ekn_url(ekn_id, query):
         '/v1/content_data',
         deviceUUID=query['deviceUUID'],
         applicationId=query['applicationId'],
-        contentId=ekn_id
+        contentId=content_id
     )
     return formatted
 

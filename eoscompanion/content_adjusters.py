@@ -141,7 +141,7 @@ def render_mobile_wrapper(renderer,
             'sets': [
                 {
                     'child_tags': set_object['child_tags'],
-                    'ekn_id': set_object['ekn_id'],
+                    'id': set_object['id'],
                     'title': set_object['title'],
                     'tags': set_object['tags']
                 }

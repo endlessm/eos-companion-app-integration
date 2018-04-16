@@ -70,7 +70,7 @@ def ascertain_application_sets_from_models(models,
                 'thumbnail': format_thumbnail_uri(application_id,
                                                   model,
                                                   device_uuid),
-                'id': urllib.parse.urlparse(model['ekn_id']).path[1:],
+                'id': urllib.parse.urlparse(model['id']).path[1:],
                 'global': False
             }
             for model in models
