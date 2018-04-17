@@ -18,6 +18,7 @@
 # All rights reserved.
 '''Main executable entry point for eos-companion-app-service.'''
 
+import logging
 import os
 import sys
 
@@ -37,7 +38,6 @@ from gi.repository import (
 from .constants import INACTIVITY_TIMEOUT
 from .eknservices_bridge import EknServicesContentDbConnection
 from .service import CompanionAppService
-from .util import log
 
 
 def _inhibit_auto_idle(connection, fd_callback):
@@ -113,10 +113,10 @@ class CompanionAppApplication(Gio.Application):
         and the inhibit lock released.
         '''
         if error is not None:
-            log('Received error when attempting to take idle inhibit '
-                'lock. Ensure that this user has sufficient permissions '
-                '(eg, through org.freedesktop.login1.inhibit-block-idle). '
-                'The error was: {}'.format(str(error)))
+            logging.error('Received error when attempting to take idle inhibit '
+                          'lock. Ensure that this user has sufficient permissions '
+                          '(eg, through org.freedesktop.login1.inhibit-block-idle). '
+                          'The error was: %s', str(error))
             return
 
         # Hang on to the fd so that we don't lose track of it, even though
@@ -130,16 +130,16 @@ class CompanionAppApplication(Gio.Application):
         try:
             connection = Gio.bus_get_finish(result)
         except GLib.Error as error:
-            log('Error getting the system bus: {}'.format(str(error)))
+            logging.error('Error getting the system bus: %s', str(error))
             self.quit()
             return
 
-        log('Got system d-bus connection')
+        logging.info('Got system d-bus connection')
         _inhibit_auto_idle(connection, self._on_got_inhibit_fd)
 
     def do_dbus_register(self, connection, object_path):  # pylint: disable=arguments-differ
         '''Invoked when we get a D-Bus connection.'''
-        log('Got session d-bus connection at {path}'.format(path=object_path))
+        logging.info('Got session d-bus connection at %s', object_path)
         self._service = CompanionAppService(self,
                                             1110,
                                             EknServicesContentDbConnection(connection))
@@ -149,14 +149,14 @@ class CompanionAppApplication(Gio.Application):
 
     def do_dbus_unregister(self, connection, object_path):  # pylint: disable=arguments-differ
         '''Invoked when we lose a D-Bus connection.'''
-        log('Lost session d-bus connection at {path}'.format(path=object_path))
+        logging.warning('Lost session d-bus connection at %s', object_path)
         return Gio.Application.do_dbus_unregister(self,
                                                   connection,
                                                   object_path)
 
     def do_activate(self):  # pylint: disable=arguments-differ
         '''Invoked when the application is activated.'''
-        log('Activated')
+        logging.info('Activated')
         return Gio.Application.do_activate(self)
 
 
@@ -179,4 +179,6 @@ def main(args=None):
                 os.pathsep.join([
                     GLib.getenv('XDG_DATA_DIRS') or ''
                 ] + flatpak_export_share_dirs), True)
+
+    logging.basicConfig(level=logging.INFO)
     CompanionAppApplication().run(args or sys.argv)

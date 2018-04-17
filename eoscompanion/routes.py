@@ -21,6 +21,7 @@
 from collections import namedtuple
 import itertools
 import json
+import logging
 import os
 import sys
 import urllib.parse
@@ -69,7 +70,6 @@ from .responses import (
     png_response,
     serialize_error_as_json_object
 )
-from .util import log
 
 
 def require_query_string_param(param):
@@ -142,9 +142,7 @@ def companion_app_server_device_authenticate_route(server, msg, path, query, *ar
     del path
     del args
 
-    log('Authorize client: clientId={clientId}'.format(
-        clientId=query['deviceUUID']
-    ))
+    logging.debug('Authorize client: clientId=%s', query['deviceUUID'])
     json_response(msg, {
         'status': 'ok',
         'error': None
@@ -164,9 +162,7 @@ def companion_app_server_feed_route(server, msg, path, query, *args):
     del path
     del args
 
-    log('Feed: for clientId={clientId}'.format(
-        clientId=query['deviceUUID']
-    ))
+    logging.debug('Feed: for clientId=%s', query['deviceUUID'])
 
     feed = dummy_feed()
     json_response(msg, feed)
@@ -297,9 +293,7 @@ def companion_app_server_list_applications_route(server, msg, path, query, *args
         })
         server.unpause_message(msg)
 
-    log('List applications: clientId={clientId}'.format(
-        clientId=query['deviceUUID']
-    ))
+    logging.debug('List applications: clientId=%s', query['deviceUUID'])
     list_all_applications(_callback)
     server.pause_message(msg)
 
@@ -329,10 +323,10 @@ def companion_app_server_application_icon_route(server, msg, path, query, *args)
             })
         server.unpause_message(msg)
 
-    log('Get application icon: clientId={clientId}, iconName={iconName}'.format(
-        iconName=query['iconName'],
-        clientId=query['deviceUUID']
-    ))
+    logging.debug('Get application icon: clientId=%s, iconName=%s',
+                  query['deviceUUID'],
+                  query['iconName']
+    )
     EosCompanionAppService.load_application_icon_data_async(query['iconName'],
                                                             cancellable=None,
                                                             callback=_callback)
@@ -384,10 +378,10 @@ def companion_app_server_application_colors_route(server, msg, path, query, *arg
 
         server.unpause_message(msg)
 
-    log('Get application colors: clientId={clientId}, applicationId={applicationId}'.format(
-        applicationId=query['applicationId'],
-        clientId=query['deviceUUID']
-    ))
+    logging.debug('Get application colors: clientId=%s, applicationId=%s',
+                  query['deviceUUID'],
+                  query['applicationId']
+    )
     EosCompanionAppService.load_application_colors(query['applicationId'],
                                                    cancellable=None,
                                                    callback=_callback)
@@ -489,9 +483,10 @@ def companion_app_server_list_application_sets_route(server,
                                                query['applicationId'],
                                                _on_ascertained_sets)
 
-    log('List application sets: clientId={clientId}, applicationId={applicationId}'.format(
-        applicationId=query['applicationId'], clientId=query['deviceUUID']
-    ))
+    logging.debug('List application sets: clientId=%s, applicationId=%s',
+                  query['deviceUUID'],
+                  query['applicationId']
+    )
 
     app_id = query['applicationId']
     content_db_conn.query(app_id=app_id,
@@ -552,13 +547,12 @@ def companion_app_server_list_application_content_for_tags_route(server,
         })
         server.unpause_message(msg)
 
-    log(
-        'List application content for tags: clientId={clientId}, '
-        'applicationId={applicationId}, tags={tags}'.format(
-            tags=query['tags'],
-            applicationId=query['applicationId'],
-            clientId=query['deviceUUID']
-        )
+    logging.debug(
+        'List application content for tags: clientId=%s, '
+        'applicationId=%s, tags=%s',
+            query['deviceUUID'],
+            query['applicationId'],
+            query['tags']
     )
 
     app_id = query['applicationId']
@@ -647,11 +641,8 @@ def companion_app_server_content_data_route(server,
                     src.splice_finish(result)
                 except GLib.Error as splice_error:
                     # Can't really do much here except log server side
-                    log(
-                        'Splice operation on file failed: {error}'.format(
-                            error=splice_error
-                        ),
-                        file=sys.stderr
+                    logging.warning(
+                        'Splice operation on file failed: %s', error
                     )
                     return
 
@@ -725,9 +716,8 @@ def companion_app_server_content_data_route(server,
                 a tuple of an error or a stream and length.
                 '''
                 if error is not None:
-                    log(
-                        'Stream wrapping failed {error}'.format(error=error),
-                        file=sys.stderr
+                    logging.warning(
+                        'Stream wrapping failed %s', error
                     )
                     json_response(msg, {
                         'status': 'error',
@@ -836,13 +826,12 @@ def companion_app_server_content_data_route(server,
     content_db_conn.shards_for_application(app_id=query['applicationId'],
                                            callback=_on_got_shards_callback)
 
-    log(
-        'Get content stream: clientId={clientId}, '
-        'applicationId={applicationId}, contentId={contentId}'.format(
-            contentId=query['contentId'],
-            applicationId=query['applicationId'],
-            clientId=query['deviceUUID']
-        )
+    logging.debug(
+        'Get content stream: clientId=%s, '
+        'applicationId=%s, contentId=%s',
+        query['deviceUUID'],
+        query['applicationId'],
+        query['contentId']
     )
     server.pause_message(msg)
 
@@ -945,13 +934,12 @@ def companion_app_server_content_metadata_route(server,
                                       'metadata',
                                       _on_got_metadata_callback)
 
-    log(
-        'Get content metadata: clientId={clientId}, '
-        'applicationId={applicationId}, contentId={contentId}'.format(
-            contentId=query['contentId'],
-            applicationId=query['applicationId'],
-            clientId=query['deviceUUID']
-        )
+    logging.debug(
+        'Get content metadata: clientId=%s, '
+        'applicationId=%s, contentId=%s',
+            query['deviceUUID'],
+            query['applicationId'],
+            query['contentId']
     )
     server.pause_message(msg)
     content_db_conn.shards_for_application(app_id=query['applicationId'],
