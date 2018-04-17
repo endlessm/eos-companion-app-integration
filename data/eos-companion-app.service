@@ -8,3 +8,5 @@ ExecStart=/usr/bin/dbus-run-session /usr/bin/flatpak run --no-desktop --no-a11y-
 User=companion-app-helper
 PrivateTmp=yes
 SystemCallArchitectures=native
+Environment="XDG_RUNTIME_DIR=/tmp/run"
+Environment="XDG_DATA_DIRS=/var/lib/flatpak/exports/share:/var/endless-extra/flatpak/exports/share"
