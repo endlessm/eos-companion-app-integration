@@ -42,7 +42,6 @@ app_PYTHON += \
 	eoscompanion/responses.py \
 	eoscompanion/routes.py \
 	eoscompanion/service.py \
-	eoscompanion/util.py \
 	$(NULL)
 
 # Wrapper script
