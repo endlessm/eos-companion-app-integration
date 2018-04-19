@@ -169,7 +169,11 @@ def render_mobile_wrapper(renderer,
             ]),
             'content': GLib.Variant('s', rendered_content),
             'crosslink-data': GLib.Variant('s', json.dumps(link_resolution_table)),
-            'content-metadata': GLib.Variant('s', json.dumps(content_metadata))
+            'content-metadata': GLib.Variant('s', json.dumps(content_metadata)),
+            'title': GLib.Variant(
+                's',
+                metadata.get('title', 'Content from {app_id}'.format(app_id=app_id))
+            )
         })
 
         try:
