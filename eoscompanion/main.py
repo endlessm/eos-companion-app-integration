@@ -160,6 +160,41 @@ class CompanionAppApplication(Gio.Application):
         return Gio.Application.do_activate(self)
 
 
+COMPANION_APP_CONFIG_FILE = '/var/run/host/etc/eos-companion-app/config.ini'
+COMPANION_APP_CONFIG_SECTION = 'Companion App'
+LOGLEVEL_CONFIG_NAME = 'loglevel'
+DEFAULT_LOG_LEVEL = logging.INFO
+
+
+def get_log_level():
+    '''Get the log level
+
+    We try to get the log level from the eos-companion-app
+    config file. If we can not get the value we return the
+    default log level.
+    '''
+    keyfile = GLib.KeyFile()
+    try:
+        keyfile.load_from_file(COMPANION_APP_CONFIG_FILE, GLib.KeyFileFlags.NONE)
+    except GLib.Error:
+        return DEFAULT_LOG_LEVEL
+
+    try:
+        config_level = keyfile.get_string(COMPANION_APP_CONFIG_SECTION,
+                                          LOGLEVEL_CONFIG_NAME)
+    except GLib.Error:
+        return DEFAULT_LOG_LEVEL
+
+    # make sure the loglevel is recognized by the logging module
+    # getLevelName returns "Level %s" % level if no corresponding
+    # representation is found hence the integer check
+    level = logging.getLevelName(config_level)
+    if not isinstance(level, int):
+        return DEFAULT_LOG_LEVEL
+
+    return level
+
+
 def main(args=None):
     '''Entry point function.
 
@@ -180,5 +215,5 @@ def main(args=None):
                     GLib.getenv('XDG_DATA_DIRS') or ''
                 ] + flatpak_export_share_dirs), True)
 
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=get_log_level())
     CompanionAppApplication().run(args or sys.argv)
