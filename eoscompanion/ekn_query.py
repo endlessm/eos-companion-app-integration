@@ -28,7 +28,7 @@ from gi.repository import (
 from .applications_query import application_listing_from_app_info
 from .format import (
     format_app_icon_uri,
-    format_thumbnail_uri
+    optional_format_thumbnail_uri
 )
 
 # This tag is used by everything that should end up on the homepage
@@ -67,9 +67,9 @@ def ascertain_application_sets_from_models(models,
                 'tags': model['child_tags'],
                 'title': model['title'],
                 'contentType': 'application/x-ekncontent-set',
-                'thumbnail': format_thumbnail_uri(application_id,
-                                                  model,
-                                                  device_uuid),
+                'thumbnail': optional_format_thumbnail_uri(application_id,
+                                                           model,
+                                                           device_uuid),
                 'id': urllib.parse.urlparse(model['id']).path[1:],
                 'global': False
             }

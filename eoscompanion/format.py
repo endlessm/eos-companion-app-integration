@@ -37,14 +37,23 @@ def format_app_icon_uri(icon_name, device_uuid):
     )
 
 
-def format_thumbnail_uri(application_id, model, device_uuid):
+def format_thumbnail_uri(application_id, thumbnail_uri, device_uuid):
     '''Format a uri to get an icon for an app.'''
     return format_uri_with_querystring(
         '/v1/content_data',
         deviceUUID=device_uuid,
         applicationId=application_id,
-        contentId=urllib.parse.urlparse(model['thumbnail_uri']).path[1:]
-    ) if model.get('thumbnail_uri', None) else None
+        contentId=urllib.parse.urlparse(thumbnail_uri).path[1:]
+    )
+
+
+def optional_format_thumbnail_uri(application_id, model, device_uuid):
+    '''Format a uri to get an icon for an app if the model has a thumbnail.'''
+    return (
+        format_thumbnail_uri(application_id, model['thumbnail_uri'], device_uuid)
+        if model.get('thumbnail_uri', None)
+        else None
+    )
 
 
 def rewrite_ekn_url(content_id, query):
