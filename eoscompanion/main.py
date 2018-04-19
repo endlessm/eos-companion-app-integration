@@ -160,10 +160,37 @@ class CompanionAppApplication(Gio.Application):
         return Gio.Application.do_activate(self)
 
 
-COMPANION_APP_CONFIG_FILE = '/var/run/host/etc/eos-companion-app/config.ini'
+COMPANION_APP_CONFIG_FILES = [
+    '/run/host/etc/eos-companion-app/config.ini',
+    '/var/lib/eos-companion-app/config.ini',
+    '/run/host/usr/share/eos-companion-app/config.ini'
+]
 COMPANION_APP_CONFIG_SECTION = 'Companion App'
 LOGLEVEL_CONFIG_NAME = 'loglevel'
 DEFAULT_LOG_LEVEL = logging.INFO
+
+
+def find_best_matching_config_file():
+    '''Get a GKeyFile structure for the first config file.
+
+    This searches all three config directories in priority order, similar
+    to the way that eos-companion-app-configuration-manager does it.
+    '''
+    keyfile = GLib.KeyFile()
+
+    for config_file_candidate_path in COMPANION_APP_CONFIG_FILES:
+        try:
+            keyfile.load_from_file(config_file_candidate_path,
+                                   GLib.KeyFileFlags.NONE)
+        except GLib.Error as error:
+            if error.matches(GLib.file_error_quark(), GLib.FileError.NOENT):
+                continue
+
+            raise error
+
+        return keyfile
+
+    return None
 
 
 def get_log_level():
@@ -173,10 +200,9 @@ def get_log_level():
     config file. If we can not get the value we return the
     default log level.
     '''
-    keyfile = GLib.KeyFile()
-    try:
-        keyfile.load_from_file(COMPANION_APP_CONFIG_FILE, GLib.KeyFileFlags.NONE)
-    except GLib.Error:
+    keyfile = find_best_matching_config_file()
+
+    if not keyfile:
         return DEFAULT_LOG_LEVEL
 
     try:
