@@ -637,6 +637,8 @@ def companion_app_server_content_data_route(server,
             '''
             def on_splice_finished(src, result):
                 '''Callback for when we are done splicing.'''
+                nonlocal msg
+
                 try:
                     src.splice_finish(result)
                 except GLib.Error as splice_error:
@@ -644,7 +646,28 @@ def companion_app_server_content_data_route(server,
                     logging.warning(
                         'Splice operation on file failed: %s', error
                     )
-                    return
+
+                # In every case, we must mark the message as finished
+                # so that 'finished' signal listeners get invoked
+                # (important to ensure that the application hold count
+                # goes down!)
+                msg.finished()
+
+                # FIXME: This looks strange, but it is very important. It seems
+                # as though accessing `msg` above creates a cyclic reference
+                # since msg itself is an argument to the outer function
+                # and we reference it in the inner function, but the inner
+                # function is referenced by the outer function.
+                #
+                # Unfortunately, failure to finalize this object is a critical
+                # failure for us, since the finalize handler does
+                # things like closing sockets which we only have a finite
+                # pool of. There is no other way to close those sockets
+                # from the libsoup side. Setting this object to None
+                # breaks the reference cycle and allows the object to
+                # be finalized.
+                msg = None
+                return
 
             def on_got_offsetted_stream(_, result):
                 '''Use the offsetted stream to stream the rest of the content.'''
