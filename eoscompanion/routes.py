@@ -276,7 +276,7 @@ def companion_app_server_resource_route(server, msg, path, query, *args):
                 EosCompanionAppService.error_quark(),
                 EosCompanionAppService.Error.FAILED,
                 detail={
-                    'server_error': (
+                    'message': (
                         'Don\'t know content type for suffix, {}'.format(resource_suffix)
                     )
                 }
@@ -299,7 +299,7 @@ def companion_app_server_resource_route(server, msg, path, query, *args):
                     EosCompanionAppService.error_quark(),
                     EosCompanionAppService.Error.FAILED,
                     detail={
-                        'server_error': str(error)
+                        'message': str(error)
                     }
                 )
             })
@@ -386,7 +386,7 @@ def companion_app_server_application_icon_route(server, msg, path, query, *args)
                     'domain': GLib.quark_to_string(EosCompanionAppService.error_quark()),
                     'code': EosCompanionAppService.Error.FAILED,
                     'detail': {
-                        'server_error': str(error)
+                        'message': str(error)
                     }
                 }
             })
