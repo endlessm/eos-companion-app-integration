@@ -28,10 +28,6 @@ from gi.repository import (
     GLib
 )
 
-from .content_adjusters import (
-    CONTENT_TYPE_ADJUSTERS,
-    adjust_content
-)
 from .ekn_data import BYTE_CHUNK_SIZE
 
 

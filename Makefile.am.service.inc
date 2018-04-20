@@ -30,7 +30,6 @@ app_PYTHON += \
 	eoscompanion/__init__.py \
 	eoscompanion/applications_query.py \
 	eoscompanion/constants.py \
-	eoscompanion/content_adjusters.py \
 	eoscompanion/content_streaming.py \
 	eoscompanion/dummy_feed.py \
 	eoscompanion/eknservices_bridge.py \
