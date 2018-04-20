@@ -66,6 +66,9 @@ from .format import (
     format_thumbnail_uri
 )
 from .functional import all_asynchronous_function_calls_closure
+from .license_content_adjuster import (
+    LicenseContentAdjuster
+)
 from .responses import (
     custom_response,
     html_response,
@@ -179,6 +182,9 @@ _SUFFIX_CONTENT_TYPES = {
     '.jpeg': 'image/jpeg',
     '.jpg': 'image/jpeg'
 }
+_CONTENT_ADJUSTERS = {
+    'license': LicenseContentAdjuster
+}
 
 
 def _get_file_size_and_stream(file_handle, cancellable, callback):
@@ -286,6 +292,12 @@ def companion_app_server_resource_route(server, msg, path, query, *args):
         })
         return
 
+    if resource_file is None:
+        not_found_response(msg, path)
+        return
+
+    content_adjuster_cls = _CONTENT_ADJUSTERS.get(query.get('adjuster', None), None)
+
     def _on_got_wrapped_bytes(error, content_bytes):
         '''Take the wrapped stream and send it to the client.
 
@@ -328,6 +340,17 @@ def companion_app_server_resource_route(server, msg, path, query, *args):
             return
 
         input_stream, file_size = on_got_stream_result
+        if content_adjuster_cls is not None:
+            adjuster = content_adjuster_cls.create_from_resource_query(resource_file.get_path(),
+                                                                       query)
+            conditionally_wrap_stream(input_stream,
+                                      file_size,
+                                      return_content_type,
+                                      query,
+                                      adjuster,
+                                      _wrapped_stream_to_bytes_handler(_on_got_wrapped_bytes))
+            return
+
         _stream_to_bytes(input_stream, _on_got_wrapped_bytes)
 
     _get_file_size_and_stream(resource_file, None, _on_got_stream_and_size)
