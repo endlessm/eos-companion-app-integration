@@ -27,6 +27,7 @@ import urllib.parse
 
 
 from gi.repository import (
+    Endless,
     EosCompanionAppService,
     EosMetrics,
     Gio,
@@ -47,6 +48,7 @@ from .constants import (
 )
 from .content_streaming import (
     conditionally_wrap_blob_stream,
+    conditionally_wrap_stream,
     define_content_range_from_headers_and_size
 )
 from .ekn_content_adjuster import (
@@ -329,6 +331,80 @@ def companion_app_server_resource_route(server, msg, path, query, *args):
         _stream_to_bytes(input_stream, _on_got_wrapped_bytes)
 
     _get_file_size_and_stream(resource_file, None, _on_got_stream_and_size)
+    server.pause_message(msg)
+
+
+@require_query_string_param('deviceUUID')
+@require_query_string_param('name')
+def companion_app_server_license_route(server, msg, path, query, *args):
+    '''Fetch an internal license from a rewritten link on the page.
+
+    This route is for for fetching license files which are embedded
+    into certain documents. The licenses themselves are stored by
+    eos-sdk.
+
+    The querystring param "name" indicates the license name.
+    '''
+    del args
+
+    license_name = Soup.URI.decode(query['name'])
+    return_content_type = 'text/html'
+    license_file = Endless.get_license_file(license_name)
+
+    if license_file is None:
+        not_found_response(msg, path)
+        return
+
+    def _on_got_wrapped_bytes(error, content_bytes):
+        '''Take the wrapped stream and send it to the client.
+
+        For now this means reading the entire stream to bytes and
+        then sending the bytes payload over. In future we should
+        share logic with the /content_data route to send
+        a spliced stream over.
+        '''
+        if error is not None:
+            json_response(msg, {
+                'status': 'error',
+                'error': serialize_error_as_json_object(
+                    EosCompanionAppService.error_quark(),
+                    EosCompanionAppService.Error.FAILED,
+                    detail={
+                        'message': str(error)
+                    }
+                )
+            })
+            server.unpause_message(msg)
+            return
+
+        custom_response(msg, return_content_type, content_bytes)
+        server.unpause_message(msg)
+
+    def _on_got_stream_and_size(error, on_got_stream_result):
+        '''Callback for when we get the stream and size.'''
+        if error is not None:
+            json_response(msg, {
+                'status': 'error',
+                'error': serialize_error_as_json_object(
+                    EosCompanionAppService.error_quark(),
+                    EosCompanionAppService.Error.FAILED,
+                    detail={
+                        'message': str(error)
+                    }
+                )
+            })
+            server.unpause_message(msg)
+            return
+
+        input_stream, file_size = on_got_stream_result
+        conditionally_wrap_stream(input_stream,
+                                  file_size,
+                                  return_content_type,
+                                  query,
+                                  LicenseContentAdjuster(license_file.get_path()),
+                                  _wrapped_stream_to_bytes_handler(_on_got_wrapped_bytes))
+
+    _get_file_size_and_stream(license_file, None, _on_got_stream_and_size)
     server.pause_message(msg)
 
 
@@ -1616,7 +1692,8 @@ def create_companion_app_routes(content_db_conn):
             content_db_conn
         ),
         '/v1/feed': companion_app_server_feed_route,
-        '/v1/resource': companion_app_server_resource_route
+        '/v1/resource': companion_app_server_resource_route,
+        '/v1/license': companion_app_server_license_route
     }
 
 
