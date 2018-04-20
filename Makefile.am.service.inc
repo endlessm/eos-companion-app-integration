@@ -39,6 +39,7 @@ app_PYTHON += \
 	eoscompanion/ekn_query.py \
 	eoscompanion/format.py \
 	eoscompanion/functional.py \
+	eoscompanion/license_content_adjuster.py \
 	eoscompanion/main.py \
 	eoscompanion/responses.py \
 	eoscompanion/routes.py \
