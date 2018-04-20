@@ -169,7 +169,10 @@ def companion_app_server_feed_route(server, msg, path, query, *args):
 
 _SUFFIX_CONTENT_TYPES = {
     '.css': 'text/css',
-    '.js': 'application/javascript'
+    '.js': 'application/javascript',
+    '.png': 'image/png',
+    '.jpeg': 'image/jpeg',
+    '.jpg': 'image/jpeg'
 }
 
 
