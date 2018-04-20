@@ -49,6 +49,9 @@ from .content_streaming import (
     conditionally_wrap_blob_stream,
     define_content_range_from_headers_and_size
 )
+from .ekn_content_adjuster import (
+    EknContentAdjuster
+)
 from .ekn_data import (
     BYTE_CHUNK_SIZE,
     LOAD_FROM_ENGINE_NO_SUCH_CONTENT,
@@ -889,9 +892,9 @@ def companion_app_server_content_data_route(server,
             conditionally_wrap_blob_stream(blob,
                                            content_type,
                                            query,
-                                           content_metadata,
-                                           content_db_conn,
-                                           shards,
+                                           EknContentAdjuster(content_metadata,
+                                                              content_db_conn,
+                                                              shards),
                                            _on_got_wrapped_stream)
 
         if shards_error is not None:

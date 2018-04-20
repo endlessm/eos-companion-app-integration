@@ -50,9 +50,7 @@ def conditionally_wrap_stream(stream,
                               content_size,
                               content_type,
                               query,
-                              metadata,
-                              content_db_conn,
-                              shards,
+                              adjuster,
                               callback):
     '''Inspect content_type to adjust stream content.'''
     def _content_adjusted_callback(error, adjusted):
@@ -72,15 +70,12 @@ def conditionally_wrap_stream(stream,
             callback(error, None)
             return
 
-        adjust_content(content_type,
-                       content_bytes,
-                       query,
-                       metadata,
-                       content_db_conn,
-                       shards,
-                       _content_adjusted_callback)
+        adjuster.render_async(content_type,
+                              content_bytes,
+                              query,
+                              _content_adjusted_callback)
 
-    if content_type in CONTENT_TYPE_ADJUSTERS:
+    if adjuster.needs_adjustment(content_type):
         EosCompanionAppService.load_all_in_stream_to_bytes(stream,
                                                            chunk_size=BYTE_CHUNK_SIZE,
                                                            cancellable=None,
@@ -96,16 +91,12 @@ def conditionally_wrap_stream(stream,
 def conditionally_wrap_blob_stream(blob,
                                    content_type,
                                    query,
-                                   metadata,
-                                   content_db_conn,
-                                   shards,
+                                   adjuster,
                                    callback):
     '''Inspect content_type and adjust blob stream content.'''
     conditionally_wrap_stream(blob.get_stream(),
                               blob.get_content_size(),
                               content_type,
                               query,
-                              metadata,
-                              content_db_conn,
-                              shards,
+                              adjuster,
                               callback)
