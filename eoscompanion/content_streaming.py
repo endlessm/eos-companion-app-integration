@@ -46,14 +46,15 @@ def define_content_range_from_headers_and_size(request_headers, content_size):
     return ranges[0].start, ranges[0].end, ranges[0].end - ranges[0].start + 1
 
 
-def conditionally_wrap_blob_stream(blob,
-                                   content_type,
-                                   query,
-                                   metadata,
-                                   content_db_conn,
-                                   shards,
-                                   callback):
-    '''Inspect content_type and adjust blob stream content.'''
+def conditionally_wrap_stream(stream,
+                              content_size,
+                              content_type,
+                              query,
+                              metadata,
+                              content_db_conn,
+                              shards,
+                              callback):
+    '''Inspect content_type to adjust stream content.'''
     def _content_adjusted_callback(error, adjusted):
         '''Callback once we have finished adjusting the content.'''
         if error is not None:
@@ -80,7 +81,7 @@ def conditionally_wrap_blob_stream(blob,
                        _content_adjusted_callback)
 
     if content_type in CONTENT_TYPE_ADJUSTERS:
-        EosCompanionAppService.load_all_in_stream_to_bytes(blob.get_stream(),
+        EosCompanionAppService.load_all_in_stream_to_bytes(stream,
                                                            chunk_size=BYTE_CHUNK_SIZE,
                                                            cancellable=None,
                                                            callback=_read_stream_callback)
@@ -89,6 +90,22 @@ def conditionally_wrap_blob_stream(blob,
     # We call callback here on idle so as to ensure that both invocations
     # are asynchronous (mixing asynchronous with synchronous disguised as
     # asynchronous is a bad idea)
-    GLib.idle_add(lambda: callback(None,
-                                   (blob.get_stream(),
-                                    blob.get_content_size())))
+    GLib.idle_add(lambda: callback(None, (stream, content_size)))
+
+
+def conditionally_wrap_blob_stream(blob,
+                                   content_type,
+                                   query,
+                                   metadata,
+                                   content_db_conn,
+                                   shards,
+                                   callback):
+    '''Inspect content_type and adjust blob stream content.'''
+    conditionally_wrap_stream(blob.get_stream(),
+                              blob.get_content_size(),
+                              content_type,
+                              query,
+                              metadata,
+                              content_db_conn,
+                              shards,
+                              callback)
