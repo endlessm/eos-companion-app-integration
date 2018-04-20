@@ -284,11 +284,15 @@ def companion_app_server_resource_route(server, msg, path, query, *args):
         })
         return
 
-    def _on_read_input_stream(_, result):
-        '''Callback for when we finish reading the input stream.'''
-        try:
-            content_bytes = EosCompanionAppService.finish_load_all_in_stream_to_bytes(result)
-        except GLib.Error as error:
+    def _on_got_wrapped_bytes(error, content_bytes):
+        '''Take the wrapped stream and send it to the client.
+
+        For now this means reading the entire stream to bytes and
+        then sending the bytes payload over. In future we should
+        share logic with the /content_data route to send
+        a spliced stream over.
+        '''
+        if error is not None:
             json_response(msg, {
                 'status': 'error',
                 'error': serialize_error_as_json_object(
@@ -305,36 +309,26 @@ def companion_app_server_resource_route(server, msg, path, query, *args):
         custom_response(msg, return_content_type, content_bytes)
         server.unpause_message(msg)
 
-    def _on_read_resource(src, result):
-        '''Callback for once we finish reading the resource.'''
-        try:
-            input_stream = src.read_finish(result)
-        except GLib.Error as error:
-            if error.matches(Gio.io_error_quark(), Gio.IOErrorEnum.NOT_FOUND):
-                not_found_response(msg, path)
-            else:
-                json_response(msg, {
-                    'status': 'error',
-                    'error': serialize_error_as_json_object(
-                        EosCompanionAppService.error_quark(),
-                        EosCompanionAppService.Error.FAILED,
-                        detail={
-                            'server_error': str(error)
-                        }
-                    )
-                })
-
+    def _on_got_stream_and_size(error, on_got_stream_result):
+        '''Callback for when we get the stream and size.'''
+        if error is not None:
+            json_response(msg, {
+                'status': 'error',
+                'error': serialize_error_as_json_object(
+                    EosCompanionAppService.error_quark(),
+                    EosCompanionAppService.Error.FAILED,
+                    detail={
+                        'message': str(error)
+                    }
+                )
+            })
             server.unpause_message(msg)
             return
 
-        EosCompanionAppService.load_all_in_stream_to_bytes(input_stream,
-                                                           chunk_size=BYTE_CHUNK_SIZE,
-                                                           cancellable=None,
-                                                           callback=_on_read_input_stream)
+        input_stream, file_size = on_got_stream_result
+        _stream_to_bytes(input_stream, _on_got_wrapped_bytes)
 
-    resource_file.read_async(io_priority=GLib.PRIORITY_DEFAULT,
-                             cancellable=None,
-                             callback=_on_read_resource)
+    _get_file_size_and_stream(resource_file, None, _on_got_stream_and_size)
     server.pause_message(msg)
 
 
