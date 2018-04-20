@@ -90,7 +90,7 @@ def dummy_feed():
             ],
             'entries': [
                 {
-                    'contentType': 'article',
+                    'itemType': 'article',
                     'source': {
                         'type': 'application',
                         'detail': {
@@ -102,11 +102,12 @@ def dummy_feed():
                         'synopis': '.',
                         # pylint: disable=line-too-long
                         'thumbnail': '/v1/content_data?applicationId=com.endlessm.celebrities.en&deviceUUID=1234&contentId=7743ae136927867094cd8c3bffa0f13d5ef63696',
-                        'uri': '7b4978ba82ecf6b992c395956e0adad4b4734dbe'
+                        'uri': '7b4978ba82ecf6b992c395956e0adad4b4734dbe',
+                        'contentType': 'text/html'
                     }
                 },
                 {
-                    'contentType': 'artwork',
+                    'itemType': 'artwork',
                     'source': {
                         'type': 'application',
                         'detail': {
@@ -119,11 +120,12 @@ def dummy_feed():
                         'firstDate': '1965',
                         # pylint: disable=line-too-long
                         'thumbnail': '/v1/content_data?applicationId=com.endlessm.wiki_art.en&deviceUUID=1234&contentId=19db92f13325e93e4a7af18a997ed3941722c176',
-                        'uri': '7afc3eaf5805936f60404037112f08a41d0470cc'
+                        'uri': '7afc3eaf5805936f60404037112f08a41d0470cc',
+                        'contentType': 'text/html'
                     }
                 },
                 {
-                    'contentType': 'video',
+                    'itemType': 'video',
                     'source': {
                         'type': 'application',
                         'detail': {
@@ -135,11 +137,12 @@ def dummy_feed():
                         # pylint: disable=line-too-long
                         'thumbnail': '/v1/content_data?applicationId=com.endlessm.video_kids&deviceUUID=1234&contentId=3dfe56e4f28bacfebe9b7a800529dc9653267eff',
                         'uri': 'bd794303e04e6d2bcc62858e47d813483056f88c',
-                        'duration': '2:01'
+                        'duration': '2:01',
+                        'contentType': 'video/webm'
                     }
                 },
                 {
-                    'contentType': 'wordOfTheDay',
+                    'itemType': 'wordOfTheDay',
                     'source': {
                         'type': 'application',
                         'detail': {
@@ -153,7 +156,7 @@ def dummy_feed():
                     }
                 },
                 {
-                    'contentType': 'quoteOfTheDay',
+                    'itemType': 'quoteOfTheDay',
                     'source': {
                         'type': 'application',
                         'detail': {
@@ -166,7 +169,7 @@ def dummy_feed():
                     }
                 },
                 {
-                    'contentType': 'news',
+                    'itemType': 'news',
                     'source': {
                         'type': 'application',
                         'detail': {
@@ -180,7 +183,8 @@ def dummy_feed():
                         'synopis': 'Pemantauan dilakukan secara terbuka ataupun tertutup - Nasional - Okezone News',
                         # pylint: disable=line-too-long
                         'thumbnail': '/v1/content_data?applicationId=com.endlessm.okezone.id&deviceUUID=1234&contentId=746733c3eec7611da24cb67f06f8b9ea00fefdd6',
-                        'uri': '05237c7d516e57e1830fc9afc1e6ac8bb251dd50'
+                        'uri': '05237c7d516e57e1830fc9afc1e6ac8bb251dd50',
+                        'contentType': 'text/html'
                     }
                 }
             ]
