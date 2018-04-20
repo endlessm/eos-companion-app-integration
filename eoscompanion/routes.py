@@ -173,6 +173,76 @@ _SUFFIX_CONTENT_TYPES = {
 }
 
 
+def _get_file_size_and_stream(file_handle, cancellable, callback):
+    '''Query the file size and get a stream for it.
+
+    This is used by the functions below to work out what the file
+    size is so that it can be streamed properly.
+    '''
+    def _on_read_stream(_, read_result):
+        '''Callback for once we have the read stream.'''
+        def _on_queried_info(src, query_info_result):
+            '''Callback for once we're done querying file info.'''
+            try:
+                file_info = src.query_info_finish(query_info_result)
+            except GLib.Error as error:
+                callback(error, None)
+                return
+
+            callback(None, (input_stream, file_info.get_size()))
+
+        try:
+            input_stream = file_handle.read_finish(read_result)
+        except GLib.Error as error:
+            callback(error, None)
+            return
+
+        input_stream.query_info_async(attributes=Gio.FILE_ATTRIBUTE_STANDARD_SIZE,
+                                      io_priority=GLib.PRIORITY_DEFAULT,
+                                      cancellable=cancellable,
+                                      callback=_on_queried_info)
+
+    file_handle.read_async(io_priority=GLib.PRIORITY_DEFAULT,
+                           cancellable=cancellable,
+                           callback=_on_read_stream)
+
+
+def _stream_to_bytes(stream, callback):
+    '''Take a GInputStream and convert it to a GBytes returning result to the callback.
+
+    This is a simple wrapper to convert load_all_in_stream_to_bytes
+    into a node-style callback.
+    '''
+    def _callback(_, result):
+        '''Called when we get the stream.'''
+        try:
+            content_bytes = EosCompanionAppService.finish_load_all_in_stream_to_bytes(result)
+        except GLib.Error as error:
+            callback(error, None)
+            return
+
+        callback(None, content_bytes)
+
+    EosCompanionAppService.load_all_in_stream_to_bytes(stream,
+                                                       chunk_size=BYTE_CHUNK_SIZE,
+                                                       cancellable=None,
+                                                       callback=_callback)
+
+
+def _wrapped_stream_to_bytes_handler(callback):
+    '''A handler for the taking the wrapped stream and converting it to bytes.'''
+    def _wrapped_stream_callback(wrapped_stream_error, wrapped_stream_result):
+        '''Callback for when we receive the wrapped stream.'''
+        if wrapped_stream_error is not None:
+            callback(wrapped_stream_error, None)
+            return
+
+        stream, _ = wrapped_stream_result
+        _stream_to_bytes(stream, callback)
+
+    return _wrapped_stream_callback
+
+
 @require_query_string_param('deviceUUID')
 @require_query_string_param('uri')
 def companion_app_server_resource_route(server, msg, path, query, *args):
