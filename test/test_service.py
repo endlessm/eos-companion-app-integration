@@ -266,7 +266,7 @@ def can_listen(port):
     '''Return True if we can listen on this port.'''
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
-        sock.bind((socket.gethostname(), port))
+        sock.bind(('127.0.0.1', port))
         sock.close()
     except OSError as error:
         if error.errno == errno.EADDRINUSE:
