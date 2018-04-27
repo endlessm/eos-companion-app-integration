@@ -64,9 +64,3 @@ wants those dependencies to be installed in the systemwide flatpak installation
 so we have an extra tool to regenerate the flatpak pip manifest to include those
 requirements at build-time and test-time and then clean them up afterwards. To
 run that tool, just use `make regenerate-pip-manifest-template`.
-
-## WARNING
-
-This repo history contained a GitHub API key in
-com.endlessm.CompanionAppService.json.in, it should be removed before the
-repository is made public!!
