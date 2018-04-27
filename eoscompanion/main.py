@@ -18,6 +18,7 @@
 # All rights reserved.
 '''Main executable entry point for eos-companion-app-service.'''
 
+import logging
 import os
 import sys
 
@@ -37,7 +38,6 @@ from gi.repository import (
 from .constants import INACTIVITY_TIMEOUT
 from .eknservices_bridge import EknServicesContentDbConnection
 from .service import CompanionAppService
-from .util import log
 
 
 def _inhibit_auto_idle(connection, fd_callback):
@@ -113,10 +113,10 @@ class CompanionAppApplication(Gio.Application):
         and the inhibit lock released.
         '''
         if error is not None:
-            log('Received error when attempting to take idle inhibit '
-                'lock. Ensure that this user has sufficient permissions '
-                '(eg, through org.freedesktop.login1.inhibit-block-idle). '
-                'The error was: {}'.format(str(error)))
+            logging.error('Received error when attempting to take idle inhibit '
+                          'lock. Ensure that this user has sufficient permissions '
+                          '(eg, through org.freedesktop.login1.inhibit-block-idle). '
+                          'The error was: %s', str(error))
             return
 
         # Hang on to the fd so that we don't lose track of it, even though
@@ -130,16 +130,16 @@ class CompanionAppApplication(Gio.Application):
         try:
             connection = Gio.bus_get_finish(result)
         except GLib.Error as error:
-            log('Error getting the system bus: {}'.format(str(error)))
+            logging.error('Error getting the system bus: %s', str(error))
             self.quit()
             return
 
-        log('Got system d-bus connection')
+        logging.info('Got system d-bus connection')
         _inhibit_auto_idle(connection, self._on_got_inhibit_fd)
 
     def do_dbus_register(self, connection, object_path):  # pylint: disable=arguments-differ
         '''Invoked when we get a D-Bus connection.'''
-        log('Got session d-bus connection at {path}'.format(path=object_path))
+        logging.info('Got session d-bus connection at %s', object_path)
         self._service = CompanionAppService(self,
                                             1110,
                                             EknServicesContentDbConnection(connection))
@@ -149,15 +149,76 @@ class CompanionAppApplication(Gio.Application):
 
     def do_dbus_unregister(self, connection, object_path):  # pylint: disable=arguments-differ
         '''Invoked when we lose a D-Bus connection.'''
-        log('Lost session d-bus connection at {path}'.format(path=object_path))
+        logging.warning('Lost session d-bus connection at %s', object_path)
         return Gio.Application.do_dbus_unregister(self,
                                                   connection,
                                                   object_path)
 
     def do_activate(self):  # pylint: disable=arguments-differ
         '''Invoked when the application is activated.'''
-        log('Activated')
+        logging.info('Activated')
         return Gio.Application.do_activate(self)
+
+
+COMPANION_APP_CONFIG_FILES = [
+    '/run/host/etc/eos-companion-app/config.ini',
+    '/var/lib/eos-companion-app/config.ini',
+    '/run/host/usr/share/eos-companion-app/config.ini'
+]
+COMPANION_APP_CONFIG_SECTION = 'Companion App'
+LOGLEVEL_CONFIG_NAME = 'loglevel'
+DEFAULT_LOG_LEVEL = logging.INFO
+
+
+def find_best_matching_config_file():
+    '''Get a GKeyFile structure for the first config file.
+
+    This searches all three config directories in priority order, similar
+    to the way that eos-companion-app-configuration-manager does it.
+    '''
+    keyfile = GLib.KeyFile()
+
+    for config_file_candidate_path in COMPANION_APP_CONFIG_FILES:
+        try:
+            keyfile.load_from_file(config_file_candidate_path,
+                                   GLib.KeyFileFlags.NONE)
+        except GLib.Error as error:
+            if error.matches(GLib.file_error_quark(), GLib.FileError.NOENT):
+                continue
+
+            raise error
+
+        return keyfile
+
+    return None
+
+
+def get_log_level():
+    '''Get the log level
+
+    We try to get the log level from the eos-companion-app
+    config file. If we can not get the value we return the
+    default log level.
+    '''
+    keyfile = find_best_matching_config_file()
+
+    if not keyfile:
+        return DEFAULT_LOG_LEVEL
+
+    try:
+        config_level = keyfile.get_string(COMPANION_APP_CONFIG_SECTION,
+                                          LOGLEVEL_CONFIG_NAME)
+    except GLib.Error:
+        return DEFAULT_LOG_LEVEL
+
+    # make sure the loglevel is recognized by the logging module
+    # getLevelName returns "Level %s" % level if no corresponding
+    # representation is found hence the integer check
+    level = logging.getLevelName(config_level)
+    if not isinstance(level, int):
+        return DEFAULT_LOG_LEVEL
+
+    return level
 
 
 def main(args=None):
@@ -179,4 +240,6 @@ def main(args=None):
                 os.pathsep.join([
                     GLib.getenv('XDG_DATA_DIRS') or ''
                 ] + flatpak_export_share_dirs), True)
+
+    logging.basicConfig(format='CompanionAppService %(levelname)s: %(message)s', level=get_log_level())
     CompanionAppApplication().run(args or sys.argv)
