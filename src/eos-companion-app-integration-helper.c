@@ -33,7 +33,6 @@
 #define SYSTEMD_SOCKET_ACTIVATION_LISTEN_FDS_START 3
 
 #define SUPPORTED_RUNTIME_NAME "com.endlessm.apps.Platform"
-#define SUPPORTED_RUNTIME_BRANCH "3"
 
 /* Needed to get autocleanups of GResource files */
 G_DEFINE_AUTOPTR_CLEANUP_FUNC (GResource, g_resource_unref)
@@ -250,16 +249,27 @@ parse_runtime_spec (const gchar  *runtime_spec,
 }
 
 static gboolean
+runtime_version_is_supported (const gchar *runtime_version)
+{
+  static const gchar *supported_runtime_versions[] = {
+    "2",
+    "3",
+    "4",
+    NULL
+  };
+
+  return g_strv_contains (supported_runtime_versions, runtime_version);
+}
+
+static gboolean
 app_is_compatible (const gchar  *app_id,
-                   const gchar  *runtime_spec,
+                   const gchar  *runtime_name,
+                   const gchar  *runtime_version,
                    gboolean     *out_app_is_compatible,
                    GError      **error)
 {
   g_autoptr(GFile) data_dir = NULL;
   gboolean supported_cache = FALSE;
-  gchar *runtime_name = NULL;
-  gchar *arch = NULL;
-  gchar *runtime_version = NULL;
 
   if (application_is_supported_cache (app_id, &supported_cache))
     {
@@ -267,16 +277,13 @@ app_is_compatible (const gchar  *app_id,
       return TRUE;
     }
 
-  if (!parse_runtime_spec (runtime_spec, &runtime_name, &runtime_version, error))
-    return FALSE;
-
   if (g_strcmp0 (runtime_name, SUPPORTED_RUNTIME_NAME) != 0)
     {
       *out_app_is_compatible = record_application_is_supported_cache (app_id, FALSE);
       return TRUE;
     }
 
-  if (g_strcmp0 (runtime_version, SUPPORTED_RUNTIME_BRANCH) != 0)
+  if (!runtime_version_is_supported (runtime_version))
     {
       *out_app_is_compatible = record_application_is_supported_cache (app_id, FALSE);
       return TRUE;
@@ -483,7 +490,9 @@ list_application_infos (GCancellable  *cancellable,
           GFile *child = NULL;
           GFileInfo *info = NULL;
           g_autofree gchar *flatpak_directory = NULL;
+          g_autofree gchar *runtime_spec = NULL;
           g_autofree gchar *runtime_name = NULL;
+          g_autofree gchar *runtime_version = NULL;
           g_autofree gchar *app_name = NULL;
           g_autoptr(GDesktopAppInfo) app_info = NULL;
           g_autoptr(GError) check_app_error = NULL;
@@ -501,7 +510,7 @@ list_application_infos (GCancellable  *cancellable,
 
           /* Look inside the metadata for each flatpak to work out what runtime
            * it is using */
-          if (!examine_flatpak_metadata (flatpak_directory, &app_name, &runtime_name, &check_app_error))
+          if (!examine_flatpak_metadata (flatpak_directory, &app_name, &runtime_spec, &check_app_error))
             {
               g_message ("Flatpak at %s has a damaged installation and checking "
                          "its metadata failed with: %s, ignoring",
@@ -510,8 +519,22 @@ list_application_infos (GCancellable  *cancellable,
               continue;
             }
 
+          if (!parse_runtime_spec (runtime_spec, &runtime_name, &runtime_version, &check_app_error))
+            {
+              g_message ("Flatpak %s had a damaged runtime spec %s (parsing failed "
+                         "with: %s), ignoring",
+                         app_name,
+                         runtime_spec,
+                         check_app_error->message);
+              continue;
+            }
+
           /* Check if the application is an eligible content app */
-          if (!app_is_compatible (app_name, runtime_name, &is_compatible_app, error))
+          if (!app_is_compatible (app_name,
+                                  runtime_name,
+                                  runtime_version,
+                                  &is_compatible_app,
+                                  error))
             return NULL;
 
           if (!is_compatible_app)
