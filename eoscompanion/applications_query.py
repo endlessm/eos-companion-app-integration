@@ -67,8 +67,13 @@ def list_all_applications(callback):
     '''Convenience function to pass list of ApplicationListing to callback.'''
     def _callback(_, result):
         '''Callback function that gets called when we are done.'''
-        infos = EosCompanionAppService.finish_list_application_infos(result)
-        callback([
+        try:
+            infos = EosCompanionAppService.finish_list_application_infos(result)
+        except GLib.Error as error:
+            callback(error, None)
+            return
+
+        callback(None, [
             application_listing_from_app_info(app_info)
             for app_info in infos
         ])

@@ -438,8 +438,22 @@ def companion_app_server_list_applications_route(server, msg, path, query, *args
     del path
     del args
 
-    def _callback(applications):
+    def _callback(error, applications):
         '''Callback function that gets called when we are done.'''
+        if error is not None:
+            json_response(msg, {
+                'status': 'error',
+                'error': serialize_error_as_json_object(
+                    EosCompanionAppService.error_quark(),
+                    EosCompanionAppService.Error.FAILED,
+                    detail={
+                        'message': str(error)
+                    }
+                )
+            })
+            server.unpause_message(msg)
+            return
+
         # Blacklist com.endlessm.encyclopedia.*
         filtered_applications = (
             application for application in applications
@@ -1461,7 +1475,7 @@ def companion_app_server_search_content_route(server,
                                                       global_limit,
                                                       global_offset))
 
-    def _on_got_all_applications(applications):
+    def _on_got_all_applications(error, applications):
         '''Called when we get all applications.
 
         When searching all applications, we do not apply a per-application
@@ -1477,6 +1491,20 @@ def companion_app_server_search_content_route(server,
         global limit and offset correctly, otherwise the slice would
         run off the end of the result set when we could have had more.
         '''
+        if error is not None:
+            json_response(msg, {
+                'status': 'error',
+                'error': serialize_error_as_json_object(
+                    EosCompanionAppService.error_quark(),
+                    EosCompanionAppService.Error.FAILED,
+                    detail={
+                        'message': str(error)
+                    }
+                )
+            })
+            server.unpause_message(msg)
+            return
+
         _search_all_applications(applications,
                                  limit,
                                  offset,
