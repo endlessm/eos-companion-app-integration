@@ -241,5 +241,6 @@ def main(args=None):
                     GLib.getenv('XDG_DATA_DIRS') or ''
                 ] + flatpak_export_share_dirs), True)
 
-    logging.basicConfig(format='CompanionAppService %(levelname)s: %(message)s', level=get_log_level())
+    logging.basicConfig(format='CompanionAppService %(levelname)s: %(message)s',
+                        level=get_log_level())
     CompanionAppApplication().run(args or sys.argv)

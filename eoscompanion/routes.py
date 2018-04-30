@@ -23,7 +23,6 @@ import itertools
 import json
 import logging
 import os
-import sys
 import urllib.parse
 
 
@@ -325,8 +324,7 @@ def companion_app_server_application_icon_route(server, msg, path, query, *args)
 
     logging.debug('Get application icon: clientId=%s, iconName=%s',
                   query['deviceUUID'],
-                  query['iconName']
-    )
+                  query['iconName'])
     EosCompanionAppService.load_application_icon_data_async(query['iconName'],
                                                             cancellable=None,
                                                             callback=_callback)
@@ -380,8 +378,7 @@ def companion_app_server_application_colors_route(server, msg, path, query, *arg
 
     logging.debug('Get application colors: clientId=%s, applicationId=%s',
                   query['deviceUUID'],
-                  query['applicationId']
-    )
+                  query['applicationId'])
     EosCompanionAppService.load_application_colors(query['applicationId'],
                                                    cancellable=None,
                                                    callback=_callback)
@@ -485,8 +482,7 @@ def companion_app_server_list_application_sets_route(server,
 
     logging.debug('List application sets: clientId=%s, applicationId=%s',
                   query['deviceUUID'],
-                  query['applicationId']
-    )
+                  query['applicationId'])
 
     app_id = query['applicationId']
     content_db_conn.query(app_id=app_id,
@@ -550,10 +546,9 @@ def companion_app_server_list_application_content_for_tags_route(server,
     logging.debug(
         'List application content for tags: clientId=%s, '
         'applicationId=%s, tags=%s',
-            query['deviceUUID'],
-            query['applicationId'],
-            query['tags']
-    )
+        query['deviceUUID'],
+        query['applicationId'],
+        query['tags'])
 
     app_id = query['applicationId']
     tags = query['tags'].split(';')
@@ -644,7 +639,7 @@ def companion_app_server_content_data_route(server,
                 except GLib.Error as splice_error:
                     # Can't really do much here except log server side
                     logging.warning(
-                        'Splice operation on file failed: %s', error
+                        'Splice operation on file failed: %s', splice_error
                     )
 
                 # In every case, we must mark the message as finished
@@ -960,10 +955,9 @@ def companion_app_server_content_metadata_route(server,
     logging.debug(
         'Get content metadata: clientId=%s, '
         'applicationId=%s, contentId=%s',
-            query['deviceUUID'],
-            query['applicationId'],
-            query['contentId']
-    )
+        query['deviceUUID'],
+        query['applicationId'],
+        query['contentId'])
     server.pause_message(msg)
     content_db_conn.shards_for_application(app_id=query['applicationId'],
                                            callback=_on_got_shards_callback)
