@@ -1527,20 +1527,6 @@ def companion_app_server_search_content_route(server,
                 'status': 'error',
                 'error': serialize_error_as_json_object(
                     EosCompanionAppService.error_quark(),
-                    EosCompanionAppService.Error.FAILED,
-                    detail={
-                        'message': str(error)
-                    }
-                )
-            })
-            server.unpause_message(msg)
-            return
-
-        if not info:
-            json_response(msg, {
-                'status': 'error',
-                'error': serialize_error_as_json_object(
-                    EosCompanionAppService.error_quark(),
                     EosCompanionAppService.Error.INVALID_APP_ID,
                     detail={
                         'applicationId': application_id,
