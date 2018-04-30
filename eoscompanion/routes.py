@@ -1012,7 +1012,8 @@ def companion_app_server_content_data_route(server,
                     EosCompanionAppService.Error.FAILED,
                     detail={
                         'applicationId': query['applicationId'],
-                        'contentId': query['contentId']
+                        'contentId': query['contentId'],
+                        'message': str(shards_error)
                     }
                 )
             })
@@ -1542,7 +1543,8 @@ def companion_app_server_search_content_route(server,
                     EosCompanionAppService.error_quark(),
                     EosCompanionAppService.Error.INVALID_APP_ID,
                     detail={
-                        'applicationId': application_id
+                        'applicationId': application_id,
+                        'message': str(error)
                     }
                 )
             })
