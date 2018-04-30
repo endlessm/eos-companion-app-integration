@@ -74,3 +74,17 @@ def rewrite_resource_url(uri, query):
         uri=uri
     )
     return formatted
+
+
+def rewrite_license_url(license_name, query):
+    '''If the URL is an internal license url, rewrite it to be server-relative.
+
+    This causes the deviceUUID to be included in
+    the URL query-string and the resource path to be URI encoded.
+    '''
+    formatted = format_uri_with_querystring(
+        '/v1/license',
+        deviceUUID=query['deviceUUID'],
+        name=license_name
+    )
+    return formatted

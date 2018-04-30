@@ -1,4 +1,4 @@
-# /eoscompanion/content_adjusters.py
+# /eoscompanion/ekn_content_adjuster.py
 #
 # Copyright (C) 2018 Endless Mobile, Inc.
 #
@@ -16,7 +16,13 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 # All rights reserved.
-'''Content adjustment handling functions.'''
+'''Implementation of Adjuster for EKN Content.
+
+The adjuster is a piece of output middleware that takes an EKN Content stream
+and rewrites ekn://, resource:// and file:// URIs to be server-relative. It
+also performs any necessary postprocessing on content according to the
+rules specified in EknRenderer.
+'''
 
 import json
 
@@ -35,21 +41,30 @@ from gi.repository import (
 
 from .format import (
     rewrite_ekn_url,
+    rewrite_license_url,
     rewrite_resource_url
 )
 
 _RE_EKN_URL_CAPTURE = re.compile(r'"ekn\:\/\/[a-z0-9\-_\.\\\/]*\/(?P<id>[a-z0-9]+)"')
 _RE_RESOURCE_URL_CAPTURE = re.compile(r'"(?P<uri>(?:resource|file)\:\/\/[A-Za-z0-9\/\-\._]+)"')
+_RE_LICENSE_URL_CAPTURE = re.compile(r'"license\:\/\/(?P<license>[A-Za-z0-9%\/\-\._]+)"')
 
 
 def ekn_url_rewriter(query):
-    '''Higher order function to rewrite a URL based on query.'''
+    '''Higher order function to rewrite an EKN URL based on query.'''
     return lambda m: '"{}"'.format(rewrite_ekn_url(m.group('id'), query))
 
 
 def resource_url_rewriter(query):
-    '''Higher order function to rewrite a URL based on query.'''
-    return lambda m: '"{}"'.format(rewrite_resource_url(m.group('uri'), query))
+    '''Higher order function to rewrite a resource URL based on query.'''
+    return lambda m: '"{}"'.format(rewrite_resource_url(m.group('uri'),
+                                                        query))
+
+
+def license_url_rewriter(query):
+    '''Higher order function to rewrite a license URL based on query.'''
+    return lambda m: '"{}"'.format(rewrite_license_url(m.group('license'),
+                                                       query))
 
 
 def pipeline(src, *funcs):
@@ -229,10 +244,18 @@ def _html_content_adjuster_closure():
                 response_bytes = EosCompanionAppService.string_to_bytes(
                     pipeline(
                         rendered_page,
-                        lambda content: _RE_EKN_URL_CAPTURE.sub(ekn_url_rewriter(query),
-                                                                content),
-                        lambda content: _RE_RESOURCE_URL_CAPTURE.sub(resource_url_rewriter(query),
-                                                                     content)
+                        lambda content: _RE_EKN_URL_CAPTURE.sub(
+                            ekn_url_rewriter(query),
+                            content
+                        ),
+                        lambda content: _RE_RESOURCE_URL_CAPTURE.sub(
+                            resource_url_rewriter(query),
+                            content
+                        ),
+                        lambda content: _RE_LICENSE_URL_CAPTURE.sub(
+                            license_url_rewriter(query),
+                            content
+                        )
                     )
                 )
             except GLib.Error as render_bytes_error:
@@ -242,29 +265,38 @@ def _html_content_adjuster_closure():
             callback(None, response_bytes)
 
         unrendered_html_string = EosCompanionAppService.bytes_to_string(content_bytes)
-        if not metadata.get('isServerTemplated', False):
-            rendered_content = renderer.render_legacy_content(
-                unrendered_html_string,
-                metadata.get('source', ''),
-                metadata.get('sourceName', ''),
-                metadata.get('originalURI', ''),
-                metadata.get('license', ''),
-                metadata.get('title', ''),
-                show_title=True,
-                use_scroll_manager=False
-            )
+
+        # We need the content_db_conn, shards and metadata
+        # in order to render our mobile wrapper.
+        if (metadata is not None and
+                content_db_conn is not None and
+                shards is not None):
+            if not metadata.get('isServerTemplated', False):
+                rendered_content = renderer.render_legacy_content(
+                    unrendered_html_string,
+                    metadata.get('source', ''),
+                    metadata.get('sourceName', ''),
+                    metadata.get('originalURI', ''),
+                    metadata.get('license', ''),
+                    metadata.get('title', ''),
+                    show_title=True,
+                    use_scroll_manager=False
+                )
+            else:
+                rendered_content = unrendered_html_string
+
+            render_mobile_wrapper(renderer,
+                                  query['applicationId'],
+                                  rendered_content,
+                                  metadata,
+                                  content_db_conn,
+                                  shards,
+                                  query,
+                                  _on_rendered_wrapper)
         else:
-            rendered_content = unrendered_html_string
-
-        render_mobile_wrapper(renderer,
-                              query['applicationId'],
-                              rendered_content,
-                              metadata,
-                              content_db_conn,
-                              shards,
-                              query,
-                              _on_rendered_wrapper)
-
+            # Put this on an idle timer, mixing async and sync code
+            # is a bad idea
+            GLib.idle_add(lambda: _on_rendered_wrapper(None, unrendered_html_string))
 
     return _html_content_adjuster
 
@@ -274,21 +306,31 @@ CONTENT_TYPE_ADJUSTERS = {
 }
 
 
-def adjust_content(content_type,
-                   content_bytes,
-                   query,
-                   metadata,
-                   content_db_conn,
-                   shards,
-                   callback):
-    '''Adjust content if necessary.'''
-    if content_type in CONTENT_TYPE_ADJUSTERS:
+class EknContentAdjuster(object):
+    '''An implementation of Adjuster for EKN Content routes.'''
+
+    def __init__(self, metadata, content_db_conn, shards):
+        '''Initialize this EknContentAdjuster with resources that it requires.'''
+        super().__init__()
+        self._metadata = metadata
+        self._content_db_conn = content_db_conn
+        self._shards = shards
+
+    @staticmethod
+    def needs_adjustment(content_type):
+        '''Return True if the content_type specified requires adjustment.
+
+        This method can be used to implement an optimization that tells
+        the caller whether a content stream will need to be loaded into bytes
+        and passed to the render_async() method.
+        '''
+        return content_type in CONTENT_TYPE_ADJUSTERS.keys()
+
+    def render_async(self, content_type, content_bytes, query, callback):
+        '''Perform any rendering on the content asynchronously.'''
         CONTENT_TYPE_ADJUSTERS[content_type](content_bytes,
                                              query,
-                                             metadata,
-                                             content_db_conn,
-                                             shards,
+                                             self._metadata,
+                                             self._content_db_conn,
+                                             self._shards,
                                              callback)
-        return
-
-    GLib.idle_add(lambda: callback(None, content_bytes))

@@ -27,6 +27,7 @@ import urllib.parse
 
 
 from gi.repository import (
+    Endless,
     EosCompanionAppService,
     EosMetrics,
     Gio,
@@ -47,7 +48,11 @@ from .constants import (
 )
 from .content_streaming import (
     conditionally_wrap_blob_stream,
+    conditionally_wrap_stream,
     define_content_range_from_headers_and_size
+)
+from .ekn_content_adjuster import (
+    EknContentAdjuster
 )
 from .ekn_data import (
     BYTE_CHUNK_SIZE,
@@ -61,6 +66,9 @@ from .format import (
     format_thumbnail_uri
 )
 from .functional import all_asynchronous_function_calls_closure
+from .license_content_adjuster import (
+    LicenseContentAdjuster
+)
 from .responses import (
     custom_response,
     html_response,
@@ -169,8 +177,84 @@ def companion_app_server_feed_route(server, msg, path, query, *args):
 
 _SUFFIX_CONTENT_TYPES = {
     '.css': 'text/css',
-    '.js': 'application/javascript'
+    '.js': 'application/javascript',
+    '.png': 'image/png',
+    '.jpeg': 'image/jpeg',
+    '.jpg': 'image/jpeg'
 }
+_CONTENT_ADJUSTERS = {
+    'license': LicenseContentAdjuster
+}
+
+
+def _get_file_size_and_stream(file_handle, cancellable, callback):
+    '''Query the file size and get a stream for it.
+
+    This is used by the functions below to work out what the file
+    size is so that it can be streamed properly.
+    '''
+    def _on_read_stream(_, read_result):
+        '''Callback for once we have the read stream.'''
+        def _on_queried_info(src, query_info_result):
+            '''Callback for once we're done querying file info.'''
+            try:
+                file_info = src.query_info_finish(query_info_result)
+            except GLib.Error as error:
+                callback(error, None)
+                return
+
+            callback(None, (input_stream, file_info.get_size()))
+
+        try:
+            input_stream = file_handle.read_finish(read_result)
+        except GLib.Error as error:
+            callback(error, None)
+            return
+
+        input_stream.query_info_async(attributes=Gio.FILE_ATTRIBUTE_STANDARD_SIZE,
+                                      io_priority=GLib.PRIORITY_DEFAULT,
+                                      cancellable=cancellable,
+                                      callback=_on_queried_info)
+
+    file_handle.read_async(io_priority=GLib.PRIORITY_DEFAULT,
+                           cancellable=cancellable,
+                           callback=_on_read_stream)
+
+
+def _stream_to_bytes(stream, callback):
+    '''Take a GInputStream and convert it to a GBytes returning result to the callback.
+
+    This is a simple wrapper to convert load_all_in_stream_to_bytes
+    into a node-style callback.
+    '''
+    def _callback(_, result):
+        '''Called when we get the stream.'''
+        try:
+            content_bytes = EosCompanionAppService.finish_load_all_in_stream_to_bytes(result)
+        except GLib.Error as error:
+            callback(error, None)
+            return
+
+        callback(None, content_bytes)
+
+    EosCompanionAppService.load_all_in_stream_to_bytes(stream,
+                                                       chunk_size=BYTE_CHUNK_SIZE,
+                                                       cancellable=None,
+                                                       callback=_callback)
+
+
+def _wrapped_stream_to_bytes_handler(callback):
+    '''A handler for the taking the wrapped stream and converting it to bytes.'''
+    def _wrapped_stream_callback(wrapped_stream_error, wrapped_stream_result):
+        '''Callback for when we receive the wrapped stream.'''
+        if wrapped_stream_error is not None:
+            callback(wrapped_stream_error, None)
+            return
+
+        stream, _ = wrapped_stream_result
+        _stream_to_bytes(stream, callback)
+
+    return _wrapped_stream_callback
 
 
 @require_query_string_param('deviceUUID')
@@ -200,7 +284,7 @@ def companion_app_server_resource_route(server, msg, path, query, *args):
                 EosCompanionAppService.error_quark(),
                 EosCompanionAppService.Error.FAILED,
                 detail={
-                    'server_error': (
+                    'message': (
                         'Don\'t know content type for suffix, {}'.format(resource_suffix)
                     )
                 }
@@ -208,18 +292,28 @@ def companion_app_server_resource_route(server, msg, path, query, *args):
         })
         return
 
-    def _on_read_input_stream(_, result):
-        '''Callback for when we finish reading the input stream.'''
-        try:
-            content_bytes = EosCompanionAppService.finish_load_all_in_stream_to_bytes(result)
-        except GLib.Error as error:
+    if resource_file is None:
+        not_found_response(msg, path)
+        return
+
+    content_adjuster_cls = _CONTENT_ADJUSTERS.get(query.get('adjuster', None), None)
+
+    def _on_got_wrapped_bytes(error, content_bytes):
+        '''Take the wrapped stream and send it to the client.
+
+        For now this means reading the entire stream to bytes and
+        then sending the bytes payload over. In future we should
+        share logic with the /content_data route to send
+        a spliced stream over.
+        '''
+        if error is not None:
             json_response(msg, {
                 'status': 'error',
                 'error': serialize_error_as_json_object(
                     EosCompanionAppService.error_quark(),
                     EosCompanionAppService.Error.FAILED,
                     detail={
-                        'server_error': str(error)
+                        'message': str(error)
                     }
                 )
             })
@@ -229,36 +323,111 @@ def companion_app_server_resource_route(server, msg, path, query, *args):
         custom_response(msg, return_content_type, content_bytes)
         server.unpause_message(msg)
 
-    def _on_read_resource(src, result):
-        '''Callback for once we finish reading the resource.'''
-        try:
-            input_stream = src.read_finish(result)
-        except GLib.Error as error:
-            if error.matches(Gio.io_error_quark(), Gio.IOErrorEnum.NOT_FOUND):
-                not_found_response(msg, path)
-            else:
-                json_response(msg, {
-                    'status': 'error',
-                    'error': serialize_error_as_json_object(
-                        EosCompanionAppService.error_quark(),
-                        EosCompanionAppService.Error.FAILED,
-                        detail={
-                            'server_error': str(error)
-                        }
-                    )
-                })
-
+    def _on_got_stream_and_size(error, on_got_stream_result):
+        '''Callback for when we get the stream and size.'''
+        if error is not None:
+            json_response(msg, {
+                'status': 'error',
+                'error': serialize_error_as_json_object(
+                    EosCompanionAppService.error_quark(),
+                    EosCompanionAppService.Error.FAILED,
+                    detail={
+                        'message': str(error)
+                    }
+                )
+            })
             server.unpause_message(msg)
             return
 
-        EosCompanionAppService.load_all_in_stream_to_bytes(input_stream,
-                                                           chunk_size=BYTE_CHUNK_SIZE,
-                                                           cancellable=None,
-                                                           callback=_on_read_input_stream)
+        input_stream, file_size = on_got_stream_result
+        if content_adjuster_cls is not None:
+            adjuster = content_adjuster_cls.create_from_resource_query(resource_file.get_path(),
+                                                                       query)
+            conditionally_wrap_stream(input_stream,
+                                      file_size,
+                                      return_content_type,
+                                      query,
+                                      adjuster,
+                                      _wrapped_stream_to_bytes_handler(_on_got_wrapped_bytes))
+            return
 
-    resource_file.read_async(io_priority=GLib.PRIORITY_DEFAULT,
-                             cancellable=None,
-                             callback=_on_read_resource)
+        _stream_to_bytes(input_stream, _on_got_wrapped_bytes)
+
+    _get_file_size_and_stream(resource_file, None, _on_got_stream_and_size)
+    server.pause_message(msg)
+
+
+@require_query_string_param('deviceUUID')
+@require_query_string_param('name')
+def companion_app_server_license_route(server, msg, path, query, *args):
+    '''Fetch an internal license from a rewritten link on the page.
+
+    This route is for for fetching license files which are embedded
+    into certain documents. The licenses themselves are stored by
+    eos-sdk.
+
+    The querystring param "name" indicates the license name.
+    '''
+    del args
+
+    license_name = Soup.URI.decode(query['name'])
+    return_content_type = 'text/html'
+    license_file = Endless.get_license_file(license_name)
+
+    if license_file is None:
+        not_found_response(msg, path)
+        return
+
+    def _on_got_wrapped_bytes(error, content_bytes):
+        '''Take the wrapped stream and send it to the client.
+
+        For now this means reading the entire stream to bytes and
+        then sending the bytes payload over. In future we should
+        share logic with the /content_data route to send
+        a spliced stream over.
+        '''
+        if error is not None:
+            json_response(msg, {
+                'status': 'error',
+                'error': serialize_error_as_json_object(
+                    EosCompanionAppService.error_quark(),
+                    EosCompanionAppService.Error.FAILED,
+                    detail={
+                        'message': str(error)
+                    }
+                )
+            })
+            server.unpause_message(msg)
+            return
+
+        custom_response(msg, return_content_type, content_bytes)
+        server.unpause_message(msg)
+
+    def _on_got_stream_and_size(error, on_got_stream_result):
+        '''Callback for when we get the stream and size.'''
+        if error is not None:
+            json_response(msg, {
+                'status': 'error',
+                'error': serialize_error_as_json_object(
+                    EosCompanionAppService.error_quark(),
+                    EosCompanionAppService.Error.FAILED,
+                    detail={
+                        'message': str(error)
+                    }
+                )
+            })
+            server.unpause_message(msg)
+            return
+
+        input_stream, file_size = on_got_stream_result
+        conditionally_wrap_stream(input_stream,
+                                  file_size,
+                                  return_content_type,
+                                  query,
+                                  LicenseContentAdjuster(license_file.get_path()),
+                                  _wrapped_stream_to_bytes_handler(_on_got_wrapped_bytes))
+
+    _get_file_size_and_stream(license_file, None, _on_got_stream_and_size)
     server.pause_message(msg)
 
 
@@ -316,7 +485,7 @@ def companion_app_server_application_icon_route(server, msg, path, query, *args)
                     'domain': GLib.quark_to_string(EosCompanionAppService.error_quark()),
                     'code': EosCompanionAppService.Error.FAILED,
                     'detail': {
-                        'server_error': str(error)
+                        'message': str(error)
                     }
                 }
             })
@@ -816,9 +985,9 @@ def companion_app_server_content_data_route(server,
             conditionally_wrap_blob_stream(blob,
                                            content_type,
                                            query,
-                                           content_metadata,
-                                           content_db_conn,
-                                           shards,
+                                           EknContentAdjuster(content_metadata,
+                                                              content_db_conn,
+                                                              shards),
                                            _on_got_wrapped_stream)
 
         if shards_error is not None:
@@ -1546,7 +1715,8 @@ def create_companion_app_routes(content_db_conn):
             content_db_conn
         ),
         '/v1/feed': companion_app_server_feed_route,
-        '/v1/resource': companion_app_server_resource_route
+        '/v1/resource': companion_app_server_resource_route,
+        '/v1/license': companion_app_server_license_route
     }
 
 
