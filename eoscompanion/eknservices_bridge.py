@@ -200,7 +200,7 @@ class EknServicesContentDbConnection(object):
         super().__init__(*args, **kwargs)
         self._dbus_connection = dbus_connection
 
-    def shards_for_application(self, app_id, callback):
+    def shards_for_application(self, application_listing, callback):
         '''Load shards for application and wrap with EosShard.ShardFile.'''
         def _internal_callback(src, result):
             '''Internal GDBusConnection.call callback.'''
@@ -213,10 +213,12 @@ class EknServicesContentDbConnection(object):
             shard_paths = response.unpack()[0]
             async_init_all_shards(shard_paths, callback)
 
-        eknservices_shards_for_application(self._dbus_connection, app_id, _internal_callback)
+        eknservices_shards_for_application(self._dbus_connection,
+                                           application_listing.app_id,
+                                           _internal_callback)
 
 
-    def query(self, app_id, query, callback):
+    def query(self, application_listing, query, callback):
         '''Run a query and wrap the results into a python-friendly format.'''
         def _internal_callback(src, result):
             '''Internal GDBusConnection.call callback.'''
@@ -245,4 +247,7 @@ class EknServicesContentDbConnection(object):
             async_init_all_shards(shard_paths, _on_finished_loading_shards)
 
         # Wrap the query in an array of length 1 to satisfy the interface
-        eknservices_query(self._dbus_connection, app_id, [query], _internal_callback)
+        eknservices_query(self._dbus_connection,
+                          application_listing.app_id,
+                          [query],
+                          _internal_callback)

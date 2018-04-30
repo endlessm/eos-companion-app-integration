@@ -581,9 +581,10 @@ class FakeContentDbConnection(object):
         super().__init__()
         self.data = data
 
-    def shards_for_application(self, app_id, callback):
+    def shards_for_application(self, application_listing, callback):
         '''Create shards for the application and return them.'''
-        app_data = self.data.get(app_id, None)
+        app_id = application_listing.app_id
+        app_data = self.data.get(application_listing.app_id, None)
         if app_data is None:
             GLib.idle_add(callback,
                           GLib.Error('Invalid App ID {}'.format(app_id),
@@ -594,12 +595,13 @@ class FakeContentDbConnection(object):
 
         GLib.idle_add(callback, None, [FakeEosShard(app_data)])
 
-    def query(self, app_id, query, callback):
+    def query(self, application_listing, query, callback):
         '''Run a query on the fake data.
 
         This isn't a reimplementation of how EknQueryObject works, but it
         should be as close as possible.
         '''
+        app_id = application_listing.app_id
         app_data = self.data.get(app_id, None)
         if app_data is None:
             GLib.idle_add(callback,

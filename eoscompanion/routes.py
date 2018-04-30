@@ -663,17 +663,42 @@ def companion_app_server_list_application_sets_route(server,
                                                query['applicationId'],
                                                _on_ascertained_sets)
 
+    def _on_got_application_info(_, result):
+        '''Callback function that gets called when we get the app info.'''
+        try:
+            app_info = EosCompanionAppService.finish_load_application_info(result)
+        except GLib.Error as error:
+            json_response(msg, {
+                'status': 'error',
+                'error': serialize_error_as_json_object(
+                    EosCompanionAppService.error_quark(),
+                    EosCompanionAppService.Error.INVALID_APP_ID,
+                    detail={
+                        'applicationId': query['applicationId'],
+                        'message': str(error)
+                    }
+                )
+            })
+            server.unpause_message(msg)
+            return
+
+        application_listing = application_listing_from_app_info(app_info)
+        content_db_conn.query(application_listing,
+                              query={
+                                  'tags-match-all': ['EknSetObject'],
+                                  'limit': _SENSIBLE_QUERY_LIMIT
+                              },
+                              callback=_on_queried_sets)
+
+
     logging.debug('List application sets: clientId=%s, applicationId=%s',
                   query['deviceUUID'],
                   query['applicationId'])
 
     app_id = query['applicationId']
-    content_db_conn.query(app_id=app_id,
-                          query={
-                              'tags-match-all': ['EknSetObject'],
-                              'limit': _SENSIBLE_QUERY_LIMIT
-                          },
-                          callback=_on_queried_sets)
+    EosCompanionAppService.load_application_info(app_id,
+                                                 cancellable=None,
+                                                 callback=_on_got_application_info)
     server.pause_message(msg)
 
 
@@ -726,6 +751,34 @@ def companion_app_server_list_application_content_for_tags_route(server,
         })
         server.unpause_message(msg)
 
+    def _on_got_application_info(_, result):
+        '''Callback function that gets called when we get the app info.'''
+        try:
+            app_info = EosCompanionAppService.finish_load_application_info(result)
+        except GLib.Error as error:
+            json_response(msg, {
+                'status': 'error',
+                'error': serialize_error_as_json_object(
+                    EosCompanionAppService.error_quark(),
+                    EosCompanionAppService.Error.INVALID_APP_ID,
+                    detail={
+                        'applicationId': query['applicationId'],
+                        'message': str(error)
+                    }
+                )
+            })
+            server.unpause_message(msg)
+            return
+
+        application_listing = application_listing_from_app_info(app_info)
+        content_db_conn.query(application_listing,
+                              query={
+                                  'tags-match-all': ['EknArticleObject'],
+                                  'tags-match-any': tags,
+                                  'limit': _SENSIBLE_QUERY_LIMIT
+                              },
+                              callback=_callback)
+
     logging.debug(
         'List application content for tags: clientId=%s, '
         'applicationId=%s, tags=%s',
@@ -735,14 +788,9 @@ def companion_app_server_list_application_content_for_tags_route(server,
 
     app_id = query['applicationId']
     tags = query['tags'].split(';')
-
-    content_db_conn.query(app_id=app_id,
-                          query={
-                              'tags-match-all': ['EknArticleObject'],
-                              'tags-match-any': tags,
-                              'limit': _SENSIBLE_QUERY_LIMIT
-                          },
-                          callback=_callback)
+    EosCompanionAppService.load_application_info(app_id,
+                                                 cancellable=None,
+                                                 callback=_on_got_application_info)
     server.pause_message(msg)
 
 
@@ -1025,8 +1073,28 @@ def companion_app_server_content_data_route(server,
                                       'metadata',
                                       _on_got_metadata_callback)
 
-    content_db_conn.shards_for_application(app_id=query['applicationId'],
-                                           callback=_on_got_shards_callback)
+    def _on_got_application_info(_, result):
+        '''Callback function that gets called when we get the app info.'''
+        try:
+            app_info = EosCompanionAppService.finish_load_application_info(result)
+        except GLib.Error as error:
+            json_response(msg, {
+                'status': 'error',
+                'error': serialize_error_as_json_object(
+                    EosCompanionAppService.error_quark(),
+                    EosCompanionAppService.Error.INVALID_APP_ID,
+                    detail={
+                        'applicationId': query['applicationId'],
+                        'message': str(error)
+                    }
+                )
+            })
+            server.unpause_message(msg)
+            return
+
+        application_listing = application_listing_from_app_info(app_info)
+        content_db_conn.shards_for_application(application_listing,
+                                               callback=_on_got_shards_callback)
 
     logging.debug(
         'Get content stream: clientId=%s, '
@@ -1035,6 +1103,9 @@ def companion_app_server_content_data_route(server,
         query['applicationId'],
         query['contentId']
     )
+    EosCompanionAppService.load_application_info(query['applicationId'],
+                                                 cancellable=None,
+                                                 callback=_on_got_application_info)
     server.pause_message(msg)
 
 
@@ -1136,19 +1207,45 @@ def companion_app_server_content_metadata_route(server,
                                       'metadata',
                                       _on_got_metadata_callback)
 
+
+    def _on_got_application_info(_, result):
+        '''Callback function that gets called when we get the app info.'''
+        try:
+            app_info = EosCompanionAppService.finish_load_application_info(result)
+        except GLib.Error as error:
+            json_response(msg, {
+                'status': 'error',
+                'error': serialize_error_as_json_object(
+                    EosCompanionAppService.error_quark(),
+                    EosCompanionAppService.Error.INVALID_APP_ID,
+                    detail={
+                        'applicationId': query['applicationId'],
+                        'message': str(error)
+                    }
+                )
+            })
+            server.unpause_message(msg)
+            return
+
+        application_listing = application_listing_from_app_info(app_info)
+        content_db_conn.shards_for_application(application_listing,
+                                               callback=_on_got_shards_callback)
+
     logging.debug(
         'Get content metadata: clientId=%s, '
         'applicationId=%s, contentId=%s',
         query['deviceUUID'],
         query['applicationId'],
-        query['contentId'])
+        query['contentId']
+    )
+    EosCompanionAppService.load_application_info(query['applicationId'],
+                                                 cancellable=None,
+                                                 callback=_on_got_application_info)
     server.pause_message(msg)
-    content_db_conn.shards_for_application(app_id=query['applicationId'],
-                                           callback=_on_got_shards_callback)
 
 
 def search_single_application(content_db_conn,
-                              app_id=None,
+                              application_listing=None,
                               tags=None,
                               limit=None,
                               offset=None,
@@ -1160,7 +1257,7 @@ def search_single_application(content_db_conn,
     all articles and media objects. Otherwise we search over those
     sets.
     '''
-    content_db_conn.query(app_id,
+    content_db_conn.query(application_listing,
                           query={
                               'tags-match-any': tags or [
                                   'EknArticleObject',
@@ -1461,7 +1558,7 @@ def companion_app_server_search_content_route(server,
             def _thunk(callback):
                 '''Thunk that gets called.'''
                 return search_single_application(content_db_conn,
-                                                 app_id=application.app_id,
+                                                 application_listing=application,
                                                  tags=tags,
                                                  limit=local_limit,
                                                  offset=local_offset,

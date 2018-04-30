@@ -23,6 +23,7 @@
 #include <eknc-utils.h>
 
 #include "config.h"
+#include "eos-companion-app-service-app-info.h"
 #include "eos-companion-app-integration-helper.h"
 
 #include <string.h>
@@ -456,6 +457,46 @@ load_desktop_info_key_file_for_app_id (const gchar      *app_id,
   return g_steal_pointer (&system_desktop_app_info);
 }
 
+static gboolean
+lookup_eknservices_version (const gchar  *runtime_version,
+                            gchar       **out_eknservices_name,
+                            gchar       **out_search_provider_name,
+                            GError      **error)
+{
+  g_return_val_if_fail (out_eknservices_name != NULL, FALSE);
+  g_return_val_if_fail (out_search_provider_name != NULL, FALSE);
+
+  static const struct {
+    const gchar *runtime_version;
+    const gchar *eknservices_name;
+    const gchar *search_provider_name;
+  } runtime_to_eknservices_versions[] = {
+    { "2", "EknServices2", "SearchProviderV2" },
+    { "3", "EknServices2", "SearchProviderV2" },
+    { "4", "EknServices3", "SearchProviderV3" }
+  };
+  static const gsize n_runtime_to_eknservices_version = G_N_ELEMENTS (runtime_to_eknservices_versions);
+  gsize i = 0;
+
+  for (; i < n_runtime_to_eknservices_version; ++i)
+    {
+      if (g_strcmp0 (runtime_version,
+                     runtime_to_eknservices_versions[i].runtime_version) == 0)
+        {
+          *out_eknservices_name = g_strdup (runtime_to_eknservices_versions[i].eknservices_name);
+          *out_search_provider_name = g_strdup (runtime_to_eknservices_versions[i].search_provider_name);
+          return TRUE;
+        }
+    }
+
+  g_set_error (error,
+               EOS_COMPANION_APP_SERVICE_ERROR,
+               EOS_COMPANION_APP_SERVICE_ERROR_UNSUPPORTED,
+               "Attempted to find an EknServices version for %s, but it is unsupported",
+               runtime_version);
+  return FALSE;
+}
+
 static GPtrArray *
 list_application_infos (GCancellable  *cancellable,
                         GError       **error)
@@ -494,6 +535,8 @@ list_application_infos (GCancellable  *cancellable,
           g_autofree gchar *runtime_name = NULL;
           g_autofree gchar *runtime_version = NULL;
           g_autofree gchar *app_name = NULL;
+          g_autofree gchar *eknservices_name = NULL;
+          g_autofree gchar *search_provider_name = NULL;
           g_autoptr(GDesktopAppInfo) app_info = NULL;
           g_autoptr(GError) check_app_error = NULL;
           gboolean is_compatible_app = FALSE;
@@ -551,7 +594,22 @@ list_application_infos (GCancellable  *cancellable,
               continue;
             }
 
-          g_ptr_array_add (app_infos, g_steal_pointer (&app_info));
+          if (!lookup_eknservices_version (runtime_version,
+                                           &eknservices_name,
+                                           &search_provider_name,
+                                           &check_app_error))
+            {
+              g_message ("Could not find corresponding EknServices verison for %s "
+                         "(loading failed with: %s), ignoring",
+                         app_name,
+                         check_app_error->message);
+              continue;
+            }
+
+          g_ptr_array_add (app_infos,
+                           eos_companion_app_service_app_info_new (app_info,
+                                                                   eknservices_name,
+                                                                   search_provider_name));
         }
     }
 
@@ -608,6 +666,40 @@ eos_companion_app_service_finish_load_application_icon_data_async (GAsyncResult 
   return g_task_propagate_pointer (G_TASK (result), error);
 }
 
+static EosCompanionAppServiceAppInfo *
+load_application_info (const gchar  *app_id,
+                       GError      **error)
+{
+  g_autoptr(GDesktopAppInfo) app_info = NULL;
+  g_autofree gchar *runtime_version = NULL;
+  g_autofree gchar *eknservices_name = NULL;
+  g_autofree gchar *search_provider_name = NULL;
+  g_autofree gchar *runtime_spec = NULL;
+
+  runtime_spec = eos_companion_app_service_get_runtime_name_for_app_id (app_id, error);
+
+  if (runtime_spec == NULL)
+    return FALSE;
+
+  if (!parse_runtime_spec (runtime_spec, NULL, &runtime_version, error))
+    return FALSE;
+
+  if (!lookup_eknservices_version (runtime_version,
+                                   &eknservices_name,
+                                   &search_provider_name,
+                                   error))
+    return FALSE;
+
+  app_info = load_desktop_info_key_file_for_app_id (app_id, error);
+
+  if (app_info == NULL)
+    return FALSE;
+
+  return eos_companion_app_service_app_info_new (app_info,
+                                                 eknservices_name,
+                                                 search_provider_name);
+}
+
 static void
 load_application_info_thread (GTask        *task,
                               gpointer      source,
@@ -615,19 +707,16 @@ load_application_info_thread (GTask        *task,
                               GCancellable *cancellable)
 {
   g_autoptr(GError) local_error = NULL;
-  g_autoptr(GDesktopAppInfo) app_info = NULL;
+  g_autoptr(EosCompanionAppServiceAppInfo) info = load_application_info ((const gchar *) task_data,
+                                                                         &local_error);
 
-  if (!load_desktop_info_key_file_for_app_id ((const gchar *) task_data,
-                                              &app_info,
-                                              &local_error))
+  if (info == NULL)
     {
       g_task_return_error (task, g_steal_pointer (&local_error));
       return;
     }
 
-  g_task_return_pointer (task,
-                         g_steal_pointer (&app_info),
-                         (GDestroyNotify) g_object_unref);
+  g_task_return_pointer (task, g_steal_pointer (&info), g_object_unref);
 }
 
 void
@@ -643,7 +732,7 @@ eos_companion_app_service_load_application_info (const gchar         *name,
   g_task_run_in_thread (task, load_application_info_thread);
 }
 
-GDesktopAppInfo *
+EosCompanionAppServiceAppInfo *
 eos_companion_app_service_finish_load_application_info (GAsyncResult  *result,
                                                         GError       **error)
 {
