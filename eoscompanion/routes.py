@@ -646,8 +646,8 @@ def companion_app_server_list_application_sets_route(server,
             json_response(msg, {
                 'status': 'error',
                 'error': serialize_error_as_json_object(
-                    error.domain,
-                    error.code,
+                    EosCompanionAppService.error_quark(),
+                    EosCompanionAppService.Error.FAILED,
                     detail={
                         'applicationId': query['applicationId'],
                         'message': str(error)
@@ -697,8 +697,8 @@ def companion_app_server_list_application_content_for_tags_route(server,
             json_response(msg, {
                 'status': 'error',
                 'error': serialize_error_as_json_object(
-                    error.domain,
-                    error.code,
+                    EosCompanionAppService.error_quark(),
+                    EosCompanionAppService.Error.FAILED,
                     detail={
                         'applicationId': query['applicationId'],
                         'message': str(error)
@@ -871,8 +871,8 @@ def companion_app_server_content_data_route(server,
                 json_response(msg, {
                     'status': 'error',
                     'error': serialize_error_as_json_object(
-                        load_metadata_error.domain,
-                        load_metadata_error.code,
+                        EosCompanionAppService.error_quark(),
+                        EosCompanionAppService.Error.INVALID_CONTENT_ID,
                         detail={
                             'applicationId': query['applicationId'],
                             'contentId': query['contentId'],
@@ -1008,8 +1008,8 @@ def companion_app_server_content_data_route(server,
             json_response(msg, {
                 'status': 'error',
                 'error': serialize_error_as_json_object(
-                    shards_error.domain,
-                    shards_error.code,
+                    EosCompanionAppService.error_quark(),
+                    EosCompanionAppService.Error.FAILED,
                     detail={
                         'applicationId': query['applicationId'],
                         'contentId': query['contentId']
@@ -1118,8 +1118,8 @@ def companion_app_server_content_metadata_route(server,
             json_response(msg, {
                 'status': 'error',
                 'error': serialize_error_as_json_object(
-                    shards_error.domain,
-                    shards_error.code,
+                    EosCompanionAppService.error_quark(),
+                    EosCompanionAppService.Error.FAILED,
                     detail={
                         'applicationId': query['applicationId'],
                         'contentId': query['contentId'],
