@@ -486,6 +486,7 @@ list_application_infos (GCancellable  *cancellable,
           g_autofree gchar *runtime_name = NULL;
           g_autofree gchar *app_name = NULL;
           g_autoptr(GDesktopAppInfo) app_info = NULL;
+          g_autoptr(GError) check_app_error = NULL;
           gboolean is_compatible_app = FALSE;
 
           if (!g_file_enumerator_iterate (enumerator, &info, &child, cancellable, error))
@@ -500,8 +501,14 @@ list_application_infos (GCancellable  *cancellable,
 
           /* Look inside the metadata for each flatpak to work out what runtime
            * it is using */
-          if (!examine_flatpak_metadata (flatpak_directory, &app_name, &runtime_name, error))
-            return NULL;
+          if (!examine_flatpak_metadata (flatpak_directory, &app_name, &runtime_name, &check_app_error))
+            {
+              g_message ("Flatpak at %s has a damaged installation and checking "
+                         "its metadata failed with: %s, ignoring",
+                         flatpak_directory,
+                         check_app_error->message);
+              continue;
+            }
 
           /* Check if the application is an eligible content app */
           if (!app_is_compatible (app_name, runtime_name, &is_compatible_app, error))
@@ -510,10 +517,16 @@ list_application_infos (GCancellable  *cancellable,
           if (!is_compatible_app)
             continue;
 
-          app_info = load_desktop_info_key_file_for_app_id (app_name, error);
+          app_info = load_desktop_info_key_file_for_app_id (app_name, &check_app_error);
 
           if (app_info == NULL)
-            continue;
+            {
+              g_message ("Flatpak %s does not have a loadable desktop file "
+                         "(loading failed with: %s), ignoring",
+                         app_name,
+                         check_app_error->message);
+              continue;
+            }
 
           g_ptr_array_add (app_infos, g_steal_pointer (&app_info));
         }
