@@ -397,15 +397,13 @@ key_file_to_desktop_app_info_in_sandbox (GKeyFile *key_file)
 /* Try and load directly from the flatpak directories first, if that fails,
  * fallback to using GDesktopAppInfo and loading from that (in case an
  * app was installed systemwide) */
-static gboolean
+static GDesktopAppInfo *
 load_desktop_info_key_file_for_app_id (const gchar      *app_id,
-                                       GDesktopAppInfo **out_app_info,
                                        GError          **error)
 {
   g_autofree gchar *desktop_id = g_strdup_printf ("%s.desktop", app_id);
   GStrv iter = eos_companion_app_service_flatpak_install_dirs ();
-
-  g_return_val_if_fail (out_app_info != NULL, FALSE);
+  g_autoptr(GDesktopAppInfo) system_desktop_app_info = NULL;
 
   for (; *iter != NULL; ++iter)
     {
@@ -426,23 +424,29 @@ load_desktop_info_key_file_for_app_id (const gchar      *app_id,
           if (!g_error_matches (local_error, G_FILE_ERROR, G_FILE_ERROR_NOENT))
             {
               g_propagate_error (error, g_steal_pointer (&local_error));
-              return FALSE;
+              return NULL;
             }
 
           g_clear_error (&local_error);
           continue;
         }
 
-      *out_app_info = key_file_to_desktop_app_info_in_sandbox (key_file);
-      return TRUE;
+      return key_file_to_desktop_app_info_in_sandbox (key_file);
     }
 
-  *out_app_info = g_desktop_app_info_new (desktop_id);
+  system_desktop_app_info = g_desktop_app_info_new (desktop_id);
 
-  /* This function only returns FALSE on error and not finding the
-   * GDesktopAppInfo here using g_desktop_app_info_new is not
-   * an error. Return TRUE now. */
-  return TRUE;
+  if (system_desktop_app_info == NULL)
+    {
+      g_set_error (error,
+                   EOS_COMPANION_APP_SERVICE_ERROR,
+                   EOS_COMPANION_APP_SERVICE_ERROR_INVALID_APP_ID,
+                   "Application %s is not installed",
+                   app_id);
+      return NULL;
+    }
+
+  return g_steal_pointer (&system_desktop_app_info);
 }
 
 static GPtrArray *
@@ -506,10 +510,8 @@ list_application_infos (GCancellable  *cancellable,
           if (!is_compatible_app)
             continue;
 
-          if (!load_desktop_info_key_file_for_app_id (app_name, &app_info, error))
-            return NULL;
+          app_info = load_desktop_info_key_file_for_app_id (app_name, error);
 
-          /* If nothing loaded, this app is not compatible, continue */
           if (app_info == NULL)
             continue;
 
