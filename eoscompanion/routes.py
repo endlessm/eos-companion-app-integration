@@ -540,7 +540,7 @@ def companion_app_server_application_colors_route(server, msg, path, query, *arg
                         EosCompanionAppService.error_quark(),
                         EosCompanionAppService.Error.INVALID_APP_ID,
                         detail={
-                            'app_id': query['applicationId'],
+                            'applicationId': query['applicationId'],
                             'message': str(error)
                         }
                     )
@@ -649,7 +649,7 @@ def companion_app_server_list_application_sets_route(server,
                     error.domain,
                     error.code,
                     detail={
-                        'app_id': query['applicationId'],
+                        'applicationId': query['applicationId'],
                         'message': str(error)
                     }
                 )
@@ -700,7 +700,7 @@ def companion_app_server_list_application_content_for_tags_route(server,
                     error.domain,
                     error.code,
                     detail={
-                        'app_id': query['applicationId'],
+                        'applicationId': query['applicationId'],
                         'message': str(error)
                     }
                 )
@@ -1084,7 +1084,7 @@ def companion_app_server_content_metadata_route(server,
                             EosCompanionAppService.error_quark(),
                             EosCompanionAppService.Error.INVALID_APP_ID,
                             detail={
-                                'app_id': query['applicationId'],
+                                'applicationId': query['applicationId'],
                                 'message': str(load_metadata_error)
                             }
                         )
