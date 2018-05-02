@@ -386,11 +386,13 @@ FAKE_SHARD_CONTENT = {
         'video_file': {
             'metadata': {
                 'contentType': 'video/mp4',
+                'duration': '5:04',
                 'isServerTemplated': True,
                 'license': 'CC-0',
                 'originalURI': 'http://video.site/video',
                 'source': 'youtube',
                 'sourceName': 'YouTube',
+                'synopsis': 'A synopsis about the Sample Video',
                 'tags': ['EknHomePageTag', 'EknMediaObject', 'EknArticleObject'],
                 'thumbnailURI': 'ekn:///'+ VIDEO_APP_THUMBNAIL_EKN_ID,
                 'title': 'Sample Video'
@@ -415,6 +417,7 @@ FAKE_SHARD_CONTENT = {
                 'originalURI': 'http://some.site/first',
                 'source': 'wikipedia',
                 'sourceName': 'Wikipedia',
+                'synopsis': 'A synopsis about the Sample Article 1',
                 'tags': ['First Tag', 'EknArticleObject'],
                 'title': 'Sample Article 1',
                 'thumbnailURI': 'ekn:///' + CONTENT_APP_THUMBNAIL_EKN_ID
@@ -434,11 +437,14 @@ FAKE_SHARD_CONTENT = {
         },
         'sample_article_2': {
             'metadata': {
+                'author': 'Some Author',
                 'contentType': 'text/html',
+                'firstDate': '1930-05-03T00:41:03.830398',
                 'license': 'CC-0',
                 'originalURI': 'http://some.site/second',
                 'source': 'wikipedia',
                 'sourceName': 'Wikipedia',
+                'synopsis': 'A synopsis about the Sample Article 2',
                 'tags': ['Second Tag', 'EknArticleObject'],
                 'title': 'Sample Article 2',
                 'thumbnailURI': 'ekn:///' + CONTENT_APP_THUMBNAIL_EKN_ID
