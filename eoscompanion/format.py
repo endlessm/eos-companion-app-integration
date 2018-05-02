@@ -18,8 +18,13 @@
 # All rights reserved.
 '''URI formatting functions for eoscompanion.'''
 
+import os
 import urllib
 
+
+def parse_uri_path_basename(uri):
+    '''Just get the basename of the last path component of a URI.'''
+    return os.path.basename(urllib.parse.urlparse(uri).path)
 
 
 def format_uri_with_querystring(base_uri, **params):
@@ -43,7 +48,7 @@ def format_thumbnail_uri(application_id, thumbnail_uri, device_uuid):
         '/v1/content_data',
         deviceUUID=device_uuid,
         applicationId=application_id,
-        contentId=urllib.parse.urlparse(thumbnail_uri).path[1:]
+        contentId=parse_uri_path_basename(thumbnail_uri)
     )
 
 
