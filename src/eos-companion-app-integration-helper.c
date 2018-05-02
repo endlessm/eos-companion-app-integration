@@ -342,7 +342,7 @@ examine_flatpak_metadata (const gchar  *flatpak_directory,
 }
 
 gchar *
-eos_companion_app_service_get_runtime_name_for_app_id (const gchar  *app_id,
+eos_companion_app_service_get_runtime_spec_for_app_id (const gchar  *app_id,
                                                        GError      **error)
 {
   GStrv iter = eos_companion_app_service_flatpak_install_dirs ();
@@ -676,7 +676,7 @@ load_application_info (const gchar  *app_id,
   g_autofree gchar *search_provider_name = NULL;
   g_autofree gchar *runtime_spec = NULL;
 
-  runtime_spec = eos_companion_app_service_get_runtime_name_for_app_id (app_id, error);
+  runtime_spec = eos_companion_app_service_get_runtime_spec_for_app_id (app_id, error);
 
   if (runtime_spec == NULL)
     return FALSE;
