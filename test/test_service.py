@@ -62,6 +62,7 @@ from testtools.matchers import (
     ContainsDict,
     Equals,
     MatchesAll,
+    MatchesListwise,
     MatchesSetwise,
     Not
 )
@@ -2210,6 +2211,161 @@ class TestCompanionAppService(TestCase):
                                                    'search_content'),
                                     {
                                         'applicationId': 'org.test.This.DNE'
+                                    },
+                                    handle_json(autoquit(on_received_response,
+                                                         quit_cb)))
+
+    @with_main_loop
+    def test_feed_endpoint(self, quit_cb):
+        '''/v1/feed returns the expected content feed from the fake models.'''
+        def on_received_response(response):
+            '''Called when we receive a response from the server.'''
+            self.assertThat(response, ContainsDict({
+                'status': Equals('error'),
+                'error': ContainsDict({
+                    'code': Equals('INVALID_REQUEST')
+                })
+            }))
+
+        self.service = CompanionAppService(Holdable(),
+                                           self.port,
+                                           FakeContentDbConnection(FAKE_SHARD_CONTENT))
+        json_http_request_with_uuid(FAKE_UUID,
+                                    local_endpoint(self.port,
+                                                   'feed'),
+                                    {
+                                    },
+                                    handle_json(autoquit(on_received_response,
+                                                         quit_cb)))
+
+    @with_main_loop
+    def test_feed_no_mode_invalid(self, quit_cb):
+        '''/v1/feed returns INVALID_REQUEST if no mode is specified.'''
+        def on_received_response(response):
+            '''Called when we receive a response from the server.'''
+            self.assertThat(response, ContainsDict({
+                'status': Equals('ok'),
+                'payload': ContainsDict({
+                    'state': ContainsDict({
+                        'sources': MatchesSetwise(),
+                        'index': Equals(3)
+                    }),
+                    'sources': MatchesSetwise(
+                        ContainsDict({
+                            'type': Equals('application'),
+                            'detail': ContainsDict({
+                                'applicationId': Equals('org.test.VideoApp'),
+                                'icon': matches_uri_query('/v1/application_icon', {
+                                    'iconName': MatchesSetwise(Equals('org.test.VideoApp')),
+                                    'deviceUUID': MatchesSetwise(Equals(FAKE_UUID))
+                                }),
+                                'displayName': Equals('Video App'),
+                                'shortDescription': Equals('A description about a Video App')
+                            })
+                        }),
+                        ContainsDict({
+                            'type': Equals('application'),
+                            'detail': ContainsDict({
+                                'applicationId': Equals('org.test.ContentApp'),
+                                'icon': matches_uri_query('/v1/application_icon', {
+                                    'iconName': MatchesSetwise(Equals('org.test.ContentApp')),
+                                    'deviceUUID': MatchesSetwise(Equals(FAKE_UUID))
+                                }),
+                                'displayName': Equals('Content App'),
+                                'shortDescription': Equals('A description about a Content App')
+                            })
+                        })
+                    ),
+                    'entries': MatchesListwise([
+                        ContainsDict({
+                            'itemType': Equals('article'),
+                            'source': ContainsDict({
+                                'type': Equals('application'),
+                                'detail': ContainsDict({
+                                    'applicationId': Equals('org.test.ContentApp')
+                                })
+                            }),
+                            'detail': ContainsDict({
+                                'title': Equals(_SAMPLE_ARTICLE_1_METADATA['title']),
+                                'synopsis': Equals(_SAMPLE_ARTICLE_1_METADATA['synopsis']),
+                                'thumbnail': matches_uri_query('/v1/content_data', {
+                                    'applicationId': MatchesSetwise(Equals('org.test.ContentApp')),
+                                    'contentId': MatchesSetwise(
+                                        Equals(CONTENT_APP_THUMBNAIL_EKN_ID)
+                                    ),
+                                    'deviceUUID': MatchesSetwise(Equals(FAKE_UUID))
+                                }),
+                                'uri': matches_uri_query('/v1/content_data', {
+                                    'applicationId': MatchesSetwise(Equals('org.test.ContentApp')),
+                                    'contentId': MatchesSetwise(Equals('sample_article_1')),
+                                    'deviceUUID': MatchesSetwise(Equals(FAKE_UUID))
+                                }),
+                                'contentType': Equals('text/html')
+                            })
+                        }),
+                        ContainsDict({
+                            'itemType': Equals('artwork'),
+                            'source': ContainsDict({
+                                'type': Equals('application'),
+                                'detail': ContainsDict({
+                                    'applicationId': Equals('org.test.ContentApp')
+                                })
+                            }),
+                            'detail': ContainsDict({
+                                'author': Equals(_SAMPLE_ARTICLE_2_METADATA['author']),
+                                'firstDate': Equals(_SAMPLE_ARTICLE_2_METADATA['firstDate']),
+                                'title': Equals(_SAMPLE_ARTICLE_2_METADATA['title']),
+                                'thumbnail': matches_uri_query('/v1/content_data', {
+                                    'applicationId': MatchesSetwise(Equals('org.test.ContentApp')),
+                                    'contentId': MatchesSetwise(
+                                        Equals(CONTENT_APP_THUMBNAIL_EKN_ID)
+                                    ),
+                                    'deviceUUID': MatchesSetwise(Equals(FAKE_UUID))
+                                }),
+                                'uri': matches_uri_query('/v1/content_data', {
+                                    'applicationId': MatchesSetwise(Equals('org.test.ContentApp')),
+                                    'contentId': MatchesSetwise(Equals('sample_article_2')),
+                                    'deviceUUID': MatchesSetwise(Equals(FAKE_UUID))
+                                }),
+                                'contentType': Equals('text/html')
+                            })
+                        }),
+                        ContainsDict({
+                            'itemType': Equals('video'),
+                            'source': ContainsDict({
+                                'type': Equals('application'),
+                                'detail': ContainsDict({
+                                    'applicationId': Equals('org.test.VideoApp')
+                                })
+                            }),
+                            'detail': ContainsDict({
+                                'duration': Equals('5:04'),
+                                'title': Equals(_SAMPLE_VIDEO_1_METADATA['title']),
+                                'thumbnail': matches_uri_query('/v1/content_data', {
+                                    'applicationId': MatchesSetwise(Equals('org.test.VideoApp')),
+                                    'contentId': MatchesSetwise(Equals(VIDEO_APP_THUMBNAIL_EKN_ID)),
+                                    'deviceUUID': MatchesSetwise(Equals(FAKE_UUID))
+                                }),
+                                'uri': matches_uri_query('/v1/content_data', {
+                                    'applicationId': MatchesSetwise(Equals('org.test.VideoApp')),
+                                    'contentId': MatchesSetwise(Equals('sample_video_1')),
+                                    'deviceUUID': MatchesSetwise(Equals(FAKE_UUID))
+                                }),
+                                'contentType': Equals('video/webm')
+                            })
+                        })
+                    ])
+                })
+            }))
+
+        self.service = CompanionAppService(Holdable(),
+                                           self.port,
+                                           FakeContentDbConnection(FAKE_SHARD_CONTENT))
+        json_http_request_with_uuid(FAKE_UUID,
+                                    local_endpoint(self.port,
+                                                   'feed'),
+                                    {
+                                        'mode': 'ascending'
                                     },
                                     handle_json(autoquit(on_received_response,
                                                          quit_cb)))
