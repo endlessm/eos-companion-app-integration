@@ -23,7 +23,6 @@ import itertools
 import json
 import logging
 import os
-import urllib.parse
 
 
 from gi.repository import (
@@ -64,7 +63,8 @@ from .ekn_query import ascertain_application_sets_from_models
 from .format import (
     format_app_icon_uri,
     format_thumbnail_uri,
-    optional_format_thumbnail_uri
+    optional_format_thumbnail_uri,
+    parse_uri_path_basename
 )
 from .functional import all_asynchronous_function_calls_closure
 from .license_content_adjuster import (
@@ -744,7 +744,7 @@ def companion_app_server_list_application_content_for_tags_route(server,
                     'thumbnail': optional_format_thumbnail_uri(query['applicationId'],
                                                                model,
                                                                query['deviceUUID']),
-                    'id': urllib.parse.urlparse(model['id']).path[1:],
+                    'id': parse_uri_path_basename(model['id']),
                     'tags': model['tags']
                 }
                 for model in models
@@ -1298,7 +1298,7 @@ def render_result_payload_for_content(app_id, model, device_uuid):
     return {
         'applicationId': app_id,
         'contentType': model['content_type'],
-        'id': urllib.parse.urlparse(model['id']).path[1:],
+        'id': parse_uri_path_basename(model['id']),
         'tags': model['tags'],
         'thumbnail': optional_format_thumbnail_uri(app_id,
                                                    model,
