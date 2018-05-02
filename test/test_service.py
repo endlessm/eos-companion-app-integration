@@ -570,6 +570,7 @@ def convert_metadata_keys_to_model_keys(metadata_entry):
     '''Convert between the camel-case keys and underscore style keys.'''
     return {
         _METADATA_KEY_TO_MODEL_KEY[k]: v for k, v in metadata_entry.items()
+        if k in _METADATA_KEY_TO_MODEL_KEY
     }
 
 
