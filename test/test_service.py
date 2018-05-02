@@ -25,6 +25,7 @@ import os
 import re
 import socket
 
+from collections import namedtuple
 from tempfile import mkdtemp
 from urllib.parse import (
     parse_qs,
@@ -44,7 +45,13 @@ gi.require_version('EosDiscoveryFeed', '0')
 gi.require_version('EosMetrics', '0')
 gi.require_version('EosShard', '0')
 
-from gi.repository import EosCompanionAppService, Gio, GLib, Soup
+from gi.repository import (
+    EosCompanionAppService,
+    EosDiscoveryFeed,
+    Gio,
+    GLib,
+    Soup
+)
 
 from testtools import (
     TestCase
@@ -379,7 +386,7 @@ def matches_uri_query(path, expected_query):
                       url_matches_query(expected_query))
 
 
-FAKE_SHARD_CONTENT = {
+_FAKE_SHARD_CONTENT_PER_APP = {
     'org.test.NoDisplayApp': {
     },
     'org.test.VideoApp': {
@@ -507,6 +514,43 @@ FAKE_SHARD_CONTENT = {
     }
 }
 
+_SAMPLE_VIDEO_1 = _FAKE_SHARD_CONTENT_PER_APP['org.test.VideoApp']['video_file']
+_SAMPLE_VIDEO_1_METADATA = _SAMPLE_VIDEO_1['metadata']
+_SAMPLE_ARTICLE_1 = _FAKE_SHARD_CONTENT_PER_APP['org.test.ContentApp']['sample_article_1']
+_SAMPLE_ARTICLE_1_METADATA = _SAMPLE_ARTICLE_1['metadata']
+_SAMPLE_ARTICLE_2 = _FAKE_SHARD_CONTENT_PER_APP['org.test.ContentApp']['sample_article_2']
+_SAMPLE_ARTICLE_2_METADATA = _SAMPLE_ARTICLE_2['metadata']
+
+_FEED_CONTENT_MODELS = [
+    EosDiscoveryFeed.KnowledgeAppCardStore(
+        desktop_id='org.test.ContentApp.desktop',
+        title=_SAMPLE_ARTICLE_1_METADATA['title'],
+        synopsis=_SAMPLE_ARTICLE_1_METADATA['synopsis'],
+        thumbnail_uri=_SAMPLE_ARTICLE_1_METADATA['thumbnailURI'],
+        uri='ekn:///sample_article_1'
+    ),
+    EosDiscoveryFeed.KnowledgeAppArtworkCardStore(
+        author=_SAMPLE_ARTICLE_2_METADATA['author'],
+        desktop_id='org.test.ContentApp.desktop',
+        title=_SAMPLE_ARTICLE_2_METADATA['title'],
+        first_date=_SAMPLE_ARTICLE_2_METADATA['firstDate'],
+        thumbnail_uri=_SAMPLE_ARTICLE_2_METADATA['thumbnailURI'],
+        uri='ekn:///sample_article_2'
+    ),
+    EosDiscoveryFeed.KnowledgeAppVideoCardStore(
+        desktop_id='org.test.VideoApp.desktop',
+        duration=_SAMPLE_VIDEO_1_METADATA['duration'],
+        title=_SAMPLE_VIDEO_1_METADATA['title'],
+        thumbnail_uri=_SAMPLE_VIDEO_1_METADATA['thumbnailURI'],
+        uri='ekn:///sample_video_1'
+    )
+]
+
+FakeShardContent = namedtuple('FakeShardContent', 'content_data feed_models')
+
+FAKE_SHARD_CONTENT = FakeShardContent(content_data=_FAKE_SHARD_CONTENT_PER_APP,
+                                      feed_models=_FEED_CONTENT_MODELS)
+
 _METADATA_KEY_TO_MODEL_KEY = {
     '@id': 'id',
     'childTags': 'child_tags',
@@ -601,7 +645,8 @@ class FakeContentDbConnection(object):
     def shards_for_application(self, application_listing, callback):
         '''Create shards for the application and return them.'''
         app_id = application_listing.app_id
-        app_data = self.data.get(application_listing.app_id, None)
+        app_data = self.data.content_data.get(app_id, None)
+
         if app_data is None:
             GLib.idle_add(callback,
                           GLib.Error('Invalid App ID {}'.format(app_id),
@@ -619,7 +664,8 @@ class FakeContentDbConnection(object):
         should be as close as possible.
         '''
         app_id = application_listing.app_id
-        app_data = self.data.get(app_id, None)
+        app_data = self.data.content_data.get(app_id, None)
+
         if app_data is None:
             GLib.idle_add(callback,
                           GLib.Error('Invalid App ID {}'.format(app_id),
@@ -670,6 +716,10 @@ class FakeContentDbConnection(object):
             convert_metadata_keys_to_model_keys(m) for m in filtered_metadata
         ]
         GLib.idle_add(callback, None, [shards, models])
+
+    def feed(self, callback):
+        '''Return a models for the feed.'''
+        return GLib.idle_add(callback, None, self.data.feed_models)
 
 
 class TestCompanionAppService(TestCase):
