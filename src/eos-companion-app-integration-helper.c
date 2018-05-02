@@ -229,9 +229,6 @@ parse_runtime_spec (const gchar  *runtime_spec,
   g_autoptr(GRegex) regex = NULL;
   g_autoptr(GMatchInfo) info = NULL;
 
-  g_return_val_if_fail (out_runtime_name != NULL, FALSE);
-  g_return_val_if_fail (out_runtime_version != NULL, FALSE);
-
   regex = g_regex_new ("(.*?)\\/.*?\\/(.*)", 0, 0, error);
 
   if (regex == NULL)
@@ -243,8 +240,11 @@ parse_runtime_spec (const gchar  *runtime_spec,
       return FALSE;
     }
 
-  *out_runtime_name = g_match_info_fetch (info, 1);
-  *out_runtime_version = g_match_info_fetch (info, 2);
+  if (out_runtime_name != NULL)
+    *out_runtime_name = g_match_info_fetch (info, 1);
+
+  if (out_runtime_version != NULL)
+    *out_runtime_version = g_match_info_fetch (info, 2);
 
   return TRUE;
 }
