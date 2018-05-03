@@ -39,6 +39,8 @@ from gi.repository import (
     Gio
 )
 
+from .applications_query import application_listing_from_app_info
+
 from .format import (
     rewrite_ekn_url,
     rewrite_license_url,
@@ -199,6 +201,20 @@ def render_mobile_wrapper(renderer,
 
         callback(None, rendered_page)
 
+    def _on_got_application_info(_, result):
+        '''Callback function that gets called when we get the app info.'''
+        try:
+            app_info = EosCompanionAppService.finish_load_application_info(result)
+        except GLib.Error as error:
+            callback(error, None)
+            return
+
+        content_db_conn.query(application_listing=application_listing_from_app_info(app_info),
+                              query={
+                                  'tags-match-all': ['EknSetObject']
+                              },
+                              callback=_on_queried_sets)
+
     link_tables = list(link_tables_from_shards(shards))
     link_resolution_table = [
         maybe_ekn_id_to_server_uri(
@@ -208,11 +224,9 @@ def render_mobile_wrapper(renderer,
         for l in metadata.get('outgoingLinks', [])
     ]
 
-    content_db_conn.query(app_id,
-                          query={
-                              'tags-match-all': ['EknSetObject']
-                          },
-                          callback=_on_queried_sets)
+    EosCompanionAppService.load_application_info(app_id,
+                                                 cancellable=None,
+                                                 callback=_on_got_application_info)
 
 
 def _html_content_adjuster_closure():

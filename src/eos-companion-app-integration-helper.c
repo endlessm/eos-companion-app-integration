@@ -23,6 +23,7 @@
 #include <eknc-utils.h>
 
 #include "config.h"
+#include "eos-companion-app-service-app-info.h"
 #include "eos-companion-app-integration-helper.h"
 
 #include <string.h>
@@ -33,7 +34,6 @@
 #define SYSTEMD_SOCKET_ACTIVATION_LISTEN_FDS_START 3
 
 #define SUPPORTED_RUNTIME_NAME "com.endlessm.apps.Platform"
-#define SUPPORTED_RUNTIME_BRANCH "3"
 
 /* Needed to get autocleanups of GResource files */
 G_DEFINE_AUTOPTR_CLEANUP_FUNC (GResource, g_resource_unref)
@@ -229,9 +229,6 @@ parse_runtime_spec (const gchar  *runtime_spec,
   g_autoptr(GRegex) regex = NULL;
   g_autoptr(GMatchInfo) info = NULL;
 
-  g_return_val_if_fail (out_runtime_name != NULL, FALSE);
-  g_return_val_if_fail (out_runtime_version != NULL, FALSE);
-
   regex = g_regex_new ("(.*?)\\/.*?\\/(.*)", 0, 0, error);
 
   if (regex == NULL)
@@ -243,23 +240,37 @@ parse_runtime_spec (const gchar  *runtime_spec,
       return FALSE;
     }
 
-  *out_runtime_name = g_match_info_fetch (info, 1);
-  *out_runtime_version = g_match_info_fetch (info, 2);
+  if (out_runtime_name != NULL)
+    *out_runtime_name = g_match_info_fetch (info, 1);
+
+  if (out_runtime_version != NULL)
+    *out_runtime_version = g_match_info_fetch (info, 2);
 
   return TRUE;
 }
 
 static gboolean
+runtime_version_is_supported (const gchar *runtime_version)
+{
+  static const gchar *supported_runtime_versions[] = {
+    "2",
+    "3",
+    "4",
+    NULL
+  };
+
+  return g_strv_contains (supported_runtime_versions, runtime_version);
+}
+
+static gboolean
 app_is_compatible (const gchar  *app_id,
-                   const gchar  *runtime_spec,
+                   const gchar  *runtime_name,
+                   const gchar  *runtime_version,
                    gboolean     *out_app_is_compatible,
                    GError      **error)
 {
   g_autoptr(GFile) data_dir = NULL;
   gboolean supported_cache = FALSE;
-  gchar *runtime_name = NULL;
-  gchar *arch = NULL;
-  gchar *runtime_version = NULL;
 
   if (application_is_supported_cache (app_id, &supported_cache))
     {
@@ -267,16 +278,13 @@ app_is_compatible (const gchar  *app_id,
       return TRUE;
     }
 
-  if (!parse_runtime_spec (runtime_spec, &runtime_name, &runtime_version, error))
-    return FALSE;
-
   if (g_strcmp0 (runtime_name, SUPPORTED_RUNTIME_NAME) != 0)
     {
       *out_app_is_compatible = record_application_is_supported_cache (app_id, FALSE);
       return TRUE;
     }
 
-  if (g_strcmp0 (runtime_version, SUPPORTED_RUNTIME_BRANCH) != 0)
+  if (!runtime_version_is_supported (runtime_version))
     {
       *out_app_is_compatible = record_application_is_supported_cache (app_id, FALSE);
       return TRUE;
@@ -334,7 +342,7 @@ examine_flatpak_metadata (const gchar  *flatpak_directory,
 }
 
 gchar *
-eos_companion_app_service_get_runtime_name_for_app_id (const gchar  *app_id,
+eos_companion_app_service_get_runtime_spec_for_app_id (const gchar  *app_id,
                                                        GError      **error)
 {
   GStrv iter = eos_companion_app_service_flatpak_install_dirs ();
@@ -397,15 +405,13 @@ key_file_to_desktop_app_info_in_sandbox (GKeyFile *key_file)
 /* Try and load directly from the flatpak directories first, if that fails,
  * fallback to using GDesktopAppInfo and loading from that (in case an
  * app was installed systemwide) */
-static gboolean
+static GDesktopAppInfo *
 load_desktop_info_key_file_for_app_id (const gchar      *app_id,
-                                       GDesktopAppInfo **out_app_info,
                                        GError          **error)
 {
   g_autofree gchar *desktop_id = g_strdup_printf ("%s.desktop", app_id);
   GStrv iter = eos_companion_app_service_flatpak_install_dirs ();
-
-  g_return_val_if_fail (out_app_info != NULL, FALSE);
+  g_autoptr(GDesktopAppInfo) system_desktop_app_info = NULL;
 
   for (; *iter != NULL; ++iter)
     {
@@ -426,23 +432,69 @@ load_desktop_info_key_file_for_app_id (const gchar      *app_id,
           if (!g_error_matches (local_error, G_FILE_ERROR, G_FILE_ERROR_NOENT))
             {
               g_propagate_error (error, g_steal_pointer (&local_error));
-              return FALSE;
+              return NULL;
             }
 
           g_clear_error (&local_error);
           continue;
         }
 
-      *out_app_info = key_file_to_desktop_app_info_in_sandbox (key_file);
-      return TRUE;
+      return key_file_to_desktop_app_info_in_sandbox (key_file);
     }
 
-  *out_app_info = g_desktop_app_info_new (desktop_id);
+  system_desktop_app_info = g_desktop_app_info_new (desktop_id);
 
-  /* This function only returns FALSE on error and not finding the
-   * GDesktopAppInfo here using g_desktop_app_info_new is not
-   * an error. Return TRUE now. */
-  return TRUE;
+  if (system_desktop_app_info == NULL)
+    {
+      g_set_error (error,
+                   EOS_COMPANION_APP_SERVICE_ERROR,
+                   EOS_COMPANION_APP_SERVICE_ERROR_INVALID_APP_ID,
+                   "Application %s is not installed",
+                   app_id);
+      return NULL;
+    }
+
+  return g_steal_pointer (&system_desktop_app_info);
+}
+
+static gboolean
+lookup_eknservices_version (const gchar  *runtime_version,
+                            gchar       **out_eknservices_name,
+                            gchar       **out_search_provider_name,
+                            GError      **error)
+{
+  g_return_val_if_fail (out_eknservices_name != NULL, FALSE);
+  g_return_val_if_fail (out_search_provider_name != NULL, FALSE);
+
+  static const struct {
+    const gchar *runtime_version;
+    const gchar *eknservices_name;
+    const gchar *search_provider_name;
+  } runtime_to_eknservices_versions[] = {
+    { "2", "EknServices2", "SearchProviderV2" },
+    { "3", "EknServices2", "SearchProviderV2" },
+    { "4", "EknServices3", "SearchProviderV3" }
+  };
+  static const gsize n_runtime_to_eknservices_version = G_N_ELEMENTS (runtime_to_eknservices_versions);
+  gsize i = 0;
+
+  for (; i < n_runtime_to_eknservices_version; ++i)
+    {
+      if (g_strcmp0 (runtime_version,
+                     runtime_to_eknservices_versions[i].runtime_version) == 0)
+        {
+          *out_eknservices_name = g_strdup (runtime_to_eknservices_versions[i].eknservices_name);
+          *out_search_provider_name = g_strdup (runtime_to_eknservices_versions[i].search_provider_name);
+          return TRUE;
+        }
+    }
+
+  g_set_error (error,
+               EOS_COMPANION_APP_SERVICE_ERROR,
+               EOS_COMPANION_APP_SERVICE_ERROR_UNSUPPORTED,
+               "Attempted to find an EknServices version for %s, but it is unsupported",
+               runtime_version);
+  return FALSE;
 }
 
 static GPtrArray *
@@ -479,9 +531,14 @@ list_application_infos (GCancellable  *cancellable,
           GFile *child = NULL;
           GFileInfo *info = NULL;
           g_autofree gchar *flatpak_directory = NULL;
+          g_autofree gchar *runtime_spec = NULL;
           g_autofree gchar *runtime_name = NULL;
+          g_autofree gchar *runtime_version = NULL;
           g_autofree gchar *app_name = NULL;
+          g_autofree gchar *eknservices_name = NULL;
+          g_autofree gchar *search_provider_name = NULL;
           g_autoptr(GDesktopAppInfo) app_info = NULL;
+          g_autoptr(GError) check_app_error = NULL;
           gboolean is_compatible_app = FALSE;
 
           if (!g_file_enumerator_iterate (enumerator, &info, &child, cancellable, error))
@@ -496,24 +553,63 @@ list_application_infos (GCancellable  *cancellable,
 
           /* Look inside the metadata for each flatpak to work out what runtime
            * it is using */
-          if (!examine_flatpak_metadata (flatpak_directory, &app_name, &runtime_name, error))
-            return NULL;
+          if (!examine_flatpak_metadata (flatpak_directory, &app_name, &runtime_spec, &check_app_error))
+            {
+              g_message ("Flatpak at %s has a damaged installation and checking "
+                         "its metadata failed with: %s, ignoring",
+                         flatpak_directory,
+                         check_app_error->message);
+              continue;
+            }
+
+          if (!parse_runtime_spec (runtime_spec, &runtime_name, &runtime_version, &check_app_error))
+            {
+              g_message ("Flatpak %s had a damaged runtime spec %s (parsing failed "
+                         "with: %s), ignoring",
+                         app_name,
+                         runtime_spec,
+                         check_app_error->message);
+              continue;
+            }
 
           /* Check if the application is an eligible content app */
-          if (!app_is_compatible (app_name, runtime_name, &is_compatible_app, error))
+          if (!app_is_compatible (app_name,
+                                  runtime_name,
+                                  runtime_version,
+                                  &is_compatible_app,
+                                  error))
             return NULL;
 
           if (!is_compatible_app)
             continue;
 
-          if (!load_desktop_info_key_file_for_app_id (app_name, &app_info, error))
-            return NULL;
+          app_info = load_desktop_info_key_file_for_app_id (app_name, &check_app_error);
 
-          /* If nothing loaded, this app is not compatible, continue */
           if (app_info == NULL)
-            continue;
+            {
+              g_message ("Flatpak %s does not have a loadable desktop file "
+                         "(loading failed with: %s), ignoring",
+                         app_name,
+                         check_app_error->message);
+              continue;
+            }
 
-          g_ptr_array_add (app_infos, g_steal_pointer (&app_info));
+          if (!lookup_eknservices_version (runtime_version,
+                                           &eknservices_name,
+                                           &search_provider_name,
+                                           &check_app_error))
+            {
+              g_message ("Could not find corresponding EknServices verison for %s "
+                         "(loading failed with: %s), ignoring",
+                         app_name,
+                         check_app_error->message);
+              continue;
+            }
+
+          g_ptr_array_add (app_infos,
+                           eos_companion_app_service_app_info_new (app_info,
+                                                                   eknservices_name,
+                                                                   search_provider_name));
         }
     }
 
@@ -570,6 +666,40 @@ eos_companion_app_service_finish_load_application_icon_data_async (GAsyncResult 
   return g_task_propagate_pointer (G_TASK (result), error);
 }
 
+static EosCompanionAppServiceAppInfo *
+load_application_info (const gchar  *app_id,
+                       GError      **error)
+{
+  g_autoptr(GDesktopAppInfo) app_info = NULL;
+  g_autofree gchar *runtime_version = NULL;
+  g_autofree gchar *eknservices_name = NULL;
+  g_autofree gchar *search_provider_name = NULL;
+  g_autofree gchar *runtime_spec = NULL;
+
+  runtime_spec = eos_companion_app_service_get_runtime_spec_for_app_id (app_id, error);
+
+  if (runtime_spec == NULL)
+    return FALSE;
+
+  if (!parse_runtime_spec (runtime_spec, NULL, &runtime_version, error))
+    return FALSE;
+
+  if (!lookup_eknservices_version (runtime_version,
+                                   &eknservices_name,
+                                   &search_provider_name,
+                                   error))
+    return FALSE;
+
+  app_info = load_desktop_info_key_file_for_app_id (app_id, error);
+
+  if (app_info == NULL)
+    return FALSE;
+
+  return eos_companion_app_service_app_info_new (app_info,
+                                                 eknservices_name,
+                                                 search_provider_name);
+}
+
 static void
 load_application_info_thread (GTask        *task,
                               gpointer      source,
@@ -577,19 +707,16 @@ load_application_info_thread (GTask        *task,
                               GCancellable *cancellable)
 {
   g_autoptr(GError) local_error = NULL;
-  g_autoptr(GDesktopAppInfo) app_info = NULL;
+  g_autoptr(EosCompanionAppServiceAppInfo) info = load_application_info ((const gchar *) task_data,
+                                                                         &local_error);
 
-  if (!load_desktop_info_key_file_for_app_id ((const gchar *) task_data,
-                                              &app_info,
-                                              &local_error))
+  if (info == NULL)
     {
       g_task_return_error (task, g_steal_pointer (&local_error));
       return;
     }
 
-  g_task_return_pointer (task,
-                         g_steal_pointer (&app_info),
-                         (GDestroyNotify) g_object_unref);
+  g_task_return_pointer (task, g_steal_pointer (&info), g_object_unref);
 }
 
 void
@@ -605,7 +732,7 @@ eos_companion_app_service_load_application_info (const gchar         *name,
   g_task_run_in_thread (task, load_application_info_thread);
 }
 
-GDesktopAppInfo *
+EosCompanionAppServiceAppInfo *
 eos_companion_app_service_finish_load_application_info (GAsyncResult  *result,
                                                         GError       **error)
 {

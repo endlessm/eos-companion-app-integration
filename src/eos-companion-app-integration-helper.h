@@ -24,6 +24,8 @@
 
 #include <libsoup/soup.h>
 
+#include "eos-companion-app-service-app-info.h"
+
 G_BEGIN_DECLS
 
 /**
@@ -39,6 +41,7 @@ G_BEGIN_DECLS
  * @EOS_COMPANION_APP_SERVICE_ERROR_FAILED: Programmer or logic error on server side
  * @EOS_COMPANION_APP_SERVICE_ERROR_INVALID_APP_ID: Provided App ID was not valid
  * @EOS_COMPANION_APP_SERVICE_ERROR_INVALID_CONTENT_ID: Provided Content ID was not valid
+ * @EOS_COMPANION_APP_SERVICE_ERROR_UNSUPPORTED: Caller asked for something that is not supported
  *
  * Error codes for the %EOS_COMPANION_APP_SERVICE_ERROR error domain
  */
@@ -46,7 +49,8 @@ typedef enum {
   EOS_COMPANION_APP_SERVICE_ERROR_INVALID_REQUEST,
   EOS_COMPANION_APP_SERVICE_ERROR_FAILED,
   EOS_COMPANION_APP_SERVICE_ERROR_INVALID_APP_ID,
-  EOS_COMPANION_APP_SERVICE_ERROR_INVALID_CONTENT_ID
+  EOS_COMPANION_APP_SERVICE_ERROR_INVALID_CONTENT_ID,
+  EOS_COMPANION_APP_SERVICE_ERROR_UNSUPPORTED
 } EosCompanionAppServiceError;
 
 GQuark eos_companion_app_service_error_quark (void);
@@ -94,8 +98,8 @@ void eos_companion_app_service_list_application_infos (GCancellable        *canc
  * even though g_task_propagate_pointer is meant to be transfer full. Leak it
  * for now.
  *
- * Returns: (transfer none) (element-type GDesktopAppInfo): a #GPtrArray
-            of #GDesktopAppInfo
+ * Returns: (transfer none) (element-type EosCompanionAppServiceAppInfo): a #GPtrArray
+            of #EosCompanionAppServiceAppInfo
  */
 GPtrArray * eos_companion_app_service_finish_list_application_infos (GAsyncResult  *result,
                                                                      GError       **error);
@@ -138,7 +142,7 @@ GBytes * eos_companion_app_service_finish_load_application_icon_data_async (GAsy
  * @user_data: Closure for @callback
  *
  * Asynchronously load application info for the given application name, passing
- * it as a #GDesktopAppInfo to the provided @callback
+ * it as a #EosCompanionAppServiceAppInfo to the provided @callback
  */
 void eos_companion_app_service_load_application_info (const gchar         *name,
                                                       GCancellable        *cancellable,
@@ -152,13 +156,13 @@ void eos_companion_app_service_load_application_info (const gchar         *name,
  * @error: A #GError
  *
  * Complete the call to eos_companion_app_service_load_application_info by
- * returning a #GDesktopAppInfo containing the application's desktop data.
+ * returning a #EosCompanionAppServiceAppInfo containing the application's desktop data.
  *
- * Returns: (transfer none): a #GDesktopAppInfo containing application desktop data
+ * Returns: (transfer none): a #EosCompanionAppServiceAppInfo containing application desktop data
  *                           or NULL if the desktop file did not exist.
  */
-GDesktopAppInfo * eos_companion_app_service_finish_load_application_info (GAsyncResult  *result,
-                                                                          GError       **error);
+EosCompanionAppServiceAppInfo * eos_companion_app_service_finish_load_application_info (GAsyncResult  *result,
+                                                                                        GError       **error);
 
 
 /**

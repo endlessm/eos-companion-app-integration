@@ -34,8 +34,8 @@ from gi.repository import (
 from .functional import all_asynchronous_function_calls_closure
 
 
-_EKNSERVICES_DBUS_NAME = 'com.endlessm.EknServices2.SearchProviderV2'
-_EKNSERVICES_BASE_DBUS_PATH = '/com/endlessm/EknServices2/SearchProviderV2'
+_EKNSERVICES_DBUS_NAME_TEMPLATE = 'com.endlessm.{eknservices_name}.{search_provider_name}'
+_EKNSERVICES_BASE_DBUS_PATH_TEMPLATE = '/com/endlessm/{eknservices_name}/{search_provider_name}'
 _METADATA_INTERFACE = 'com.endlessm.ContentMetadata'
 
 
@@ -77,7 +77,12 @@ def to_variant(obj):
     ))
 
 
-def eknservices_query(conn, app_id, queries, callback):
+def eknservices_query(conn,
+                      app_id,
+                      eknservices_name,
+                      search_provider_name,
+                      queries,
+                      callback):
     '''Make a query on eknservices and send the result to callback.
 
     :app_id: is the id of the application to make the query on,
@@ -85,38 +90,62 @@ def eknservices_query(conn, app_id, queries, callback):
             will be automatically encoded as a GVariant of type a{sv}.
     :callback: is a GAsyncReady callback.
     '''
-    conn.call(_EKNSERVICES_DBUS_NAME,
-              os.path.join(_EKNSERVICES_BASE_DBUS_PATH,
-                           encode_dbus_name(app_id)),
-              _METADATA_INTERFACE,
-              'Query',
-              GLib.Variant('(aa{sv})', ([{
-                  k: to_variant(v) for k, v in query.items() if v is not None
-              } for query in queries], )),
-              GLib.VariantType('(asa(a{sv}aa{sv}))'),
-              Gio.DBusCallFlags.NONE,
-              -1,
-              None,
-              callback)
+    conn.call(
+        _EKNSERVICES_DBUS_NAME_TEMPLATE.format(
+            eknservices_name=eknservices_name,
+            search_provider_name=search_provider_name
+        ),
+        os.path.join(
+            _EKNSERVICES_BASE_DBUS_PATH_TEMPLATE.format(
+                eknservices_name=eknservices_name,
+                search_provider_name=search_provider_name
+            ),
+            encode_dbus_name(app_id)
+        ),
+        _METADATA_INTERFACE,
+        'Query',
+        GLib.Variant('(aa{sv})', ([{
+            k: to_variant(v) for k, v in query.items() if v is not None
+        } for query in queries], )),
+        GLib.VariantType('(asa(a{sv}aa{sv}))'),
+        Gio.DBusCallFlags.NONE,
+        -1,
+        None,
+        callback
+    )
 
 
-def eknservices_shards_for_application(conn, app_id, callback):
+def eknservices_shards_for_application(conn,
+                                       app_id,
+                                       eknservices_name,
+                                       search_provider_name,
+                                       callback):
     '''Ask eknservices for the application's shards and pass to callback.
 
     :app_id: is the id of the application to make the query on.
     :callback: is a GAsyncReady callback.
     '''
-    conn.call(_EKNSERVICES_DBUS_NAME,
-              os.path.join(_EKNSERVICES_BASE_DBUS_PATH,
-                           encode_dbus_name(app_id)),
-              _METADATA_INTERFACE,
-              'Shards',
-              None,
-              GLib.VariantType('(as)'),
-              Gio.DBusCallFlags.NONE,
-              -1,
-              None,
-              callback)
+    conn.call(
+        _EKNSERVICES_DBUS_NAME_TEMPLATE.format(
+            eknservices_name=eknservices_name,
+            search_provider_name=search_provider_name
+        ),
+        os.path.join(
+            _EKNSERVICES_BASE_DBUS_PATH_TEMPLATE.format(
+                eknservices_name=eknservices_name,
+                search_provider_name=search_provider_name
+            ),
+            encode_dbus_name(app_id)
+        ),
+        _METADATA_INTERFACE,
+        'Shards',
+        None,
+        GLib.VariantType('(as)'),
+        Gio.DBusCallFlags.NONE,
+        -1,
+        None,
+        callback
+    )
 
 
 def _iterate_init_shard_results(shard_init_results):
@@ -200,7 +229,7 @@ class EknServicesContentDbConnection(object):
         super().__init__(*args, **kwargs)
         self._dbus_connection = dbus_connection
 
-    def shards_for_application(self, app_id, callback):
+    def shards_for_application(self, application_listing, callback):
         '''Load shards for application and wrap with EosShard.ShardFile.'''
         def _internal_callback(src, result):
             '''Internal GDBusConnection.call callback.'''
@@ -213,10 +242,14 @@ class EknServicesContentDbConnection(object):
             shard_paths = response.unpack()[0]
             async_init_all_shards(shard_paths, callback)
 
-        eknservices_shards_for_application(self._dbus_connection, app_id, _internal_callback)
+        eknservices_shards_for_application(self._dbus_connection,
+                                           application_listing.app_id,
+                                           application_listing.eknservices_name,
+                                           application_listing.search_provider_name,
+                                           _internal_callback)
 
 
-    def query(self, app_id, query, callback):
+    def query(self, application_listing, query, callback):
         '''Run a query and wrap the results into a python-friendly format.'''
         def _internal_callback(src, result):
             '''Internal GDBusConnection.call callback.'''
@@ -245,4 +278,9 @@ class EknServicesContentDbConnection(object):
             async_init_all_shards(shard_paths, _on_finished_loading_shards)
 
         # Wrap the query in an array of length 1 to satisfy the interface
-        eknservices_query(self._dbus_connection, app_id, [query], _internal_callback)
+        eknservices_query(self._dbus_connection,
+                          application_listing.app_id,
+                          application_listing.eknservices_name,
+                          application_listing.search_provider_name,
+                          [query],
+                          _internal_callback)

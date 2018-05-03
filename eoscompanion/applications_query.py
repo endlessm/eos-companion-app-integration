@@ -26,7 +26,9 @@ from gi.repository import (
 )
 
 ApplicationListing = namedtuple('ApplicationListing',
-                                'app_id display_name short_description icon language')
+                                ('app_id display_name short_description '
+                                 'icon language eknservices_name '
+                                 'search_provider_name'))
 
 
 def maybe_get_app_info_string(app_info, name):
@@ -42,16 +44,19 @@ def maybe_get_app_info_string(app_info, name):
 
 
 def application_listing_from_app_info(app_info):
-    '''Convert a GDesktopAppInfo app_info to an ApplicationListing.'''
-    display_name = app_info.get_display_name()
-    short_description = app_info.get_description()
-    app_id = app_info.get_string('X-Flatpak')
-    icon = app_info.get_string('Icon')
+    '''Convert a EosCompanionAppServiceAppInfo app_info to an ApplicationListing.'''
+    desktop_app_info = app_info.get_desktop_app_info()
+    display_name = desktop_app_info.get_display_name()
+    short_description = desktop_app_info.get_description()
+    app_id = desktop_app_info.get_string('X-Flatpak')
+    icon = desktop_app_info.get_string('Icon')
+    eknservices_name = app_info.get_eknservices_name()
+    search_provider_name = app_info.get_search_provider_name()
 
     # Fall back to using the last component of the
     # app name if that doesn't work
     language = (
-        maybe_get_app_info_string(app_info,
+        maybe_get_app_info_string(desktop_app_info,
                                   'X-Endless-Content-Language') or
         app_id.split('.')[-1]
     )
@@ -60,15 +65,22 @@ def application_listing_from_app_info(app_info):
                               display_name,
                               short_description,
                               icon,
-                              language)
+                              language,
+                              eknservices_name,
+                              search_provider_name)
 
 
 def list_all_applications(callback):
     '''Convenience function to pass list of ApplicationListing to callback.'''
     def _callback(_, result):
         '''Callback function that gets called when we are done.'''
-        infos = EosCompanionAppService.finish_list_application_infos(result)
-        callback([
+        try:
+            infos = EosCompanionAppService.finish_list_application_infos(result)
+        except GLib.Error as error:
+            callback(error, None)
+            return
+
+        callback(None, [
             application_listing_from_app_info(app_info)
             for app_info in infos
         ])
