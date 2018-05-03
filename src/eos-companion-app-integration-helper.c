@@ -354,10 +354,10 @@ eos_companion_app_service_get_runtime_spec_for_app_id (const gchar  *app_id,
                                                               app_id,
                                                               NULL);
       g_autofree gchar *app_name = NULL;
-      g_autofree gchar *runtime_name = NULL;
+      g_autofree gchar *runtime_spec = NULL;
       g_autoptr(GError) local_error = NULL;
 
-      if (!examine_flatpak_metadata (flatpak_directory, &app_name, &runtime_name, &local_error))
+      if (!examine_flatpak_metadata (flatpak_directory, &app_name, &runtime_spec, &local_error))
         {
           /* App doesn't exist at that directory, try the other one */
           if (g_error_matches (local_error, G_FILE_ERROR, G_FILE_ERROR_NOENT))
@@ -370,7 +370,7 @@ eos_companion_app_service_get_runtime_spec_for_app_id (const gchar  *app_id,
           return NULL;
         }
 
-      return g_steal_pointer (&runtime_name);
+      return g_steal_pointer (&runtime_spec);
     }
 
   /* Not found in either, return INVALID_APP_ID */

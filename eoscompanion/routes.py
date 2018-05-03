@@ -1109,19 +1109,19 @@ def companion_app_server_content_data_route(server,
     server.pause_message(msg)
 
 
-_RUNTIME_NAMES_FOR_APP_IDS = {}
+_RUNTIME_SPECS_FOR_APP_IDS = {}
 
 
-def runtime_name_for_app_id_cached(app_id):
-    '''Get the runtime name for the given Flatpak app_id.
+def runtime_spec_for_app_id_cached(app_id):
+    '''Get the runtime spec for the given Flatpak app_id.
 
     This does caching so as to avoid too may blocking key file reads.
     '''
-    if app_id in _RUNTIME_NAMES_FOR_APP_IDS:
-        return _RUNTIME_NAMES_FOR_APP_IDS[app_id]
+    if app_id in _RUNTIME_SPECS_FOR_APP_IDS:
+        return _RUNTIME_SPECS_FOR_APP_IDS[app_id]
 
-    _RUNTIME_NAMES_FOR_APP_IDS[app_id] = EosCompanionAppService.get_runtime_name_for_app_id(app_id)
-    return _RUNTIME_NAMES_FOR_APP_IDS[app_id]
+    _RUNTIME_SPECS_FOR_APP_IDS[app_id] = EosCompanionAppService.get_runtime_spec_for_app_id(app_id)
+    return _RUNTIME_SPECS_FOR_APP_IDS[app_id]
 
 
 def app_id_to_runtime_version(app_id):
@@ -1177,7 +1177,7 @@ def companion_app_server_content_metadata_route(server,
 
             metadata_json = json.loads(EosCompanionAppService.bytes_to_string(metadata_bytes))
             metadata_json['version'] = app_id_to_runtime_version(
-                runtime_name_for_app_id_cached(query['applicationId'])
+                runtime_spec_for_app_id_cached(query['applicationId'])
             )
             msg.set_status(Soup.Status.OK)
             json_response(msg, {
