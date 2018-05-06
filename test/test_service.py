@@ -30,6 +30,7 @@ from urllib.parse import (
     urlencode,
     urlparse
 )
+from unittest.mock import Mock
 
 from test.build_app import (force_remove_directory, setup_fake_apps)
 
@@ -1888,6 +1889,71 @@ class TestCompanionAppService(TestCase):
         self.service = CompanionAppService(Holdable(),
                                            self.port,
                                            FakeContentDbConnection(FAKE_SHARD_CONTENT))
+        json_http_request_with_uuid(FAKE_UUID,
+                                    local_endpoint(self.port,
+                                                   'search_content'),
+                                    {
+                                        'searchTerm': 'Sampl'
+                                    },
+                                    handle_json(autoquit(on_received_response,
+                                                         quit_cb)))
+
+    @with_main_loop
+    def test_search_content_by_search_term_broken_app(self, quit_cb):
+        '''/v1/search_content is able to find content even if an app is broken.
+
+        In this case the broken app should not appear in the search results,
+        but the payload should still be successful.
+        '''
+        def on_received_response(response):
+            '''Called when we receive a response from the server.'''
+            applications = response['payload']['applications']
+            results = response['payload']['results']
+
+            self.assertThat(applications, MatchesSetwise(
+                ContainsDict({
+                    'applicationId': Equals('org.test.VideoApp')
+                })
+            ))
+            self.assertThat(results, MatchesSetwise(
+                ContainsDict({
+                    'displayName': Equals('Sample Video'),
+                    'payload': ContainsDict({
+                        'applicationId': Equals('org.test.VideoApp'),
+                        'contentType': Equals('video/mp4'),
+                        'tags': MatchesSetwise(
+                            Equals('EknArticleObject'),
+                            Equals('EknHomePageTag'),
+                            Equals('EknMediaObject')
+                        ),
+                        'thumbnail': matches_uri_query('/v1/content_data', {
+                            'applicationId': MatchesSetwise(Equals('org.test.VideoApp')),
+                            'contentId': MatchesSetwise(Equals(VIDEO_APP_THUMBNAIL_EKN_ID)),
+                            'deviceUUID': MatchesSetwise(Equals(FAKE_UUID))
+                        })
+                    })
+                })
+            ))
+
+        def return_error_for_content_app(application_listing,
+                                         query,
+                                         callback):
+            '''Return an error for the content app, fine for all else.'''
+            if application_listing.app_id == 'org.test.ContentApp':
+                callback(GLib.Error('Malformed App',
+                                    EosCompanionAppService.error_quark(),
+                                    EosCompanionAppService.Error.FAILED), None)
+                return
+
+            original_query(application_listing, query, callback)
+
+        db_connection = FakeContentDbConnection(FAKE_SHARD_CONTENT)
+        original_query = db_connection.query
+        db_connection.query = Mock(side_effect=return_error_for_content_app)
+
+        self.service = CompanionAppService(Holdable(),
+                                           self.port,
+                                           db_connection)
         json_http_request_with_uuid(FAKE_UUID,
                                     local_endpoint(self.port,
                                                    'search_content'),
