@@ -4,7 +4,7 @@ After=network.target
 ConditionPathExists=/etc/avahi/services/companion-app.service
 
 [Service]
-ExecStart=/usr/bin/dbus-run-session /usr/bin/flatpak run --no-desktop --no-a11y-bus com.endlessm.CompanionAppService
+ExecStart=/usr/bin/dbus-run-session /usr/bin/flatpak run --no-desktop --no-a11y-bus --no-documents-portal com.endlessm.CompanionAppService
 User=companion-app-helper
 PrivateTmp=yes
 SystemCallArchitectures=native
