@@ -1480,18 +1480,32 @@ def companion_app_server_search_content_route(server,
                 error, result = args_tuple
 
                 if error is not None:
-                    json_response(msg, {
-                        'status': 'error',
-                        'error': serialize_error_as_json_object(
-                            EosCompanionAppService.error_quark(),
-                            EosCompanionAppService.Error.FAILED,
-                            detail={
-                                'message': str(error)
-                            }
+                    # FAILED is a non-fatal error, since it indicates
+                    # something wrong with the app or content itself. We just
+                    # log on those errors and continue the search. Other
+                    # errors are due to invalid arguments from the caller
+                    # which should be reported back.
+                    if not error.matches(EosCompanionAppService.error_quark(),
+                                         EosCompanionAppService.Error.FAILED):
+                        json_response(msg, {
+                            'status': 'error',
+                            'error': serialize_error_as_json_object(
+                                EosCompanionAppService.error_quark(),
+                                EosCompanionAppService.Error.FAILED,
+                                detail={
+                                    'message': str(error)
+                                }
+                            )
+                        })
+                        server.unpause_message(msg)
+                        return
+                    else:
+                        logging.warning(
+                            "Encountered error searching application %s: %s",
+                            applications[index].app_id,
+                            error.message
                         )
-                    })
-                    server.unpause_message(msg)
-                    return
+                        continue
 
                 _, models = result
                 all_models.extend([
