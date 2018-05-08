@@ -594,6 +594,9 @@ list_application_infos (GCancellable  *cancellable,
               continue;
             }
 
+          if (!g_app_info_should_show (G_APP_INFO (app_info)))
+            continue;
+
           if (!lookup_eknservices_version (runtime_version,
                                            &eknservices_name,
                                            &search_provider_name,
