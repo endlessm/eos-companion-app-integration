@@ -302,7 +302,7 @@ def local_endpoint(port, endpoint, version='v1'):
 
 
 TEST_DATA_DIRECTORY = os.path.join(TOPLEVEL_DIRECTORY, 'test_data')
-FAKE_APPS = ['org.test.ContentApp', 'org.test.VideoApp']
+FAKE_APPS = ['org.test.ContentApp', 'org.test.NoDisplayApp', 'org.test.VideoApp']
 FAKE_UUID = 'Some UUID'
 
 # Valid characters for EKN IDs are 0-9a-z
@@ -372,6 +372,8 @@ def matches_uri_query(path, expected_query):
 
 
 FAKE_SHARD_CONTENT = {
+    'org.test.NoDisplayApp': {
+    },
     'org.test.VideoApp': {
         'video_file': {
             'metadata': {
