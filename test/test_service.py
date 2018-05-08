@@ -20,6 +20,7 @@
 
 import errno
 import json
+import logging
 import os
 import re
 import socket
@@ -62,6 +63,10 @@ from eoscompanion.service import CompanionAppService
 
 TOPLEVEL_DIRECTORY = os.path.abspath(os.path.join(os.path.dirname(__file__),
                                                   '..'))
+
+# Set default loglevel to ERROR so that we don't show warnings
+# on the terminal
+logging.basicConfig(level=logging.ERROR)
 
 
 def with_main_loop(testfunc):
@@ -787,16 +792,16 @@ class TestCompanionAppService(TestCase):
             self.assertThat(
                 response['payload'],
                 Not(Contains(
-                  ContainsDict({
-                      'applicationId': Equals('org.test.VideoApp'),
-                      'displayName': Equals('Video App'),
-                      'shortDescription': Equals('A description about a Video App'),
-                      'icon': matches_uri_query('/v1/application_icon', {
-                          'iconName': MatchesSetwise(Equals('org.test.VideoApp')),
-                          'deviceUUID': MatchesSetwise(Equals(FAKE_UUID))
-                      }),
-                      'language': Equals('en')
-                  })
+                    ContainsDict({
+                        'applicationId': Equals('org.test.VideoApp'),
+                        'displayName': Equals('Video App'),
+                        'shortDescription': Equals('A description about a Video App'),
+                        'icon': matches_uri_query('/v1/application_icon', {
+                            'iconName': MatchesSetwise(Equals('org.test.VideoApp')),
+                            'deviceUUID': MatchesSetwise(Equals(FAKE_UUID))
+                        }),
+                        'language': Equals('en')
+                    })
                 ))
             )
         self.service = CompanionAppService(Holdable(),
