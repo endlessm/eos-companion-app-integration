@@ -20,6 +20,7 @@
 
 import errno
 import json
+import logging
 import os
 import re
 import socket
@@ -49,10 +50,12 @@ from testtools import (
 )
 from testtools.matchers import (
     AfterPreprocessing,
+    Contains,
     ContainsDict,
     Equals,
     MatchesAll,
-    MatchesSetwise
+    MatchesSetwise,
+    Not
 )
 
 from eoscompanion.service import CompanionAppService
@@ -60,6 +63,10 @@ from eoscompanion.service import CompanionAppService
 
 TOPLEVEL_DIRECTORY = os.path.abspath(os.path.join(os.path.dirname(__file__),
                                                   '..'))
+
+# Set default loglevel to ERROR so that we don't show warnings
+# on the terminal
+logging.basicConfig(level=logging.ERROR)
 
 
 def with_main_loop(testfunc):
@@ -302,7 +309,7 @@ def local_endpoint(port, endpoint, version='v1'):
 
 
 TEST_DATA_DIRECTORY = os.path.join(TOPLEVEL_DIRECTORY, 'test_data')
-FAKE_APPS = ['org.test.ContentApp', 'org.test.VideoApp']
+FAKE_APPS = ['org.test.ContentApp', 'org.test.NoDisplayApp', 'org.test.VideoApp']
 FAKE_UUID = 'Some UUID'
 
 # Valid characters for EKN IDs are 0-9a-z
@@ -372,6 +379,8 @@ def matches_uri_query(path, expected_query):
 
 
 FAKE_SHARD_CONTENT = {
+    'org.test.NoDisplayApp': {
+    },
     'org.test.VideoApp': {
         'video_file': {
             'metadata': {
@@ -774,6 +783,36 @@ class TestCompanionAppService(TestCase):
                                     handle_json(autoquit(on_received_response,
                                                          quit_cb)))
 
+
+    @with_main_loop
+    def test_list_applications_not_contains_nodisplay_app(self, quit_cb):
+        '''/v1/list_applications should not contain NoDisplay app.'''
+        def on_received_response(response):
+            '''Called when we receive a response from the server.'''
+            self.assertThat(
+                response['payload'],
+                Not(Contains(
+                    ContainsDict({
+                        'applicationId': Equals('org.test.VideoApp'),
+                        'displayName': Equals('Video App'),
+                        'shortDescription': Equals('A description about a Video App'),
+                        'icon': matches_uri_query('/v1/application_icon', {
+                            'iconName': MatchesSetwise(Equals('org.test.VideoApp')),
+                            'deviceUUID': MatchesSetwise(Equals(FAKE_UUID))
+                        }),
+                        'language': Equals('en')
+                    })
+                ))
+            )
+        self.service = CompanionAppService(Holdable(),
+                                           self.port,
+                                           FakeContentDbConnection(FAKE_SHARD_CONTENT))
+        json_http_request_with_uuid(FAKE_UUID,
+                                    local_endpoint(self.port,
+                                                   'list_applications'),
+                                    {},
+                                    handle_json(autoquit(on_received_response,
+                                                         quit_cb)))
 
     @with_main_loop
     def test_list_applications_error_no_device_uuid(self, quit_cb):
@@ -1959,6 +1998,31 @@ class TestCompanionAppService(TestCase):
                                                    'search_content'),
                                     {
                                         'searchTerm': 'Sampl'
+                                    },
+                                    handle_json(autoquit(on_received_response,
+                                                         quit_cb)))
+
+    @with_main_loop
+    def test_search_content_by_search_term_no_nodisplay_app(self, quit_cb):
+        '''/v1/search_content does not include content from NoDisplay apps.'''
+        def on_received_response(response):
+            '''Called when we receive a response from the server.'''
+            applications = response['payload']['applications']
+
+            self.assertThat(applications, Not(Contains(
+                ContainsDict({
+                    'applicationId': Equals('org.test.NoDisplayApp')
+                })
+            )))
+
+        self.service = CompanionAppService(Holdable(),
+                                           self.port,
+                                           FakeContentDbConnection(FAKE_SHARD_CONTENT))
+        json_http_request_with_uuid(FAKE_UUID,
+                                    local_endpoint(self.port,
+                                                   'search_content'),
+                                    {
+                                        'searchTerm': 'NoDisp'
                                     },
                                     handle_json(autoquit(on_received_response,
                                                          quit_cb)))

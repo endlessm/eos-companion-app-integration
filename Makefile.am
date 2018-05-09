@@ -83,19 +83,23 @@ EXTRA_DIST += \
 	$(NULL)
 
 RUNTIME_VERSION = 3
+FAKE_NODISPLAY_APP_DIR = $(abs_top_srcdir)/test_data/org.test.NoDisplayApp
 FAKE_VIDEO_APP_DIR = $(abs_top_srcdir)/test_data/org.test.VideoApp
 FAKE_CONTENT_APP_DIR = $(abs_top_srcdir)/test_data/org.test.ContentApp
 SCRIPTS_DIR = $(abs_top_srcdir)/test_data/scripts
 
 # We don't use a file-based build rule here as we want the file to
 # go in the source directory
+test-data-nodisplay-app:
+	cd $(FAKE_NODISPLAY_APP_DIR)/app && $(SCRIPTS_DIR)/generate_gresource_file.sh $(RUNTIME_VERSION) $(FAKE_NODISPLAY_APP_DIR)/app $(FAKE_NODISPLAY_APP_DIR)/app/app.gresource
+
 test-data-video-app:
 	cd $(FAKE_VIDEO_APP_DIR)/app && $(SCRIPTS_DIR)/generate_gresource_file.sh $(RUNTIME_VERSION) $(FAKE_VIDEO_APP_DIR)/app $(FAKE_VIDEO_APP_DIR)/app/app.gresource
 
 test-data-content-app:
 	cd $(FAKE_CONTENT_APP_DIR)/app && $(SCRIPTS_DIR)/generate_gresource_file.sh $(RUNTIME_VERSION) $(FAKE_CONTENT_APP_DIR)/app $(FAKE_CONTENT_APP_DIR)/app/app.gresource
 
-test-data: test-data-video-app test-data-content-app
+test-data: test-data-video-app test-data-content-app test-data-nodisplay-app
 
 # # # MANIFEST TOOLS # # #
 # These targets exist to help manage the dependencies in the manifest file

@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=NoDisplay App
+Type=Application
+Comment=A description about a NoDisplay App
+Exec=org.test.NoDisplayApp
+Version=1.0
+Icon=org.test.NoDisplayApp
+X-Endless-Content-Language=en
+X-Flatpak=org.test.NoDisplayApp
+NoDisplay=true
