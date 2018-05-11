@@ -253,6 +253,7 @@ static gboolean
 runtime_version_is_supported (const gchar *runtime_version)
 {
   static const gchar *supported_runtime_versions[] = {
+    "1",
     "2",
     "3",
     "4",
@@ -471,6 +472,7 @@ lookup_eknservices_version (const gchar  *runtime_version,
     const gchar *eknservices_name;
     const gchar *search_provider_name;
   } runtime_to_eknservices_versions[] = {
+    { "1", "EknServices", "SearchProviderV1" },
     { "2", "EknServices2", "SearchProviderV2" },
     { "3", "EknServices2", "SearchProviderV2" },
     { "4", "EknServices3", "SearchProviderV3" }
