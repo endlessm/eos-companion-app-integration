@@ -295,7 +295,7 @@ def _serialize_article_content_feed_model(model, app_id, query):
                 app_id,
                 query['deviceUUID']
             ),
-            'contentType': 'text/html'
+            'contentType': model.get_property('content-type')
         }
     }]
 
@@ -332,7 +332,7 @@ def _serialize_artwork_content_feed_model(model, app_id, query):
                 app_id,
                 query['deviceUUID']
             ),
-            'contentType': 'text/html'
+            'contentType': model.get_property('content-type')
         }
     }]
 
@@ -360,7 +360,7 @@ def _serialize_video_content_feed_model(model, app_id, query):
                 query['deviceUUID']
             ),
             'duration': model.get_property('duration'),
-            'contentType': 'video/webm'
+            'contentType': model.get_property('content-type')
         }
     }]
 
@@ -388,7 +388,7 @@ def _serialize_news_content_feed_model(model, app_id, query):
                 app_id,
                 query['deviceUUID']
             ),
-            'contentType': 'text/html'
+            'contentType': model.get_property('content-type')
         }
     }]
 
