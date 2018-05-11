@@ -528,7 +528,8 @@ _FEED_CONTENT_MODELS = [
         title=_SAMPLE_ARTICLE_1_METADATA['title'],
         synopsis=_SAMPLE_ARTICLE_1_METADATA['synopsis'],
         thumbnail_uri=_SAMPLE_ARTICLE_1_METADATA['thumbnailURI'],
-        uri='ekn:///sample_article_1'
+        uri='ekn:///sample_article_1',
+        content_type='text/html'
     ),
     EosDiscoveryFeed.KnowledgeAppArtworkCardStore(
         author=_SAMPLE_ARTICLE_2_METADATA['author'],
@@ -536,14 +537,16 @@ _FEED_CONTENT_MODELS = [
         title=_SAMPLE_ARTICLE_2_METADATA['title'],
         first_date=_SAMPLE_ARTICLE_2_METADATA['firstDate'],
         thumbnail_uri=_SAMPLE_ARTICLE_2_METADATA['thumbnailURI'],
-        uri='ekn:///sample_article_2'
+        uri='ekn:///sample_article_2',
+        content_type='text/html'
     ),
     EosDiscoveryFeed.KnowledgeAppVideoCardStore(
         desktop_id='org.test.VideoApp.desktop',
         duration=_SAMPLE_VIDEO_1_METADATA['duration'],
         title=_SAMPLE_VIDEO_1_METADATA['title'],
         thumbnail_uri=_SAMPLE_VIDEO_1_METADATA['thumbnailURI'],
-        uri='ekn:///sample_video_1'
+        uri='ekn:///sample_video_1',
+        content_type='video/webm'
     )
 ]
 
