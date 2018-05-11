@@ -63,7 +63,8 @@ from .ekn_data import (
 from .ekn_query import ascertain_application_sets_from_models
 from .format import (
     format_app_icon_uri,
-    format_thumbnail_uri
+    format_thumbnail_uri,
+    optional_format_thumbnail_uri
 )
 from .functional import all_asynchronous_function_calls_closure
 from .license_content_adjuster import (
@@ -740,9 +741,9 @@ def companion_app_server_list_application_content_for_tags_route(server,
                 {
                     'displayName': model['title'],
                     'contentType': model['content_type'],
-                    'thumbnail': format_thumbnail_uri(query['applicationId'],
-                                                      model,
-                                                      query['deviceUUID']),
+                    'thumbnail': optional_format_thumbnail_uri(query['applicationId'],
+                                                               model,
+                                                               query['deviceUUID']),
                     'id': urllib.parse.urlparse(model['id']).path[1:],
                     'tags': model['tags']
                 }
@@ -1000,6 +1001,14 @@ def companion_app_server_content_data_route(server,
                 response_headers.set_content_length(length)
                 response_headers.set_content_type(content_type)
                 response_headers.replace('Connection', 'keep-alive')
+
+                # Add the article thumbnail uri to the header
+                thumbnail_uri = content_metadata.get('thumbnail', None)
+                if thumbnail_uri is not None:
+                    formatted_thumbnail_uri = format_thumbnail_uri(query['applicationId'],
+                                                                   thumbnail_uri,
+                                                                   query['deviceUUID'])
+                    response_headers.replace('X-Endless-Article-Thumbnail', formatted_thumbnail_uri)
 
                 # If we did not get a Range header, then we do not want to set
                 # Content-Range, nor do we want to respond with PARTIAL_CONTENT as
@@ -1278,9 +1287,9 @@ def render_result_payload_for_set(app_id, model, device_uuid):
     return {
         'applicationId': app_id,
         'tags': model['child_tags'],
-        'thumbnail': format_thumbnail_uri(app_id,
-                                          model,
-                                          device_uuid)
+        'thumbnail': optional_format_thumbnail_uri(app_id,
+                                                   model,
+                                                   device_uuid)
     }
 
 
@@ -1291,9 +1300,9 @@ def render_result_payload_for_content(app_id, model, device_uuid):
         'contentType': model['content_type'],
         'id': urllib.parse.urlparse(model['id']).path[1:],
         'tags': model['tags'],
-        'thumbnail': format_thumbnail_uri(app_id,
-                                          model,
-                                          device_uuid)
+        'thumbnail': optional_format_thumbnail_uri(app_id,
+                                                   model,
+                                                   device_uuid)
     }
 
 
