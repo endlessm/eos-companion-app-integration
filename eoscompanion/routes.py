@@ -870,7 +870,7 @@ def companion_app_server_content_data_route(server,
                     src.splice_finish(result)
                 except GLib.Error as splice_error:
                     # Can't really do much here except log server side
-                    logging.warning(
+                    logging.debug(
                         'Splice operation on file failed: %s', splice_error
                     )
 
