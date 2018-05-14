@@ -50,6 +50,16 @@
             ]
         },
         {
+            "name": "libcontentfeed",
+            "buildsystem": "meson",
+            "sources": [
+                {
+                    "type": "git",
+                    "url": "https://github.com/endlessm/libcontentfeed"
+                }
+            ]
+        },
+        {
             "config-opts": [
                 "--disable-integration",
                 "--enable-service"

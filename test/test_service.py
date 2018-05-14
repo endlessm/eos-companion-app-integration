@@ -25,6 +25,7 @@ import os
 import re
 import socket
 
+from collections import namedtuple
 from tempfile import mkdtemp
 from urllib.parse import (
     parse_qs,
@@ -40,10 +41,17 @@ import gi
 gi.require_version('Eknr', '0')
 gi.require_version('Endless', '0')
 gi.require_version('EosCompanionAppService', '1.0')
+gi.require_version('EosDiscoveryFeed', '0')
 gi.require_version('EosMetrics', '0')
 gi.require_version('EosShard', '0')
 
-from gi.repository import EosCompanionAppService, Gio, GLib, Soup
+from gi.repository import (
+    EosCompanionAppService,
+    EosDiscoveryFeed,
+    Gio,
+    GLib,
+    Soup
+)
 
 from testtools import (
     TestCase
@@ -54,6 +62,7 @@ from testtools.matchers import (
     ContainsDict,
     Equals,
     MatchesAll,
+    MatchesListwise,
     MatchesSetwise,
     Not
 )
@@ -378,18 +387,20 @@ def matches_uri_query(path, expected_query):
                       url_matches_query(expected_query))
 
 
-FAKE_SHARD_CONTENT = {
+_FAKE_SHARD_CONTENT_PER_APP = {
     'org.test.NoDisplayApp': {
     },
     'org.test.VideoApp': {
         'video_file': {
             'metadata': {
                 'contentType': 'video/mp4',
+                'duration': '5:04',
                 'isServerTemplated': True,
                 'license': 'CC-0',
                 'originalURI': 'http://video.site/video',
                 'source': 'youtube',
                 'sourceName': 'YouTube',
+                'synopsis': 'A synopsis about the Sample Video',
                 'tags': ['EknHomePageTag', 'EknMediaObject', 'EknArticleObject'],
                 'thumbnailURI': 'ekn:///'+ VIDEO_APP_THUMBNAIL_EKN_ID,
                 'title': 'Sample Video'
@@ -414,6 +425,7 @@ FAKE_SHARD_CONTENT = {
                 'originalURI': 'http://some.site/first',
                 'source': 'wikipedia',
                 'sourceName': 'Wikipedia',
+                'synopsis': 'A synopsis about the Sample Article 1',
                 'tags': ['First Tag', 'EknArticleObject'],
                 'title': 'Sample Article 1',
                 'thumbnailURI': 'ekn:///' + CONTENT_APP_THUMBNAIL_EKN_ID
@@ -433,11 +445,14 @@ FAKE_SHARD_CONTENT = {
         },
         'sample_article_2': {
             'metadata': {
+                'author': 'Some Author',
                 'contentType': 'text/html',
+                'firstDate': '1930-05-03T00:41:03.830398',
                 'license': 'CC-0',
                 'originalURI': 'http://some.site/second',
                 'source': 'wikipedia',
                 'sourceName': 'Wikipedia',
+                'synopsis': 'A synopsis about the Sample Article 2',
                 'tags': ['Second Tag', 'EknArticleObject'],
                 'title': 'Sample Article 2',
                 'thumbnailURI': 'ekn:///' + CONTENT_APP_THUMBNAIL_EKN_ID
@@ -500,6 +515,46 @@ FAKE_SHARD_CONTENT = {
     }
 }
 
+_SAMPLE_VIDEO_1 = _FAKE_SHARD_CONTENT_PER_APP['org.test.VideoApp']['video_file']
+_SAMPLE_VIDEO_1_METADATA = _SAMPLE_VIDEO_1['metadata']
+_SAMPLE_ARTICLE_1 = _FAKE_SHARD_CONTENT_PER_APP['org.test.ContentApp']['sample_article_1']
+_SAMPLE_ARTICLE_1_METADATA = _SAMPLE_ARTICLE_1['metadata']
+_SAMPLE_ARTICLE_2 = _FAKE_SHARD_CONTENT_PER_APP['org.test.ContentApp']['sample_article_2']
+_SAMPLE_ARTICLE_2_METADATA = _SAMPLE_ARTICLE_2['metadata']
+
+_FEED_CONTENT_MODELS = [
+    EosDiscoveryFeed.KnowledgeAppCardStore(
+        desktop_id='org.test.ContentApp.desktop',
+        title=_SAMPLE_ARTICLE_1_METADATA['title'],
+        synopsis=_SAMPLE_ARTICLE_1_METADATA['synopsis'],
+        thumbnail_uri=_SAMPLE_ARTICLE_1_METADATA['thumbnailURI'],
+        uri='ekn:///sample_article_1',
+        content_type='text/html'
+    ),
+    EosDiscoveryFeed.KnowledgeAppArtworkCardStore(
+        author=_SAMPLE_ARTICLE_2_METADATA['author'],
+        desktop_id='org.test.ContentApp.desktop',
+        title=_SAMPLE_ARTICLE_2_METADATA['title'],
+        first_date=_SAMPLE_ARTICLE_2_METADATA['firstDate'],
+        thumbnail_uri=_SAMPLE_ARTICLE_2_METADATA['thumbnailURI'],
+        uri='ekn:///sample_article_2',
+        content_type='text/html'
+    ),
+    EosDiscoveryFeed.KnowledgeAppVideoCardStore(
+        desktop_id='org.test.VideoApp.desktop',
+        duration=_SAMPLE_VIDEO_1_METADATA['duration'],
+        title=_SAMPLE_VIDEO_1_METADATA['title'],
+        thumbnail_uri=_SAMPLE_VIDEO_1_METADATA['thumbnailURI'],
+        uri='ekn:///sample_video_1',
+        content_type='video/webm'
+    )
+]
+
+FakeShardContent = namedtuple('FakeShardContent', 'content_data feed_models')
+
+FAKE_SHARD_CONTENT = FakeShardContent(content_data=_FAKE_SHARD_CONTENT_PER_APP,
+                                      feed_models=_FEED_CONTENT_MODELS)
+
 _METADATA_KEY_TO_MODEL_KEY = {
     '@id': 'id',
     'childTags': 'child_tags',
@@ -519,6 +574,7 @@ def convert_metadata_keys_to_model_keys(metadata_entry):
     '''Convert between the camel-case keys and underscore style keys.'''
     return {
         _METADATA_KEY_TO_MODEL_KEY[k]: v for k, v in metadata_entry.items()
+        if k in _METADATA_KEY_TO_MODEL_KEY
     }
 
 
@@ -594,7 +650,8 @@ class FakeContentDbConnection(object):
     def shards_for_application(self, application_listing, callback):
         '''Create shards for the application and return them.'''
         app_id = application_listing.app_id
-        app_data = self.data.get(application_listing.app_id, None)
+        app_data = self.data.content_data.get(app_id, None)
+
         if app_data is None:
             GLib.idle_add(callback,
                           GLib.Error('Invalid App ID {}'.format(app_id),
@@ -612,7 +669,8 @@ class FakeContentDbConnection(object):
         should be as close as possible.
         '''
         app_id = application_listing.app_id
-        app_data = self.data.get(app_id, None)
+        app_data = self.data.content_data.get(app_id, None)
+
         if app_data is None:
             GLib.idle_add(callback,
                           GLib.Error('Invalid App ID {}'.format(app_id),
@@ -663,6 +721,10 @@ class FakeContentDbConnection(object):
             convert_metadata_keys_to_model_keys(m) for m in filtered_metadata
         ]
         GLib.idle_add(callback, None, [shards, models])
+
+    def feed(self, callback):
+        '''Return a models for the feed.'''
+        return GLib.idle_add(callback, None, self.data.feed_models)
 
 
 class TestCompanionAppService(TestCase):
@@ -2152,6 +2214,161 @@ class TestCompanionAppService(TestCase):
                                                    'search_content'),
                                     {
                                         'applicationId': 'org.test.This.DNE'
+                                    },
+                                    handle_json(autoquit(on_received_response,
+                                                         quit_cb)))
+
+    @with_main_loop
+    def test_feed_endpoint(self, quit_cb):
+        '''/v1/feed returns the expected content feed from the fake models.'''
+        def on_received_response(response):
+            '''Called when we receive a response from the server.'''
+            self.assertThat(response, ContainsDict({
+                'status': Equals('error'),
+                'error': ContainsDict({
+                    'code': Equals('INVALID_REQUEST')
+                })
+            }))
+
+        self.service = CompanionAppService(Holdable(),
+                                           self.port,
+                                           FakeContentDbConnection(FAKE_SHARD_CONTENT))
+        json_http_request_with_uuid(FAKE_UUID,
+                                    local_endpoint(self.port,
+                                                   'feed'),
+                                    {
+                                    },
+                                    handle_json(autoquit(on_received_response,
+                                                         quit_cb)))
+
+    @with_main_loop
+    def test_feed_no_mode_invalid(self, quit_cb):
+        '''/v1/feed returns INVALID_REQUEST if no mode is specified.'''
+        def on_received_response(response):
+            '''Called when we receive a response from the server.'''
+            self.assertThat(response, ContainsDict({
+                'status': Equals('ok'),
+                'payload': ContainsDict({
+                    'state': ContainsDict({
+                        'sources': MatchesSetwise(),
+                        'index': Equals(3)
+                    }),
+                    'sources': MatchesSetwise(
+                        ContainsDict({
+                            'type': Equals('application'),
+                            'detail': ContainsDict({
+                                'applicationId': Equals('org.test.VideoApp'),
+                                'icon': matches_uri_query('/v1/application_icon', {
+                                    'iconName': MatchesSetwise(Equals('org.test.VideoApp')),
+                                    'deviceUUID': MatchesSetwise(Equals(FAKE_UUID))
+                                }),
+                                'displayName': Equals('Video App'),
+                                'shortDescription': Equals('A description about a Video App')
+                            })
+                        }),
+                        ContainsDict({
+                            'type': Equals('application'),
+                            'detail': ContainsDict({
+                                'applicationId': Equals('org.test.ContentApp'),
+                                'icon': matches_uri_query('/v1/application_icon', {
+                                    'iconName': MatchesSetwise(Equals('org.test.ContentApp')),
+                                    'deviceUUID': MatchesSetwise(Equals(FAKE_UUID))
+                                }),
+                                'displayName': Equals('Content App'),
+                                'shortDescription': Equals('A description about a Content App')
+                            })
+                        })
+                    ),
+                    'entries': MatchesListwise([
+                        ContainsDict({
+                            'itemType': Equals('article'),
+                            'source': ContainsDict({
+                                'type': Equals('application'),
+                                'detail': ContainsDict({
+                                    'applicationId': Equals('org.test.ContentApp')
+                                })
+                            }),
+                            'detail': ContainsDict({
+                                'title': Equals(_SAMPLE_ARTICLE_1_METADATA['title']),
+                                'synopsis': Equals(_SAMPLE_ARTICLE_1_METADATA['synopsis']),
+                                'thumbnail': matches_uri_query('/v1/content_data', {
+                                    'applicationId': MatchesSetwise(Equals('org.test.ContentApp')),
+                                    'contentId': MatchesSetwise(
+                                        Equals(CONTENT_APP_THUMBNAIL_EKN_ID)
+                                    ),
+                                    'deviceUUID': MatchesSetwise(Equals(FAKE_UUID))
+                                }),
+                                'uri': matches_uri_query('/v1/content_data', {
+                                    'applicationId': MatchesSetwise(Equals('org.test.ContentApp')),
+                                    'contentId': MatchesSetwise(Equals('sample_article_1')),
+                                    'deviceUUID': MatchesSetwise(Equals(FAKE_UUID))
+                                }),
+                                'contentType': Equals('text/html')
+                            })
+                        }),
+                        ContainsDict({
+                            'itemType': Equals('artwork'),
+                            'source': ContainsDict({
+                                'type': Equals('application'),
+                                'detail': ContainsDict({
+                                    'applicationId': Equals('org.test.ContentApp')
+                                })
+                            }),
+                            'detail': ContainsDict({
+                                'author': Equals(_SAMPLE_ARTICLE_2_METADATA['author']),
+                                'firstDate': Equals(_SAMPLE_ARTICLE_2_METADATA['firstDate']),
+                                'title': Equals(_SAMPLE_ARTICLE_2_METADATA['title']),
+                                'thumbnail': matches_uri_query('/v1/content_data', {
+                                    'applicationId': MatchesSetwise(Equals('org.test.ContentApp')),
+                                    'contentId': MatchesSetwise(
+                                        Equals(CONTENT_APP_THUMBNAIL_EKN_ID)
+                                    ),
+                                    'deviceUUID': MatchesSetwise(Equals(FAKE_UUID))
+                                }),
+                                'uri': matches_uri_query('/v1/content_data', {
+                                    'applicationId': MatchesSetwise(Equals('org.test.ContentApp')),
+                                    'contentId': MatchesSetwise(Equals('sample_article_2')),
+                                    'deviceUUID': MatchesSetwise(Equals(FAKE_UUID))
+                                }),
+                                'contentType': Equals('text/html')
+                            })
+                        }),
+                        ContainsDict({
+                            'itemType': Equals('video'),
+                            'source': ContainsDict({
+                                'type': Equals('application'),
+                                'detail': ContainsDict({
+                                    'applicationId': Equals('org.test.VideoApp')
+                                })
+                            }),
+                            'detail': ContainsDict({
+                                'duration': Equals('5:04'),
+                                'title': Equals(_SAMPLE_VIDEO_1_METADATA['title']),
+                                'thumbnail': matches_uri_query('/v1/content_data', {
+                                    'applicationId': MatchesSetwise(Equals('org.test.VideoApp')),
+                                    'contentId': MatchesSetwise(Equals(VIDEO_APP_THUMBNAIL_EKN_ID)),
+                                    'deviceUUID': MatchesSetwise(Equals(FAKE_UUID))
+                                }),
+                                'uri': matches_uri_query('/v1/content_data', {
+                                    'applicationId': MatchesSetwise(Equals('org.test.VideoApp')),
+                                    'contentId': MatchesSetwise(Equals('sample_video_1')),
+                                    'deviceUUID': MatchesSetwise(Equals(FAKE_UUID))
+                                }),
+                                'contentType': Equals('video/webm')
+                            })
+                        })
+                    ])
+                })
+            }))
+
+        self.service = CompanionAppService(Holdable(),
+                                           self.port,
+                                           FakeContentDbConnection(FAKE_SHARD_CONTENT))
+        json_http_request_with_uuid(FAKE_UUID,
+                                    local_endpoint(self.port,
+                                                   'feed'),
+                                    {
+                                        'mode': 'ascending'
                                     },
                                     handle_json(autoquit(on_received_response,
                                                          quit_cb)))

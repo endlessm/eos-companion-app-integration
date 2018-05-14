@@ -18,26 +18,23 @@
 # All rights reserved.
 '''Route definitions for eos-companion-app-service.'''
 
-from collections import namedtuple
+from collections import defaultdict, namedtuple
 import itertools
 import json
 import logging
 import os
-import urllib.parse
 
 
 from gi.repository import (
     Endless,
     EosCompanionAppService,
+    EosDiscoveryFeed,
     EosMetrics,
     Gio,
     GLib,
     Soup
 )
 
-from .dummy_feed import (
-    dummy_feed
-)
 from .applications_query import (
     application_listing_from_app_info,
     list_all_applications
@@ -63,8 +60,10 @@ from .ekn_data import (
 from .ekn_query import ascertain_application_sets_from_models
 from .format import (
     format_app_icon_uri,
+    format_content_data_uri,
     format_thumbnail_uri,
-    optional_format_thumbnail_uri
+    optional_format_thumbnail_uri,
+    parse_uri_path_basename
 )
 from .functional import all_asynchronous_function_calls_closure
 from .license_content_adjuster import (
@@ -161,19 +160,419 @@ def desktop_id_to_app_id(desktop_id):
     '''Remove .desktop suffix from desktop_id.'''
     return os.path.splitext(desktop_id)[0]
 
+
+def yield_desktop_ids_from_feed_models(models):
+    '''For each model that has a desktop_id, yield the desktop_id.'''
+    for model in models:
+        try:
+            yield model.get_property('desktop-id')
+        except TypeError:
+            continue
+
+
+def app_infos_for_feed_models(models, callback):
+    '''Get a GDesktopAppInfo for each model source in models.
+
+    A source might have more than once model, so we deduplicate here.
+    '''
+    def _on_received_all_app_info_results(results):
+        '''Callback for when all results are received.
+
+        Check for errors and report them, ignoring sources that had errors.
+        Continue with the sources that do not have errors.
+        '''
+        app_infos = []
+
+        for result in results:
+            error, info = result
+
+            if error is not None:
+                logging.error('Encountered error in getting app info: %s', error)
+                continue
+
+            app_infos.append(info)
+
+        callback(None, app_infos)
+
+    def _load_application_info_thunk(desktop_id):
+        '''A thunk used here since we cannot use lambdas in for loops.'''
+        def _internal(_load_app_info_callback):
+            def _on_got_application_info(_, result):
+                '''Marshal the error and result into a tuple.'''
+                try:
+                    info = application_listing_from_app_info(
+                        EosCompanionAppService.finish_load_application_info(result)
+                    )
+                except GLib.Error as error:
+                    _load_app_info_callback(error, None)
+                    return
+
+                _load_app_info_callback(None, info)
+
+            application_id = desktop_id_to_app_id(desktop_id)
+            EosCompanionAppService.load_application_info(application_id,
+                                                         None,
+                                                         _on_got_application_info)
+
+        return _internal
+
+    desktop_ids = list(set([
+        desktop_id for desktop_id in yield_desktop_ids_from_feed_models(models)
+    ]))
+    all_asynchronous_function_calls_closure([
+        _load_application_info_thunk(desktop_id) for desktop_id in desktop_ids
+    ], _on_received_all_app_info_results)
+
+
+def sources_from_content_feed_models(models, query, callback):
+    '''Generate the "sources" entry for the feed JSON response.
+
+    This response is a summary of all the sources that were queried in
+    the feed. A source might generate multiple items to put in the feed
+    so we can save some space in the payload by having a unique source
+    identifier and specifying its detail once.
+
+    Sources list generation happens asynchronously as it requires
+    looking up desktop files.
+    '''
+
+    def _on_received_app_infos(error, app_infos):
+        '''Called when we have our app_infos.
+
+        We can now marshal each app_info into an 'application' source
+        and continue using it that way.
+        '''
+        if error is not None:
+            callback(error, None)
+            return
+
+        callback(None, [
+            {
+                'type': 'application',
+                'detail': {
+                    'applicationId': a.app_id,
+                    'displayName': a.display_name,
+                    'shortDescription': a.short_description,
+                    'icon': format_app_icon_uri(a.icon, query['deviceUUID'])
+                }
+            }
+            for a in app_infos
+        ])
+
+    app_infos_for_feed_models(models, _on_received_app_infos)
+
+
+_SOURCE_IDENTIFIER_KEYS_BY_TYPE = {
+    'application': 'applicationId'
+}
+
+
+def get_source_identifier(source):
+    '''Get the value of the source identifier key.'''
+    return source['detail'][_SOURCE_IDENTIFIER_KEYS_BY_TYPE[source['type']]]
+
+
+def _serialize_article_content_feed_model(model, app_id, query):
+    '''Serialize the ARTICLE_CARD type content feed model.'''
+    return [{
+        'itemType': 'article',
+        'source': {
+            'type': 'application',
+            'detail': {
+                'applicationId': app_id
+            },
+        },
+        'detail': {
+            'title': model.get_property('title'),
+            'synopsis': model.get_property('synopsis'),
+            'thumbnail': format_thumbnail_uri(
+                app_id,
+                model.get_property('thumbnail-uri'),
+                query['deviceUUID']
+            ),
+            'uri': format_content_data_uri(
+                parse_uri_path_basename(model.get_property('uri')),
+                app_id,
+                query['deviceUUID']
+            ),
+            'contentType': model.get_property('content-type')
+        }
+    }]
+
+
+def maybe_get_property(model, prop_name):
+    '''Get property if it exists, otherwise return None.'''
+    try:
+        return model.get_property(prop_name)
+    except TypeError:
+        return None
+
+
+def _serialize_artwork_content_feed_model(model, app_id, query):
+    '''Serialize the ARTWORK_CARD type content feed model.'''
+    return [{
+        'itemType': 'artwork',
+        'source': {
+            'type': 'application',
+            'detail': {
+                'applicationId': app_id
+            },
+        },
+        'detail': {
+            'title': model.get_property('title'),
+            'author': model.get_property('author'),
+            'firstDate': maybe_get_property(model, 'first-date'),
+            'thumbnail': format_thumbnail_uri(
+                app_id,
+                model.get_property('thumbnail-uri'),
+                query['deviceUUID']
+            ),
+            'uri': format_content_data_uri(
+                parse_uri_path_basename(model.get_property('uri')),
+                app_id,
+                query['deviceUUID']
+            ),
+            'contentType': model.get_property('content-type')
+        }
+    }]
+
+
+def _serialize_video_content_feed_model(model, app_id, query):
+    '''Serialize the VIDEO_CARD type content feed model.'''
+    return [{
+        'itemType': 'video',
+        'source': {
+            'type': 'application',
+            'detail': {
+                'applicationId': app_id
+            },
+        },
+        'detail': {
+            'title': model.get_property('title'),
+            'thumbnail': format_thumbnail_uri(
+                app_id,
+                model.get_property('thumbnail-uri'),
+                query['deviceUUID']
+            ),
+            'uri': format_content_data_uri(
+                parse_uri_path_basename(model.get_property('uri')),
+                app_id,
+                query['deviceUUID']
+            ),
+            'duration': model.get_property('duration'),
+            'contentType': model.get_property('content-type')
+        }
+    }]
+
+
+def _serialize_news_content_feed_model(model, app_id, query):
+    '''Serialize the NEWS_CARD type content feed model.'''
+    return [{
+        'itemType': 'news',
+        'source': {
+            'type': 'application',
+            'detail': {
+                'applicationId': app_id
+            },
+        },
+        'detail': {
+            'title': model.get_property('title'),
+            'synopsis': model.get_property('synopsis'),
+            'thumbnail': format_thumbnail_uri(
+                app_id,
+                model.get_property('thumbnail-uri'),
+                query['deviceUUID']
+            ),
+            'uri': format_content_data_uri(
+                parse_uri_path_basename(model.get_property('uri')),
+                app_id,
+                query['deviceUUID']
+            ),
+            'contentType': model.get_property('content-type')
+        }
+    }]
+
+
+def _serialize_quote_content_feed_model(model):
+    '''Serialize the QUOTE_CARD type content feed model.'''
+    return {
+        'itemType': 'quoteOfTheDay',
+        'source': {
+            'type': 'none',
+            'detail': None,
+        },
+        'detail': {
+            'quote': model.get_property('quote'),
+            'author': model.get_property('author')
+        }
+    }
+
+
+def _serialize_word_content_feed_model(model):
+    '''Serialize the WORD_CARD type content feed model.'''
+    return {
+        'itemType': 'wordOfTheDay',
+        'source': {
+            'type': 'none',
+            'detail': None,
+        },
+        'detail': {
+            'word': model.get_property('word'),
+            'partOfSpeech': model.get_property('part-of-speech'),
+            'definition': model.get_property('definition')
+        }
+    }
+
+
+def _serialize_word_quote_content_feed_model(model, *args):
+    '''Serialize the WORD_QUOTE_CARD type content feed model.'''
+    del args
+
+    word_model = model.get_property('word')
+    quote_model = model.get_property('quote')
+
+    return [
+        _serialize_word_content_feed_model(word_model),
+        _serialize_quote_content_feed_model(quote_model)
+    ]
+
+
+_CONTENT_FEED_MODEL_SERIALIZERS = {
+    EosDiscoveryFeed.CardStoreType.ARTICLE_CARD: _serialize_article_content_feed_model,
+    EosDiscoveryFeed.CardStoreType.ARTWORK_CARD: _serialize_artwork_content_feed_model,
+    EosDiscoveryFeed.CardStoreType.VIDEO_CARD: _serialize_video_content_feed_model,
+    EosDiscoveryFeed.CardStoreType.NEWS_CARD: _serialize_news_content_feed_model,
+    EosDiscoveryFeed.CardStoreType.WORD_QUOTE_CARD: _serialize_word_quote_content_feed_model
+}
+
+def content_feed_model_to_json_entries(model, app_id, query):
+    '''Return a list of json entries for each model.
+
+    This varies depending on the model type. Some models may return
+    more than one entry (for instance, the word-quote model returns
+    two entries).
+    '''
+    return _CONTENT_FEED_MODEL_SERIALIZERS[model.get_property('type')](model,
+                                                                       app_id,
+                                                                       query)
+
+
+def entries_from_content_feed_models(models, sources, query):
+    '''Generate the "entries" entry for the feed JSON response.
+
+    This response will contain every model in the models as long as
+    the model type is known and its source was present in the sources
+    entry.
+
+    Problems with individual models will be reported on the console.
+    '''
+    # A map of sources, first by type and then by a unique identifier
+    # for the source of that type. This is used to quickly lookup whether
+    # an entry has a corresponding source.
+    sources_map = defaultdict(set)
+
+    for source in sources:
+        sources_map[source['type']].add(get_source_identifier(source))
+
+    for model in models:
+        # Get the app ID for all content models that have a desktop ID. If
+        # a content model does not have a desktop ID then we can still
+        # display it, but the user won't be able to navigate to content
+        # for that app.
+        try:
+            app_id = desktop_id_to_app_id(model.get_property('desktop-id'))
+        except TypeError:
+            app_id = None
+
+        if app_id is not None and app_id not in sources_map['application']:
+            logging.warning('Model %s with app-id %s did not have a '
+                            'corresponding entry in the sources list, it will be '
+                            'ignored', model, app_id)
+            continue
+
+        for entry in content_feed_model_to_json_entries(model, app_id, query):
+            yield entry
+
+
 @require_query_string_param('deviceUUID')
 @require_query_string_param('mode')
 @record_metric('af3e89b2-8293-4703-809c-8e0231c128cb')
-def companion_app_server_feed_route(server, msg, path, query, *args):
-    '''Send feed.'''
-    del server
+def companion_app_server_feed_route(server,
+                                    msg,
+                                    path,
+                                    query,
+                                    context,
+                                    content_db_conn):
+    '''Request the Content Feed from EosDiscoveryFeed.
+
+    The :mode: paramter is used to determine whether newer entries
+    should be fetched or older entries should be fetched. It is currently
+    unused for now, the feed is the same as the Discovery Feed on the
+    desktop.
+    '''
     del path
-    del args
+    del context
+
+    def _on_received_ordered_feed_models(error, models):
+        '''Callback for when the ordered feed models are ready.
+
+        The models are in the exact order that they should be displayed
+        in the feed, so we should marshal them into the appropriate
+        JSON representation and display them now.
+        '''
+        def _on_received_sources(error, sources):
+            '''Callback for when we work out the info for all the sources.'''
+            if error is not None:
+                json_response(msg, {
+                    'status': 'error',
+                    'error': serialize_error_as_json_object(
+                        EosCompanionAppService.error_quark(),
+                        EosCompanionAppService.Error.FAILED,
+                        detail={
+                            'message': str(error)
+                        }
+                    )
+                })
+                server.unpause_message(msg)
+                return
+
+            entries = list(entries_from_content_feed_models(models,
+                                                            sources,
+                                                            query))
+            json_response(msg, {
+                'status': 'ok',
+                'payload': {
+                    'state': {
+                        'sources': [
+                        ],
+                        'index': len(entries)
+                    },
+                    'sources': sources,
+                    'entries': entries
+                }
+            })
+            server.unpause_message(msg)
+
+        if error is not None:
+            json_response(msg, {
+                'status': 'error',
+                'error': serialize_error_as_json_object(
+                    EosCompanionAppService.error_quark(),
+                    EosCompanionAppService.Error.FAILED,
+                    detail={
+                        'message': str(error)
+                    }
+                )
+            })
+            server.unpause_message(msg)
+            return
+
+        sources_from_content_feed_models(models, query, _on_received_sources)
 
     logging.debug('Feed: for clientId=%s', query['deviceUUID'])
 
-    feed = dummy_feed()
-    json_response(msg, feed)
+    content_db_conn.feed(_on_received_ordered_feed_models)
+    server.pause_message(msg)
 
 
 _SUFFIX_CONTENT_TYPES = {
@@ -744,7 +1143,7 @@ def companion_app_server_list_application_content_for_tags_route(server,
                     'thumbnail': optional_format_thumbnail_uri(query['applicationId'],
                                                                model,
                                                                query['deviceUUID']),
-                    'id': urllib.parse.urlparse(model['id']).path[1:],
+                    'id': parse_uri_path_basename(model['id']),
                     'tags': model['tags']
                 }
                 for model in models
@@ -1298,7 +1697,7 @@ def render_result_payload_for_content(app_id, model, device_uuid):
     return {
         'applicationId': app_id,
         'contentType': model['content_type'],
-        'id': urllib.parse.urlparse(model['id']).path[1:],
+        'id': parse_uri_path_basename(model['id']),
         'tags': model['tags'],
         'thumbnail': optional_format_thumbnail_uri(app_id,
                                                    model,
@@ -1850,7 +2249,10 @@ def create_companion_app_routes(content_db_conn):
             companion_app_server_search_content_route,
             content_db_conn
         ),
-        '/v1/feed': companion_app_server_feed_route,
+        '/v1/feed': add_content_db_conn(
+            companion_app_server_feed_route,
+            content_db_conn
+        ),
         '/v1/resource': companion_app_server_resource_route,
         '/v1/license': companion_app_server_license_route
     }

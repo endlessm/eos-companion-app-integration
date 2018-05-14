@@ -18,8 +18,13 @@
 # All rights reserved.
 '''URI formatting functions for eoscompanion.'''
 
+import os
 import urllib
 
+
+def parse_uri_path_basename(uri):
+    '''Just get the basename of the last path component of a URI.'''
+    return os.path.basename(urllib.parse.urlparse(uri).path)
 
 
 def format_uri_with_querystring(base_uri, **params):
@@ -43,7 +48,7 @@ def format_thumbnail_uri(application_id, thumbnail_uri, device_uuid):
         '/v1/content_data',
         deviceUUID=device_uuid,
         applicationId=application_id,
-        contentId=urllib.parse.urlparse(thumbnail_uri).path[1:]
+        contentId=parse_uri_path_basename(thumbnail_uri)
     )
 
 
@@ -56,19 +61,25 @@ def optional_format_thumbnail_uri(application_id, model, device_uuid):
     )
 
 
+def format_content_data_uri(content_id, application_id, device_uuid):
+    '''Format a /content_data URI.'''
+    return format_uri_with_querystring(
+        '/v1/content_data',
+        deviceUUID=device_uuid,
+        applicationId=application_id,
+        contentId=content_id
+    )
+
+
 def rewrite_ekn_url(content_id, query):
     '''If the URL is an EKN url, rewrite it to be server-relative.
 
     This causes the applicationId and deviceUUID to be included in
     the URL query-string.
     '''
-    formatted = format_uri_with_querystring(
-        '/v1/content_data',
-        deviceUUID=query['deviceUUID'],
-        applicationId=query['applicationId'],
-        contentId=content_id
-    )
-    return formatted
+    return format_content_data_uri(content_id,
+                                   query['applicationId'],
+                                   query['deviceUUID'])
 
 
 def rewrite_resource_url(uri, query):

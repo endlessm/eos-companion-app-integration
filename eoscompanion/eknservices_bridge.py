@@ -26,6 +26,7 @@ from collections import defaultdict
 
 from gi.repository import (
     EosCompanionAppService,
+    EosDiscoveryFeed,
     EosShard,
     Gio,
     GLib
@@ -146,6 +147,54 @@ def eknservices_shards_for_application(conn,
         None,
         callback
     )
+
+
+def eknservices_feed(conn, callback):
+    '''Make the dbus calls required to generate a content feed.
+
+    This involves fetching all the exported content providers,
+    assembling queries and then running the queries.
+    '''
+    def _on_received_feed_query_results(_, result):
+        '''Callback for when we get the query results from each feed query.'''
+        try:
+            orderables = EosDiscoveryFeed.unordered_results_from_queries_finish(result)
+        except GLib.Error as error:
+            callback(error, None)
+            return
+
+        callback(None, [
+            ordered.get_property('model')
+            for ordered in EosDiscoveryFeed.arrange_orderable_models(orderables, 0)
+        ])
+
+    def _on_instantiated_proxies(_, result):
+        '''Callback for when we have instantiated all our proxies for providers.'''
+        try:
+            # pylint: disable=line-too-long
+            proxies = EosDiscoveryFeed.instantiate_proxies_from_discovery_feed_providers_finish(result)
+        except GLib.Error as error:
+            callback(error, None)
+            return
+
+        EosDiscoveryFeed.unordered_results_from_queries(proxies,
+                                                        None,
+                                                        _on_received_feed_query_results)
+
+    def _on_received_providers(_, result):
+        '''Callback for when we get the provider file descriptions.'''
+        try:
+            providers = EosDiscoveryFeed.find_providers_finish(result)
+        except GLib.Error as error:
+            callback(error, None)
+            return
+
+        EosDiscoveryFeed.instantiate_proxies_from_discovery_feed_providers(conn,
+                                                                           providers,
+                                                                           None,
+                                                                           _on_instantiated_proxies)
+
+    EosDiscoveryFeed.find_providers(None, _on_received_providers)
 
 
 def _iterate_init_shard_results(shard_init_results):
@@ -284,3 +333,15 @@ class EknServicesContentDbConnection(object):
                           application_listing.search_provider_name,
                           [query],
                           _internal_callback)
+
+    def feed(self, callback):
+        '''Get the content feed from all sources.'''
+        def _internal_callback(error, result):
+            '''Internal callback to convert errors if necessary.'''
+            if error is not None:
+                callback(_dbus_error_to_companion_app_error(error), None)
+                return
+
+            callback(None, result)
+
+        eknservices_feed(self._dbus_connection, _internal_callback)
