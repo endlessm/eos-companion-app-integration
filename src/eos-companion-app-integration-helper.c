@@ -960,20 +960,11 @@ get_singleton_icon_theme ()
 }
 
 static GBytes *
-read_icon_pixbuf_png_bytes_for_name (const gchar   *icon_id,
-                                     GCancellable  *cancellable,
-                                     GError       **error)
+pixbuf_to_png_bytes (GdkPixbuf     *pixbuf,
+                     GError       **error)
 {
   g_autofree gchar *buffer = NULL;
   gsize buffer_size = 0;
-  g_autoptr(GdkPixbuf) pixbuf = gtk_icon_theme_load_icon (get_singleton_icon_theme (),
-                                                          icon_id,
-                                                          64,
-                                                          0,
-                                                          error);
-
-  if (pixbuf == NULL)
-    return NULL;
 
   if (!gdk_pixbuf_save_to_buffer (pixbuf, &buffer, &buffer_size, "png", error, NULL))
     return NULL;
@@ -981,16 +972,31 @@ read_icon_pixbuf_png_bytes_for_name (const gchar   *icon_id,
   return g_bytes_new_take (g_steal_pointer (&buffer), buffer_size);
 }
 
-static void
-load_application_icon_data_thread (GTask        *task,
-                                   gpointer      source,
-                                   gpointer      task_data,
-                                   GCancellable *cancellable)
+static GBytes *
+load_icon_info_from_result_to_png_bytes (GtkIconInfo   *icon_info,
+                                         GAsyncResult  *result,
+                                         GError       **error)
 {
+  g_autoptr(GdkPixbuf) pixbuf = gtk_icon_info_load_icon_finish (icon_info,
+                                                                result,
+                                                                error);
+
+  if (pixbuf == NULL)
+    return NULL;
+
+  return pixbuf_to_png_bytes (pixbuf, error);
+}
+
+static void
+on_icon_pixbuf_loaded (GObject       *source,
+                       GAsyncResult  *result,
+                       gpointer       user_data)
+{
+  g_autoptr(GTask) task = G_TASK (user_data);
   g_autoptr(GError) local_error = NULL;
-  g_autoptr(GBytes) icon_bytes = read_icon_pixbuf_png_bytes_for_name ((const gchar *) task_data,
-                                                                      cancellable,
-                                                                      &local_error);
+  g_autoptr(GBytes) icon_bytes = load_icon_info_from_result_to_png_bytes (GTK_ICON_INFO (source),
+                                                                          result,
+                                                                          &local_error);
 
   if (icon_bytes == NULL)
     {
@@ -1001,6 +1007,8 @@ load_application_icon_data_thread (GTask        *task,
   g_task_return_pointer (task, g_steal_pointer (&icon_bytes), (GDestroyNotify) g_bytes_unref);
 }
 
+#define ICON_SIZE 64
+
 /* We'll do this to avoid blocking the main thread on loading image data */
 void
 eos_companion_app_service_load_application_icon_data_async (const gchar         *icon_name,
@@ -1009,10 +1017,24 @@ eos_companion_app_service_load_application_icon_data_async (const gchar         
                                                             gpointer             user_data)
 {
   g_autoptr(GTask) task = g_task_new (NULL, cancellable, callback, user_data);
+  g_autoptr(GtkIconInfo) icon_info = NULL;
 
   g_task_set_return_on_cancel (task, TRUE);
-  g_task_set_task_data (task, g_strdup (icon_name), g_free);
-  g_task_run_in_thread (task, load_application_icon_data_thread);
+
+  /* Load the icon info from the cache (which may mutate the cache, so we
+   * cannot do it in a worker thread) and then load the icon asynchronously
+   *
+   * See https://phabricator.endlessm.com/T22584 */
+  icon_info = gtk_icon_theme_lookup_icon_for_scale (get_singleton_icon_theme (),
+                                                    icon_name,
+                                                    ICON_SIZE,
+                                                    1,
+                                                    0);
+
+  gtk_icon_info_load_icon_async (icon_info,
+                                 cancellable,
+                                 on_icon_pixbuf_loaded,
+                                 g_steal_pointer (&task));
 }
 
 
