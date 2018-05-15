@@ -1402,8 +1402,11 @@ def companion_app_server_content_data_route(server,
                 response_headers.replace('Connection', 'keep-alive')
 
                 # Add the article thumbnail uri to the header
+                # we only want to add the image when it is content
+                # from a Wikipedia or Wikihow source
                 thumbnail_uri = content_metadata.get('thumbnail', None)
-                if thumbnail_uri is not None:
+                is_wiki_source = content_metadata.get('source', None) in ('wikipedia', 'wikihow')
+                if thumbnail_uri is not None and is_wiki_source:
                     formatted_thumbnail_uri = format_thumbnail_uri(query['applicationId'],
                                                                    thumbnail_uri,
                                                                    query['deviceUUID'])
