@@ -26,9 +26,9 @@ import os
 
 
 from gi.repository import (
+    ContentFeed,
     Endless,
     EosCompanionAppService,
-    EosDiscoveryFeed,
     EosMetrics,
     Gio,
     GLib,
@@ -438,11 +438,11 @@ def _serialize_word_quote_content_feed_model(model, *args):
 
 
 _CONTENT_FEED_MODEL_SERIALIZERS = {
-    EosDiscoveryFeed.CardStoreType.ARTICLE_CARD: _serialize_article_content_feed_model,
-    EosDiscoveryFeed.CardStoreType.ARTWORK_CARD: _serialize_artwork_content_feed_model,
-    EosDiscoveryFeed.CardStoreType.VIDEO_CARD: _serialize_video_content_feed_model,
-    EosDiscoveryFeed.CardStoreType.NEWS_CARD: _serialize_news_content_feed_model,
-    EosDiscoveryFeed.CardStoreType.WORD_QUOTE_CARD: _serialize_word_quote_content_feed_model
+    ContentFeed.CardStoreType.ARTICLE_CARD: _serialize_article_content_feed_model,
+    ContentFeed.CardStoreType.ARTWORK_CARD: _serialize_artwork_content_feed_model,
+    ContentFeed.CardStoreType.VIDEO_CARD: _serialize_video_content_feed_model,
+    ContentFeed.CardStoreType.NEWS_CARD: _serialize_news_content_feed_model,
+    ContentFeed.CardStoreType.WORD_QUOTE_CARD: _serialize_word_quote_content_feed_model
 }
 
 def content_feed_model_to_json_entries(model, app_id, query):
@@ -503,7 +503,7 @@ def companion_app_server_feed_route(server,
                                     query,
                                     context,
                                     content_db_conn):
-    '''Request the Content Feed from EosDiscoveryFeed.
+    '''Request the Content Feed from ContentFeed.
 
     The :mode: paramter is used to determine whether newer entries
     should be fetched or older entries should be fetched. It is currently
