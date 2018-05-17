@@ -180,6 +180,7 @@ def render_mobile_wrapper(renderer,
             'custom-css-files': GLib.Variant('as', []),
             'javascript-files': GLib.Variant('as', [
                 'jquery-min.js',
+                'collapse-infotable.js',
                 'crosslink.js'
             ]),
             'content': GLib.Variant('s', rendered_content),
