@@ -38,16 +38,16 @@ from test.build_app import (force_remove_directory, setup_fake_apps)
 
 import gi
 
+gi.require_version('ContentFeed', '0')
 gi.require_version('Eknr', '0')
 gi.require_version('Endless', '0')
 gi.require_version('EosCompanionAppService', '1.0')
-gi.require_version('EosDiscoveryFeed', '0')
 gi.require_version('EosMetrics', '0')
 gi.require_version('EosShard', '0')
 
 from gi.repository import (
+    ContentFeed,
     EosCompanionAppService,
-    EosDiscoveryFeed,
     Gio,
     GLib,
     Soup
@@ -523,7 +523,7 @@ _SAMPLE_ARTICLE_2 = _FAKE_SHARD_CONTENT_PER_APP['org.test.ContentApp']['sample_a
 _SAMPLE_ARTICLE_2_METADATA = _SAMPLE_ARTICLE_2['metadata']
 
 _FEED_CONTENT_MODELS = [
-    EosDiscoveryFeed.KnowledgeAppCardStore(
+    ContentFeed.KnowledgeAppCardStore(
         desktop_id='org.test.ContentApp.desktop',
         title=_SAMPLE_ARTICLE_1_METADATA['title'],
         synopsis=_SAMPLE_ARTICLE_1_METADATA['synopsis'],
@@ -531,7 +531,7 @@ _FEED_CONTENT_MODELS = [
         uri='ekn:///sample_article_1',
         content_type='text/html'
     ),
-    EosDiscoveryFeed.KnowledgeAppArtworkCardStore(
+    ContentFeed.KnowledgeAppArtworkCardStore(
         author=_SAMPLE_ARTICLE_2_METADATA['author'],
         desktop_id='org.test.ContentApp.desktop',
         title=_SAMPLE_ARTICLE_2_METADATA['title'],
@@ -540,7 +540,7 @@ _FEED_CONTENT_MODELS = [
         uri='ekn:///sample_article_2',
         content_type='text/html'
     ),
-    EosDiscoveryFeed.KnowledgeAppVideoCardStore(
+    ContentFeed.KnowledgeAppVideoCardStore(
         desktop_id='org.test.VideoApp.desktop',
         duration=_SAMPLE_VIDEO_1_METADATA['duration'],
         title=_SAMPLE_VIDEO_1_METADATA['title'],

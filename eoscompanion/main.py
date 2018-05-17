@@ -24,10 +24,10 @@ import sys
 
 import gi
 
+gi.require_version('ContentFeed', '0')
 gi.require_version('Eknr', '0')
 gi.require_version('Endless', '0')
 gi.require_version('EosCompanionAppService', '1.0')
-gi.require_version('EosDiscoveryFeed', '0')
 gi.require_version('EosMetrics', '0')
 gi.require_version('EosShard', '0')
 

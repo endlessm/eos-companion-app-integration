@@ -25,8 +25,8 @@ import re
 from collections import defaultdict
 
 from gi.repository import (
+    ContentFeed,
     EosCompanionAppService,
-    EosDiscoveryFeed,
     EosShard,
     Gio,
     GLib
@@ -158,43 +158,43 @@ def eknservices_feed(conn, callback):
     def _on_received_feed_query_results(_, result):
         '''Callback for when we get the query results from each feed query.'''
         try:
-            orderables = EosDiscoveryFeed.unordered_results_from_queries_finish(result)
+            orderables = ContentFeed.unordered_results_from_queries_finish(result)
         except GLib.Error as error:
             callback(error, None)
             return
 
         callback(None, [
             ordered.get_property('model')
-            for ordered in EosDiscoveryFeed.arrange_orderable_models(orderables, 0)
+            for ordered in ContentFeed.arrange_orderable_models(orderables, 0)
         ])
 
     def _on_instantiated_proxies(_, result):
         '''Callback for when we have instantiated all our proxies for providers.'''
         try:
             # pylint: disable=line-too-long
-            proxies = EosDiscoveryFeed.instantiate_proxies_from_discovery_feed_providers_finish(result)
+            proxies = ContentFeed.instantiate_proxies_from_discovery_feed_providers_finish(result)
         except GLib.Error as error:
             callback(error, None)
             return
 
-        EosDiscoveryFeed.unordered_results_from_queries(proxies,
-                                                        None,
-                                                        _on_received_feed_query_results)
+        ContentFeed.unordered_results_from_queries(proxies,
+                                                   None,
+                                                   _on_received_feed_query_results)
 
     def _on_received_providers(_, result):
         '''Callback for when we get the provider file descriptions.'''
         try:
-            providers = EosDiscoveryFeed.find_providers_finish(result)
+            providers = ContentFeed.find_providers_finish(result)
         except GLib.Error as error:
             callback(error, None)
             return
 
-        EosDiscoveryFeed.instantiate_proxies_from_discovery_feed_providers(conn,
-                                                                           providers,
-                                                                           None,
-                                                                           _on_instantiated_proxies)
+        ContentFeed.instantiate_proxies_from_discovery_feed_providers(conn,
+                                                                      providers,
+                                                                      None,
+                                                                      _on_instantiated_proxies)
 
-    EosDiscoveryFeed.find_providers(None, _on_received_providers)
+    ContentFeed.find_providers(None, _on_received_providers)
 
 
 def _iterate_init_shard_results(shard_init_results):
