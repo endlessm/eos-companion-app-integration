@@ -38,6 +38,7 @@ _GLOBAL_SET_INDICATOR_TAG = ['EknHomePageTag']
 def ascertain_application_sets_from_models(models,
                                            device_uuid,
                                            application_id,
+                                           cancellable,
                                            done_callback):
     '''Pass application sets or an entry for the global set to callback.'''
     def _on_received_application_info(_, result):
@@ -81,7 +82,7 @@ def ascertain_application_sets_from_models(models,
             return
 
         EosCompanionAppService.load_application_info(application_id,
-                                                     cancellable=None,
+                                                     cancellable=cancellable,
                                                      callback=_on_received_application_info)
     except Exception as error:
         GLib.idle_add(done_callback, error, None)

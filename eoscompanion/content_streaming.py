@@ -47,6 +47,7 @@ def conditionally_wrap_stream(stream,
                               content_type,
                               query,
                               adjuster,
+                              cancellable,
                               callback):
     '''Inspect content_type to adjust stream content.'''
     def _content_adjusted_callback(error, adjusted):
@@ -69,12 +70,13 @@ def conditionally_wrap_stream(stream,
         adjuster.render_async(content_type,
                               content_bytes,
                               query,
+                              cancellable,
                               _content_adjusted_callback)
 
     if adjuster.needs_adjustment(content_type):
         EosCompanionAppService.load_all_in_stream_to_bytes(stream,
                                                            chunk_size=BYTE_CHUNK_SIZE,
-                                                           cancellable=None,
+                                                           cancellable=cancellable,
                                                            callback=_read_stream_callback)
         return
 
@@ -88,6 +90,7 @@ def conditionally_wrap_blob_stream(blob,
                                    content_type,
                                    query,
                                    adjuster,
+                                   cancellable,
                                    callback):
     '''Inspect content_type and adjust blob stream content.'''
     conditionally_wrap_stream(blob.get_stream(),
@@ -95,4 +98,5 @@ def conditionally_wrap_blob_stream(blob,
                               content_type,
                               query,
                               adjuster,
+                              cancellable,
                               callback)

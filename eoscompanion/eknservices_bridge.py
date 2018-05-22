@@ -83,6 +83,7 @@ def eknservices_query(conn,
                       eknservices_name,
                       search_provider_name,
                       queries,
+                      cancellable,
                       callback):
     '''Make a query on eknservices and send the result to callback.
 
@@ -111,7 +112,7 @@ def eknservices_query(conn,
         GLib.VariantType('(asa(a{sv}aa{sv}))'),
         Gio.DBusCallFlags.NONE,
         -1,
-        None,
+        cancellable,
         callback
     )
 
@@ -120,6 +121,7 @@ def eknservices_shards_for_application(conn,
                                        app_id,
                                        eknservices_name,
                                        search_provider_name,
+                                       cancellable,
                                        callback):
     '''Ask eknservices for the application's shards and pass to callback.
 
@@ -144,12 +146,12 @@ def eknservices_shards_for_application(conn,
         GLib.VariantType('(as)'),
         Gio.DBusCallFlags.NONE,
         -1,
-        None,
+        cancellable,
         callback
     )
 
 
-def eknservices_feed(conn, callback):
+def eknservices_feed(conn, cancellable, callback):
     '''Make the dbus calls required to generate a content feed.
 
     This involves fetching all the exported content providers,
@@ -178,7 +180,7 @@ def eknservices_feed(conn, callback):
             return
 
         ContentFeed.unordered_results_from_queries(proxies,
-                                                   None,
+                                                   cancellable,
                                                    _on_received_feed_query_results)
 
     def _on_received_providers(_, result):
@@ -208,7 +210,7 @@ def _iterate_init_shard_results(shard_init_results):
         yield shard
 
 
-def async_init_all_shards(shard_paths, callback):
+def async_init_all_shards(shard_paths, cancellable, callback):
     '''Asynchronously create all shards and pass the result to callback.'''
     def _on_finished_loading_shards(shard_init_results):
         '''Callback for when shards have finished initializing.
@@ -233,7 +235,7 @@ def async_init_all_shards(shard_paths, callback):
             '''Thunk that gets called.'''
             shard = EosShard.ShardFile(path=shard_path)
             shard.init_async(GLib.PRIORITY_DEFAULT,
-                             None,
+                             cancellable,
                              callback)
 
         return _thunk
@@ -278,7 +280,7 @@ class EknServicesContentDbConnection(object):
         super().__init__(*args, **kwargs)
         self._dbus_connection = dbus_connection
 
-    def shards_for_application(self, application_listing, callback):
+    def shards_for_application(self, application_listing, cancellable, callback):
         '''Load shards for application and wrap with EosShard.ShardFile.'''
         def _internal_callback(src, result):
             '''Internal GDBusConnection.call callback.'''
@@ -289,16 +291,17 @@ class EknServicesContentDbConnection(object):
                 return
 
             shard_paths = response.unpack()[0]
-            async_init_all_shards(shard_paths, callback)
+            async_init_all_shards(shard_paths, cancellable, callback)
 
         eknservices_shards_for_application(self._dbus_connection,
                                            application_listing.app_id,
                                            application_listing.eknservices_name,
                                            application_listing.search_provider_name,
+                                           cancellable,
                                            _internal_callback)
 
 
-    def query(self, application_listing, query, callback):
+    def query(self, application_listing, query, cancellable, callback):
         '''Run a query and wrap the results into a python-friendly format.'''
         def _internal_callback(src, result):
             '''Internal GDBusConnection.call callback.'''
@@ -324,7 +327,9 @@ class EknServicesContentDbConnection(object):
                 callback(None, [shards, models])
 
             shard_paths, result_tuples = response.unpack()
-            async_init_all_shards(shard_paths, _on_finished_loading_shards)
+            async_init_all_shards(shard_paths,
+                                  cancellable,
+                                  _on_finished_loading_shards)
 
         # Wrap the query in an array of length 1 to satisfy the interface
         eknservices_query(self._dbus_connection,
@@ -332,9 +337,10 @@ class EknServicesContentDbConnection(object):
                           application_listing.eknservices_name,
                           application_listing.search_provider_name,
                           [query],
+                          cancellable,
                           _internal_callback)
 
-    def feed(self, callback):
+    def feed(self, cancellable, callback):
         '''Get the content feed from all sources.'''
         def _internal_callback(error, result):
             '''Internal callback to convert errors if necessary.'''
@@ -344,4 +350,4 @@ class EknServicesContentDbConnection(object):
 
             callback(None, result)
 
-        eknservices_feed(self._dbus_connection, _internal_callback)
+        eknservices_feed(self._dbus_connection, cancellable, _internal_callback)

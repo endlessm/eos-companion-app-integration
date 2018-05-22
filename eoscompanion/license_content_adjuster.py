@@ -108,8 +108,11 @@ def render_license_content_async(content_type,
                                  content_bytes,
                                  query,
                                  source_path,
+                                 cancellable,
                                  callback):
     '''Render the license content by rewriting all the URIs.'''
+    del cancellable
+
     try:
         response_bytes = _CONTENT_TYPE_DISPATCH[content_type](content_bytes,
                                                               query,
@@ -139,10 +142,16 @@ class LicenseContentAdjuster(object):
         '''Returns True in every case as licenses always need adjustment.'''
         return content_type in _CONTENT_TYPE_DISPATCH.keys()
 
-    def render_async(self, content_type, content_bytes, query, callback):
+    def render_async(self,
+                     content_type,
+                     content_bytes,
+                     query,
+                     cancellable,
+                     callback):
         '''Perform any rendering on the content asynchronously.'''
         render_license_content_async(content_type,
                                      content_bytes,
                                      query,
                                      self._source_path,
+                                     cancellable,
                                      callback)

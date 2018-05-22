@@ -131,6 +131,7 @@ def render_mobile_wrapper(renderer,
                           content_db_conn,
                           shards,
                           query,
+                          cancellable,
                           callback):
     '''Render the page wrapper and initialize crosslinks.
 
@@ -214,6 +215,7 @@ def render_mobile_wrapper(renderer,
                               query={
                                   'tags-match-all': ['EknSetObject']
                               },
+                              cancellable=cancellable,
                               callback=_on_queried_sets)
 
     link_tables = list(link_tables_from_shards(shards))
@@ -226,7 +228,7 @@ def render_mobile_wrapper(renderer,
     ]
 
     EosCompanionAppService.load_application_info(app_id,
-                                                 cancellable=None,
+                                                 cancellable=cancellable,
                                                  callback=_on_got_application_info)
 
 
@@ -239,6 +241,7 @@ def _html_content_adjuster_closure():
                                metadata,
                                content_db_conn,
                                shards,
+                               cancellable,
                                callback):
         '''Adjust HTML content by rewriting all the embedded URLs.
 
@@ -307,6 +310,7 @@ def _html_content_adjuster_closure():
                                   content_db_conn,
                                   shards,
                                   query,
+                                  cancellable,
                                   _on_rendered_wrapper)
         else:
             # Put this on an idle timer, mixing async and sync code
@@ -341,11 +345,12 @@ class EknContentAdjuster(object):
         '''
         return content_type in CONTENT_TYPE_ADJUSTERS.keys()
 
-    def render_async(self, content_type, content_bytes, query, callback):
+    def render_async(self, content_type, content_bytes, query, cancellable, callback):
         '''Perform any rendering on the content asynchronously.'''
         CONTENT_TYPE_ADJUSTERS[content_type](content_bytes,
                                              query,
                                              self._metadata,
                                              self._content_db_conn,
                                              self._shards,
+                                             cancellable,
                                              callback)
