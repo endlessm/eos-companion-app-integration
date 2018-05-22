@@ -170,7 +170,7 @@ def yield_desktop_ids_from_feed_models(models):
             continue
 
 
-def app_infos_for_feed_models(models, callback):
+def app_infos_for_feed_models(models, cancellable, callback):
     '''Get a GDesktopAppInfo for each model source in models.
 
     A source might have more than once model, so we deduplicate here.
@@ -211,7 +211,7 @@ def app_infos_for_feed_models(models, callback):
 
             application_id = desktop_id_to_app_id(desktop_id)
             EosCompanionAppService.load_application_info(application_id,
-                                                         None,
+                                                         cancellable,
                                                          _on_got_application_info)
 
         return _internal
@@ -224,7 +224,7 @@ def app_infos_for_feed_models(models, callback):
     ], _on_received_all_app_info_results)
 
 
-def sources_from_content_feed_models(models, query, callback):
+def sources_from_content_feed_models(models, query, cancellable, callback):
     '''Generate the "sources" entry for the feed JSON response.
 
     This response is a summary of all the sources that were queried in
@@ -259,7 +259,7 @@ def sources_from_content_feed_models(models, query, callback):
             for a in app_infos
         ])
 
-    app_infos_for_feed_models(models, _on_received_app_infos)
+    app_infos_for_feed_models(models, cancellable, _on_received_app_infos)
 
 
 _SOURCE_IDENTIFIER_KEYS_BY_TYPE = {
@@ -567,11 +567,14 @@ def companion_app_server_feed_route(server,
             server.unpause_message(msg)
             return
 
-        sources_from_content_feed_models(models, query, _on_received_sources)
+        sources_from_content_feed_models(models,
+                                         query,
+                                         msg.cancellable,
+                                         _on_received_sources)
 
     logging.debug('Feed: for clientId=%s', query['deviceUUID'])
 
-    content_db_conn.feed(_on_received_ordered_feed_models)
+    content_db_conn.feed(msg.cancellable, _on_received_ordered_feed_models)
     server.pause_message(msg)
 
 
@@ -621,7 +624,7 @@ def _get_file_size_and_stream(file_handle, cancellable, callback):
                            callback=_on_read_stream)
 
 
-def _stream_to_bytes(stream, callback):
+def _stream_to_bytes(stream, cancellable, callback):
     '''Take a GInputStream and convert it to a GBytes returning result to the callback.
 
     This is a simple wrapper to convert load_all_in_stream_to_bytes
@@ -639,11 +642,11 @@ def _stream_to_bytes(stream, callback):
 
     EosCompanionAppService.load_all_in_stream_to_bytes(stream,
                                                        chunk_size=BYTE_CHUNK_SIZE,
-                                                       cancellable=None,
+                                                       cancellable=cancellable,
                                                        callback=_callback)
 
 
-def _wrapped_stream_to_bytes_handler(callback):
+def _wrapped_stream_to_bytes_handler(cancellable, callback):
     '''A handler for the taking the wrapped stream and converting it to bytes.'''
     def _wrapped_stream_callback(wrapped_stream_error, wrapped_stream_result):
         '''Callback for when we receive the wrapped stream.'''
@@ -652,7 +655,7 @@ def _wrapped_stream_to_bytes_handler(callback):
             return
 
         stream, _ = wrapped_stream_result
-        _stream_to_bytes(stream, callback)
+        _stream_to_bytes(stream, cancellable, callback)
 
     return _wrapped_stream_callback
 
@@ -748,12 +751,16 @@ def companion_app_server_resource_route(server, msg, path, query, *args):
                                       return_content_type,
                                       query,
                                       adjuster,
-                                      _wrapped_stream_to_bytes_handler(_on_got_wrapped_bytes))
+                                      msg.cancellable,
+                                      _wrapped_stream_to_bytes_handler(msg.cancellable,
+                                                                       _on_got_wrapped_bytes))
             return
 
-        _stream_to_bytes(input_stream, _on_got_wrapped_bytes)
+        _stream_to_bytes(input_stream, msg.cancellable, _on_got_wrapped_bytes)
 
-    _get_file_size_and_stream(resource_file, None, _on_got_stream_and_size)
+    _get_file_size_and_stream(resource_file,
+                              msg.cancellable,
+                              _on_got_stream_and_size)
     server.pause_message(msg)
 
 
@@ -825,9 +832,13 @@ def companion_app_server_license_route(server, msg, path, query, *args):
                                   return_content_type,
                                   query,
                                   LicenseContentAdjuster(license_file.get_path()),
-                                  _wrapped_stream_to_bytes_handler(_on_got_wrapped_bytes))
+                                  msg.cancellable,
+                                  _wrapped_stream_to_bytes_handler(msg.cancellable,
+                                                                   _on_got_wrapped_bytes))
 
-    _get_file_size_and_stream(license_file, None, _on_got_stream_and_size)
+    _get_file_size_and_stream(license_file,
+                              msg.cancellable,
+                              _on_got_stream_and_size)
     server.pause_message(msg)
 
 
@@ -876,7 +887,7 @@ def companion_app_server_list_applications_route(server, msg, path, query, *args
         server.unpause_message(msg)
 
     logging.debug('List applications: clientId=%s', query['deviceUUID'])
-    list_all_applications(_callback)
+    list_all_applications(msg.cancellable, _callback)
     server.pause_message(msg)
 
 
@@ -909,7 +920,7 @@ def companion_app_server_application_icon_route(server, msg, path, query, *args)
                   query['deviceUUID'],
                   query['iconName'])
     EosCompanionAppService.load_application_icon_data_async(query['iconName'],
-                                                            cancellable=None,
+                                                            cancellable=msg.cancellable,
                                                             callback=_callback)
     server.pause_message(msg)
 
@@ -963,7 +974,7 @@ def companion_app_server_application_colors_route(server, msg, path, query, *arg
                   query['deviceUUID'],
                   query['applicationId'])
     EosCompanionAppService.load_application_colors(query['applicationId'],
-                                                   cancellable=None,
+                                                   cancellable=msg.cancellable,
                                                    callback=_callback)
     server.pause_message(msg)
 
@@ -1037,7 +1048,7 @@ def companion_app_server_list_application_sets_route(server,
             server.unpause_message(msg)
         else:
             EosCompanionAppService.load_application_colors(query['applicationId'],
-                                                           cancellable=None,
+                                                           cancellable=msg.cancellable,
                                                            callback=_on_loaded_application_colors)
 
     def _on_queried_sets(error, result):
@@ -1061,6 +1072,7 @@ def companion_app_server_list_application_sets_route(server,
         ascertain_application_sets_from_models(models,
                                                query['deviceUUID'],
                                                query['applicationId'],
+                                               msg.cancellable,
                                                _on_ascertained_sets)
 
     def _on_got_application_info(_, result):
@@ -1088,6 +1100,7 @@ def companion_app_server_list_application_sets_route(server,
                                   'tags-match-all': ['EknSetObject'],
                                   'limit': _SENSIBLE_QUERY_LIMIT
                               },
+                              cancellable=msg.cancellable,
                               callback=_on_queried_sets)
 
 
@@ -1097,7 +1110,7 @@ def companion_app_server_list_application_sets_route(server,
 
     app_id = query['applicationId']
     EosCompanionAppService.load_application_info(app_id,
-                                                 cancellable=None,
+                                                 cancellable=msg.cancellable,
                                                  callback=_on_got_application_info)
     server.pause_message(msg)
 
@@ -1177,6 +1190,7 @@ def companion_app_server_list_application_content_for_tags_route(server,
                                   'tags-match-any': tags,
                                   'limit': _SENSIBLE_QUERY_LIMIT
                               },
+                              cancellable=msg.cancellable,
                               callback=_callback)
 
     logging.debug(
@@ -1188,8 +1202,9 @@ def companion_app_server_list_application_content_for_tags_route(server,
 
     app_id = query['applicationId']
     tags = query['tags'].split(';')
+
     EosCompanionAppService.load_application_info(app_id,
-                                                 cancellable=None,
+                                                 cancellable=msg.cancellable,
                                                  callback=_on_got_application_info)
     server.pause_message(msg)
 
@@ -1304,7 +1319,7 @@ def companion_app_server_content_data_route(server,
                     ostream.splice_async(istream,
                                          Gio.OutputStreamSpliceFlags.CLOSE_TARGET,
                                          GLib.PRIORITY_DEFAULT,
-                                         None,
+                                         msg.cancellable,
                                          on_splice_finished)
 
                 # Now that we have the offseted stream, we can continue writing
@@ -1443,7 +1458,7 @@ def companion_app_server_content_data_route(server,
 
                 EosCompanionAppService.fast_skip_stream_async(stream,
                                                               start,
-                                                              None,
+                                                              msg.cancellable,
                                                               on_got_offsetted_stream)
 
             # Report a metric now
@@ -1461,6 +1476,7 @@ def companion_app_server_content_data_route(server,
                                            EknContentAdjuster(content_metadata,
                                                               content_db_conn,
                                                               shards),
+                                           msg.cancellable,
                                            _on_got_wrapped_stream)
 
         if shards_error is not None:
@@ -1505,6 +1521,7 @@ def companion_app_server_content_data_route(server,
 
         application_listing = application_listing_from_app_info(app_info)
         content_db_conn.shards_for_application(application_listing,
+                                               cancellable=msg.cancellable,
                                                callback=_on_got_shards_callback)
 
     logging.debug(
@@ -1515,7 +1532,7 @@ def companion_app_server_content_data_route(server,
         query['contentId']
     )
     EosCompanionAppService.load_application_info(query['applicationId'],
-                                                 cancellable=None,
+                                                 cancellable=msg.cancellable,
                                                  callback=_on_got_application_info)
     server.pause_message(msg)
 
@@ -1640,6 +1657,7 @@ def companion_app_server_content_metadata_route(server,
 
         application_listing = application_listing_from_app_info(app_info)
         content_db_conn.shards_for_application(application_listing,
+                                               cancellable=msg.cancellable,
                                                callback=_on_got_shards_callback)
 
     logging.debug(
@@ -1650,7 +1668,7 @@ def companion_app_server_content_metadata_route(server,
         query['contentId']
     )
     EosCompanionAppService.load_application_info(query['applicationId'],
-                                                 cancellable=None,
+                                                 cancellable=msg.cancellable,
                                                  callback=_on_got_application_info)
     server.pause_message(msg)
 
@@ -1661,6 +1679,7 @@ def search_single_application(content_db_conn,
                               limit=None,
                               offset=None,
                               search_term=None,
+                              cancellable=None,
                               callback=None):
     '''Use :content_db_conn: to run a query on a single application.
 
@@ -1678,6 +1697,7 @@ def search_single_application(content_db_conn,
                               'offset': offset or 0,
                               'search-terms': search_term
                           },
+                          cancellable=cancellable,
                           callback=callback)
 
 
@@ -1988,6 +2008,7 @@ def companion_app_server_search_content_route(server,
                                                  limit=local_limit,
                                                  offset=local_offset,
                                                  search_term=search_term,
+                                                 cancellable=msg.cancellable,
                                                  callback=callback)
 
             return _thunk
@@ -2116,10 +2137,10 @@ def companion_app_server_search_content_route(server,
     # _on_received_results_list can use
     if application_id:
         EosCompanionAppService.load_application_info(application_id,
-                                                     None,
+                                                     msg.cancellable,
                                                      _on_got_application_info)
     else:
-        list_all_applications(_on_got_all_applications)
+        list_all_applications(msg.cancellable, _on_got_all_applications)
     server.pause_message(msg)
 
 
@@ -2204,6 +2225,26 @@ def handle_404_middleware(expected_path, handler):
     return _handler
 
 
+def cancellability_middleware(handler):
+    '''Middleware function to add cancellability to a request.
+
+    This allocates a new GCancellable and sets it as an attribute
+    of the message. The route can then use the cancellable accordingly.
+
+    The cancellable itself is looked up on the signal handler for
+    SoupServer::request-aborted if the client closes the connection
+    before we have a chance to finish processing the response.
+    '''
+    def _handler(server, msg, *args):
+        '''Middleware function.'''
+        cancellable = Gio.Cancellable()
+        setattr(msg, 'cancellable', cancellable)
+
+        return handler(server, msg, *args)
+
+    return _handler
+
+
 def add_content_db_conn(route, content_db_conn):
     '''Partially apply content_db_conn to the end of route.'''
     def wrapper(*args, **kwargs):
@@ -2267,10 +2308,12 @@ def create_companion_app_webserver(application, content_db_conn):
     for path, handler in create_companion_app_routes(content_db_conn).items():
         server.add_handler(
             path,
-            handle_404_middleware(
-                path,
-                application_hold_middleware(application,
-                                            handler)
+            cancellability_middleware(
+                handle_404_middleware(
+                    path,
+                    application_hold_middleware(application,
+                                                handler)
+                )
             )
         )
 

@@ -647,8 +647,10 @@ class FakeContentDbConnection(object):
         super().__init__()
         self.data = data
 
-    def shards_for_application(self, application_listing, callback):
+    def shards_for_application(self, application_listing, cancellable, callback):
         '''Create shards for the application and return them.'''
+        del cancellable
+
         app_id = application_listing.app_id
         app_data = self.data.content_data.get(app_id, None)
 
@@ -662,12 +664,14 @@ class FakeContentDbConnection(object):
 
         GLib.idle_add(callback, None, [FakeEosShard(app_data)])
 
-    def query(self, application_listing, query, callback):
+    def query(self, application_listing, query, cancellable, callback):
         '''Run a query on the fake data.
 
         This isn't a reimplementation of how EknQueryObject works, but it
         should be as close as possible.
         '''
+        del cancellable
+
         app_id = application_listing.app_id
         app_data = self.data.content_data.get(app_id, None)
 
@@ -722,8 +726,10 @@ class FakeContentDbConnection(object):
         ]
         GLib.idle_add(callback, None, [shards, models])
 
-    def feed(self, callback):
+    def feed(self, cancellable, callback):
         '''Return a models for the feed.'''
+        del cancellable
+
         return GLib.idle_add(callback, None, self.data.feed_models)
 
 
@@ -2038,6 +2044,7 @@ class TestCompanionAppService(TestCase):
 
         def return_error_for_content_app(application_listing,
                                          query,
+                                         cancellable,
                                          callback):
             '''Return an error for the content app, fine for all else.'''
             if application_listing.app_id == 'org.test.ContentApp':
@@ -2046,7 +2053,7 @@ class TestCompanionAppService(TestCase):
                                     EosCompanionAppService.Error.FAILED), None)
                 return
 
-            original_query(application_listing, query, callback)
+            original_query(application_listing, query, cancellable, callback)
 
         db_connection = FakeContentDbConnection(FAKE_SHARD_CONTENT)
         original_query = db_connection.query
