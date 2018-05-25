@@ -67,6 +67,7 @@ from .license_content_adjuster import (
 )
 from .middlewares import (
     add_content_db_conn,
+    apply_version_to_all_routes,
     record_metric,
     require_query_string_param
 )
@@ -178,7 +179,7 @@ def _wrapped_stream_to_bytes_handler(cancellable, callback):
 
 @require_query_string_param('deviceUUID')
 @require_query_string_param('uri')
-def companion_app_server_resource_route(server, msg, path, query, *args):
+def companion_app_server_resource_route(server, msg, path, query, context, version):
     '''Fetch an internal resource from a rewritten link on the page.
 
     This route is for fetching internal resources not tied to any particular
@@ -188,7 +189,7 @@ def companion_app_server_resource_route(server, msg, path, query, *args):
     The querystring param "uri" indicates the URI encoded path to the
     internal resource (it may be a GResource or a file).
     '''
-    del args
+    del context
 
     resource_uri = Soup.URI.decode(query['uri'])
     resource_file = Gio.File.new_for_uri(resource_uri)
@@ -265,6 +266,7 @@ def companion_app_server_resource_route(server, msg, path, query, *args):
             conditionally_wrap_stream(input_stream,
                                       file_size,
                                       return_content_type,
+                                      version,
                                       query,
                                       adjuster,
                                       msg.cancellable,
@@ -282,7 +284,7 @@ def companion_app_server_resource_route(server, msg, path, query, *args):
 
 @require_query_string_param('deviceUUID')
 @require_query_string_param('name')
-def companion_app_server_license_route(server, msg, path, query, *args):
+def companion_app_server_license_route(server, msg, path, query, context, version):
     '''Fetch an internal license from a rewritten link on the page.
 
     This route is for for fetching license files which are embedded
@@ -291,7 +293,7 @@ def companion_app_server_license_route(server, msg, path, query, *args):
 
     The querystring param "name" indicates the license name.
     '''
-    del args
+    del context
 
     license_name = Soup.URI.decode(query['name'])
     return_content_type = 'text/html'
@@ -346,6 +348,7 @@ def companion_app_server_license_route(server, msg, path, query, *args):
         conditionally_wrap_stream(input_stream,
                                   file_size,
                                   return_content_type,
+                                  version,
                                   query,
                                   LicenseContentAdjuster(license_file.get_path()),
                                   msg.cancellable,
@@ -360,10 +363,15 @@ def companion_app_server_license_route(server, msg, path, query, *args):
 
 @require_query_string_param('deviceUUID')
 @record_metric('337fa66d-5163-46ae-ab20-dc605b5d7307')
-def companion_app_server_list_applications_route(server, msg, path, query, *args):
+def companion_app_server_list_applications_route(server,
+                                                 msg,
+                                                 path,
+                                                 query,
+                                                 context,
+                                                 version):
     '''List all applications that are available on the system.'''
     del path
-    del args
+    del context
 
     def _callback(error, applications):
         '''Callback function that gets called when we are done.'''
@@ -394,7 +402,9 @@ def companion_app_server_list_applications_route(server, msg, path, query, *args
                     'applicationId': a.app_id,
                     'displayName': a.display_name,
                     'shortDescription': a.short_description,
-                    'icon': format_app_icon_uri(a.icon, query['deviceUUID']),
+                    'icon': format_app_icon_uri(version,
+                                                a.icon,
+                                                query['deviceUUID']),
                     'language': a.language
                 }
                 for a in filtered_applications
@@ -509,6 +519,7 @@ def companion_app_server_list_application_sets_route(server,
                                                      path,
                                                      query,
                                                      context,
+                                                     version,
                                                      content_db_conn):
     '''Return json listing of all sets in an application.'''
     del path
@@ -586,6 +597,7 @@ def companion_app_server_list_application_sets_route(server,
 
         _, models = result
         ascertain_application_sets_from_models(models,
+                                               version,
                                                query['deviceUUID'],
                                                query['applicationId'],
                                                msg.cancellable,
@@ -640,6 +652,7 @@ def companion_app_server_list_application_content_for_tags_route(server,
                                                                  path,
                                                                  query,
                                                                  context,
+                                                                 version,
                                                                  content_db_conn):
     '''Return json listing of all application content in a set.'''
     del path
@@ -669,7 +682,8 @@ def companion_app_server_list_application_content_for_tags_route(server,
                 {
                     'displayName': model['title'],
                     'contentType': model['content_type'],
-                    'thumbnail': optional_format_thumbnail_uri(query['applicationId'],
+                    'thumbnail': optional_format_thumbnail_uri(version,
+                                                               query['applicationId'],
                                                                model,
                                                                query['deviceUUID']),
                     'id': parse_uri_path_basename(model['id']),
@@ -757,6 +771,7 @@ def companion_app_server_content_data_route(server,
                                             path,
                                             query,
                                             context,
+                                            version,
                                             content_db_conn):
     '''Stream content, given contentId.
 
@@ -938,7 +953,8 @@ def companion_app_server_content_data_route(server,
                 thumbnail_uri = content_metadata.get('thumbnail', None)
                 is_wiki_source = content_metadata.get('source', None) in ('wikipedia', 'wikihow')
                 if thumbnail_uri is not None and is_wiki_source:
-                    formatted_thumbnail_uri = format_thumbnail_uri(query['applicationId'],
+                    formatted_thumbnail_uri = format_thumbnail_uri(version,
+                                                                   query['applicationId'],
                                                                    thumbnail_uri,
                                                                    query['deviceUUID'])
                     response_headers.replace('X-Endless-Article-Thumbnail', formatted_thumbnail_uri)
@@ -988,6 +1004,7 @@ def companion_app_server_content_data_route(server,
             # depending on whether it needs to be converted.
             conditionally_wrap_blob_stream(blob,
                                            content_type,
+                                           version,
                                            query,
                                            EknContentAdjuster(content_metadata,
                                                               content_db_conn,
@@ -1082,10 +1099,12 @@ def companion_app_server_content_metadata_route(server,
                                                 path,
                                                 query,
                                                 context,
+                                                version,
                                                 content_db_conn):
     '''Return application/json of content metadata.'''
     del path
     del context
+    del version
 
     def _on_got_shards_callback(shards_error, shards):
         '''Callback function that gets called when we get our shards.'''
@@ -1257,7 +1276,11 @@ def app_infos_for_feed_models(models, cancellable, callback):
     ], _on_received_all_app_info_results)
 
 
-def sources_from_content_feed_models(models, query, cancellable, callback):
+def sources_from_content_feed_models(models,
+                                     version,
+                                     query,
+                                     cancellable,
+                                     callback):
     '''Generate the "sources" entry for the feed JSON response.
 
     This response is a summary of all the sources that were queried in
@@ -1286,7 +1309,9 @@ def sources_from_content_feed_models(models, query, cancellable, callback):
                     'applicationId': a.app_id,
                     'displayName': a.display_name,
                     'shortDescription': a.short_description,
-                    'icon': format_app_icon_uri(a.icon, query['deviceUUID'])
+                    'icon': format_app_icon_uri(version,
+                                                a.icon,
+                                                query['deviceUUID'])
                 }
             }
             for a in app_infos
@@ -1305,7 +1330,7 @@ def get_source_identifier(source):
     return source['detail'][_SOURCE_IDENTIFIER_KEYS_BY_TYPE[source['type']]]
 
 
-def _serialize_article_content_feed_model(model, app_id, query):
+def _serialize_article_content_feed_model(model, app_id, version, query):
     '''Serialize the ARTICLE_CARD type content feed model.'''
     return [{
         'itemType': 'article',
@@ -1319,11 +1344,13 @@ def _serialize_article_content_feed_model(model, app_id, query):
             'title': model.get_property('title'),
             'synopsis': model.get_property('synopsis'),
             'thumbnail': format_thumbnail_uri(
+                version,
                 app_id,
                 model.get_property('thumbnail-uri'),
                 query['deviceUUID']
             ),
             'uri': format_content_data_uri(
+                version,
                 parse_uri_path_basename(model.get_property('uri')),
                 app_id,
                 query['deviceUUID']
@@ -1341,7 +1368,7 @@ def maybe_get_property(model, prop_name):
         return None
 
 
-def _serialize_artwork_content_feed_model(model, app_id, query):
+def _serialize_artwork_content_feed_model(model, app_id, version, query):
     '''Serialize the ARTWORK_CARD type content feed model.'''
     return [{
         'itemType': 'artwork',
@@ -1356,11 +1383,13 @@ def _serialize_artwork_content_feed_model(model, app_id, query):
             'author': model.get_property('author'),
             'firstDate': maybe_get_property(model, 'first-date'),
             'thumbnail': format_thumbnail_uri(
+                version,
                 app_id,
                 model.get_property('thumbnail-uri'),
                 query['deviceUUID']
             ),
             'uri': format_content_data_uri(
+                version,
                 parse_uri_path_basename(model.get_property('uri')),
                 app_id,
                 query['deviceUUID']
@@ -1370,7 +1399,7 @@ def _serialize_artwork_content_feed_model(model, app_id, query):
     }]
 
 
-def _serialize_video_content_feed_model(model, app_id, query):
+def _serialize_video_content_feed_model(model, app_id, version, query):
     '''Serialize the VIDEO_CARD type content feed model.'''
     return [{
         'itemType': 'video',
@@ -1383,11 +1412,13 @@ def _serialize_video_content_feed_model(model, app_id, query):
         'detail': {
             'title': model.get_property('title'),
             'thumbnail': format_thumbnail_uri(
+                version,
                 app_id,
                 model.get_property('thumbnail-uri'),
                 query['deviceUUID']
             ),
             'uri': format_content_data_uri(
+                version,
                 parse_uri_path_basename(model.get_property('uri')),
                 app_id,
                 query['deviceUUID']
@@ -1398,7 +1429,7 @@ def _serialize_video_content_feed_model(model, app_id, query):
     }]
 
 
-def _serialize_news_content_feed_model(model, app_id, query):
+def _serialize_news_content_feed_model(model, app_id, version, query):
     '''Serialize the NEWS_CARD type content feed model.'''
     return [{
         'itemType': 'news',
@@ -1412,11 +1443,13 @@ def _serialize_news_content_feed_model(model, app_id, query):
             'title': model.get_property('title'),
             'synopsis': model.get_property('synopsis'),
             'thumbnail': format_thumbnail_uri(
+                version,
                 app_id,
                 model.get_property('thumbnail-uri'),
                 query['deviceUUID']
             ),
             'uri': format_content_data_uri(
+                version,
                 parse_uri_path_basename(model.get_property('uri')),
                 app_id,
                 query['deviceUUID']
@@ -1478,7 +1511,7 @@ _CONTENT_FEED_MODEL_SERIALIZERS = {
     ContentFeed.CardStoreType.WORD_QUOTE_CARD: _serialize_word_quote_content_feed_model
 }
 
-def content_feed_model_to_json_entries(model, app_id, query):
+def content_feed_model_to_json_entries(model, app_id, version, query):
     '''Return a list of json entries for each model.
 
     This varies depending on the model type. Some models may return
@@ -1487,10 +1520,11 @@ def content_feed_model_to_json_entries(model, app_id, query):
     '''
     return _CONTENT_FEED_MODEL_SERIALIZERS[model.get_property('type')](model,
                                                                        app_id,
+                                                                       version,
                                                                        query)
 
 
-def entries_from_content_feed_models(models, sources, query):
+def entries_from_content_feed_models(models, sources, version, query):
     '''Generate the "entries" entry for the feed JSON response.
 
     This response will contain every model in the models as long as
@@ -1523,7 +1557,10 @@ def entries_from_content_feed_models(models, sources, query):
                             'ignored', model, app_id)
             continue
 
-        for entry in content_feed_model_to_json_entries(model, app_id, query):
+        for entry in content_feed_model_to_json_entries(model,
+                                                        app_id,
+                                                        version,
+                                                        query):
             yield entry
 
 
@@ -1535,6 +1572,7 @@ def companion_app_server_feed_route(server,
                                     path,
                                     query,
                                     context,
+                                    version,
                                     content_db_conn):
     '''Request the Content Feed from ContentFeed.
 
@@ -1571,6 +1609,7 @@ def companion_app_server_feed_route(server,
 
             entries = list(entries_from_content_feed_models(models,
                                                             sources,
+                                                            version,
                                                             query))
             json_response(msg, {
                 'status': 'ok',
@@ -1601,6 +1640,7 @@ def companion_app_server_feed_route(server,
             return
 
         sources_from_content_feed_models(models,
+                                         version,
                                          query,
                                          msg.cancellable,
                                          _on_received_sources)
@@ -1642,25 +1682,27 @@ def search_single_application(content_db_conn,
 ApplicationModel = namedtuple('ApplicationModel', 'app_id model')
 
 
-def render_result_payload_for_set(app_id, model, device_uuid):
+def render_result_payload_for_set(version, app_id, model, device_uuid):
     '''Render a result payload for a set search model.'''
     return {
         'applicationId': app_id,
         'tags': model['child_tags'],
-        'thumbnail': optional_format_thumbnail_uri(app_id,
+        'thumbnail': optional_format_thumbnail_uri(version,
+                                                   app_id,
                                                    model,
                                                    device_uuid)
     }
 
 
-def render_result_payload_for_content(app_id, model, device_uuid):
+def render_result_payload_for_content(version, app_id, model, device_uuid):
     '''Render a result payload for a content search model.'''
     return {
         'applicationId': app_id,
         'contentType': model['content_type'],
         'id': parse_uri_path_basename(model['id']),
         'tags': model['tags'],
-        'thumbnail': optional_format_thumbnail_uri(app_id,
+        'thumbnail': optional_format_thumbnail_uri(version,
+                                                   app_id,
                                                    model,
                                                    device_uuid)
     }
@@ -1704,6 +1746,7 @@ def companion_app_server_search_content_route(server,
                                               path,
                                               query,
                                               context,
+                                              version,
                                               content_db_conn):
     '''Return application/json of search results.
 
@@ -1775,7 +1818,8 @@ def companion_app_server_search_content_route(server,
             [
                 {
                     'displayName': display_name,
-                    'payload': model_payload_renderer(app_id,
+                    'payload': model_payload_renderer(version,
+                                                      app_id,
                                                       model,
                                                       query['deviceUUID']),
                     'type': model_type
@@ -1815,7 +1859,9 @@ def companion_app_server_search_content_route(server,
                         'applicationId': a.app_id,
                         'displayName': a.display_name,
                         'shortDescription': a.short_description,
-                        'icon': format_app_icon_uri(a.icon, query['deviceUUID']),
+                        'icon': format_app_icon_uri(version,
+                                                    a.icon,
+                                                    query['deviceUUID']),
                         'language': a.language
                     }
                     for a in relevant_applications
@@ -2092,35 +2138,35 @@ def create_companion_app_routes_v1(content_db_conn):
                       on the database, which may require network
                       activity.
     '''
-    return {
-        '/v1/device_authenticate': companion_app_server_device_authenticate_route,
-        '/v1/list_applications': companion_app_server_list_applications_route,
-        '/v1/application_icon': companion_app_server_application_icon_route,
-        '/v1/application_colors': companion_app_server_application_colors_route,
-        '/v1/list_application_sets': add_content_db_conn(
+    return apply_version_to_all_routes({
+        '/device_authenticate': companion_app_server_device_authenticate_route,
+        '/list_applications': companion_app_server_list_applications_route,
+        '/application_icon': companion_app_server_application_icon_route,
+        '/application_colors': companion_app_server_application_colors_route,
+        '/list_application_sets': add_content_db_conn(
             companion_app_server_list_application_sets_route,
             content_db_conn
         ),
-        '/v1/list_application_content_for_tags': add_content_db_conn(
+        '/list_application_content_for_tags': add_content_db_conn(
             companion_app_server_list_application_content_for_tags_route,
             content_db_conn
         ),
-        '/v1/content_data': add_content_db_conn(
+        '/content_data': add_content_db_conn(
             companion_app_server_content_data_route,
             content_db_conn
         ),
-        '/v1/content_metadata': add_content_db_conn(
+        '/content_metadata': add_content_db_conn(
             companion_app_server_content_metadata_route,
             content_db_conn
         ),
-        '/v1/search_content': add_content_db_conn(
+        '/search_content': add_content_db_conn(
             companion_app_server_search_content_route,
             content_db_conn
         ),
-        '/v1/feed': add_content_db_conn(
+        '/feed': add_content_db_conn(
             companion_app_server_feed_route,
             content_db_conn
         ),
-        '/v1/resource': companion_app_server_resource_route,
-        '/v1/license': companion_app_server_license_route
-    }
+        '/resource': companion_app_server_resource_route,
+        '/license': companion_app_server_license_route
+    }, 'v1')

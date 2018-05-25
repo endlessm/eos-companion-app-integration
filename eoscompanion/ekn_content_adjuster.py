@@ -52,20 +52,24 @@ _RE_RESOURCE_URL_CAPTURE = re.compile(r'"(?P<uri>(?:resource|file)\:\/\/[A-Za-z0
 _RE_LICENSE_URL_CAPTURE = re.compile(r'"license\:\/\/(?P<license>[A-Za-z0-9%\/\-\._]+)"')
 
 
-def ekn_url_rewriter(query):
+def ekn_url_rewriter(version, query):
     '''Higher order function to rewrite an EKN URL based on query.'''
-    return lambda m: '"{}"'.format(rewrite_ekn_url(m.group('id'), query))
+    return lambda m: '"{}"'.format(rewrite_ekn_url(m.group('id'),
+                                                   version,
+                                                   query))
 
 
-def resource_url_rewriter(query):
+def resource_url_rewriter(version, query):
     '''Higher order function to rewrite a resource URL based on query.'''
     return lambda m: '"{}"'.format(rewrite_resource_url(m.group('uri'),
+                                                        version,
                                                         query))
 
 
-def license_url_rewriter(query):
+def license_url_rewriter(version, query):
     '''Higher order function to rewrite a license URL based on query.'''
     return lambda m: '"{}"'.format(rewrite_license_url(m.group('license'),
+                                                       version,
                                                        query))
 
 
@@ -108,7 +112,7 @@ def link_tables_from_shards(shards):
             yield link_table_record.data.load_as_dictionary()
 
 
-def maybe_ekn_id_to_server_uri(ekn_uri, query):
+def maybe_ekn_id_to_server_uri(ekn_uri, version, query):
     '''Convert an EKN URI (ekn:///id) to a URI that resolves on this server.
 
     If :ekn_uri: is None, return None.
@@ -116,7 +120,9 @@ def maybe_ekn_id_to_server_uri(ekn_uri, query):
     if ekn_uri is None:
         return None
 
-    return rewrite_ekn_url(os.path.basename(urlparse(ekn_uri).path), query)
+    return rewrite_ekn_url(os.path.basename(urlparse(ekn_uri).path),
+                           version,
+                           query)
 
 
 _MOBILE_WRAPPER_TEMPLATE_URI = (
@@ -130,6 +136,7 @@ def render_mobile_wrapper(renderer,
                           metadata,
                           content_db_conn,
                           shards,
+                          version,
                           query,
                           cancellable,
                           callback):
@@ -222,6 +229,7 @@ def render_mobile_wrapper(renderer,
     link_resolution_table = [
         maybe_ekn_id_to_server_uri(
             resolve_outgoing_link_to_internal_link(link_tables, l),
+            version,
             query
         )
         for l in metadata.get('outgoingLinks', [])
@@ -237,6 +245,7 @@ def _html_content_adjuster_closure():
     renderer = Eknr.Renderer()
 
     def _html_content_adjuster(content_bytes,
+                               version,
                                query,
                                metadata,
                                content_db_conn,
@@ -263,15 +272,15 @@ def _html_content_adjuster_closure():
                     pipeline(
                         rendered_page,
                         lambda content: _RE_EKN_URL_CAPTURE.sub(
-                            ekn_url_rewriter(query),
+                            ekn_url_rewriter(version, query),
                             content
                         ),
                         lambda content: _RE_RESOURCE_URL_CAPTURE.sub(
-                            resource_url_rewriter(query),
+                            resource_url_rewriter(version, query),
                             content
                         ),
                         lambda content: _RE_LICENSE_URL_CAPTURE.sub(
-                            license_url_rewriter(query),
+                            license_url_rewriter(version, query),
                             content
                         )
                     )
@@ -309,6 +318,7 @@ def _html_content_adjuster_closure():
                                   metadata,
                                   content_db_conn,
                                   shards,
+                                  version,
                                   query,
                                   cancellable,
                                   _on_rendered_wrapper)
@@ -345,9 +355,16 @@ class EknContentAdjuster(object):
         '''
         return content_type in CONTENT_TYPE_ADJUSTERS.keys()
 
-    def render_async(self, content_type, content_bytes, query, cancellable, callback):
+    def render_async(self,
+                     content_type,
+                     content_bytes,
+                     version,
+                     query,
+                     cancellable,
+                     callback):
         '''Perform any rendering on the content asynchronously.'''
         CONTENT_TYPE_ADJUSTERS[content_type](content_bytes,
+                                             version,
                                              query,
                                              self._metadata,
                                              self._content_db_conn,

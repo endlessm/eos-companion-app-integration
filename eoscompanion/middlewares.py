@@ -150,3 +150,27 @@ def record_metric(metric_id):
         return middlware
 
     return decorator
+
+
+def apply_route_version(handler, route_version):
+    '''Partially apply route_version to the end of handler.'''
+    def wrapper(*args, **kwargs):
+        '''Call route with route_version applied to the end.'''
+        all_args = itertools.chain(args, [route_version])
+        return handler(*all_args, **kwargs)
+
+    return wrapper
+
+
+def apply_version_to_all_routes(routes_dict, version):
+    '''Apply version prefix to all routes and pass version to callbacks.
+
+    This is so that if the route creates a URI for another route, it can create
+    that URI on the same version.
+    '''
+    return {
+        '/{version}{route}'.format(version=version,
+                                   route=route): apply_route_version(callback,
+                                                                     version)
+        for route, callback in routes_dict.items()
+    }

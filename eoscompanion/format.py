@@ -33,77 +33,81 @@ def format_uri_with_querystring(base_uri, **params):
                                         params=urllib.parse.urlencode(params))
 
 
-def format_app_icon_uri(icon_name, device_uuid):
+def format_app_icon_uri(version, icon_name, device_uuid):
     '''Format a uri to get an icon for an app.'''
     return format_uri_with_querystring(
-        '/v1/application_icon',
+        '/{version}/application_icon'.format(version=version),
         deviceUUID=device_uuid,
         iconName=icon_name
     )
 
 
-def format_thumbnail_uri(application_id, thumbnail_uri, device_uuid):
+def format_thumbnail_uri(version, application_id, thumbnail_uri, device_uuid):
     '''Format a uri to get an icon for an app.'''
     return format_uri_with_querystring(
-        '/v1/content_data',
+        '/{version}/content_data'.format(version=version),
         deviceUUID=device_uuid,
         applicationId=application_id,
         contentId=parse_uri_path_basename(thumbnail_uri)
     )
 
 
-def optional_format_thumbnail_uri(application_id, model, device_uuid):
+def optional_format_thumbnail_uri(version, application_id, model, device_uuid):
     '''Format a uri to get an icon for an app if the model has a thumbnail.'''
     return (
-        format_thumbnail_uri(application_id, model['thumbnail_uri'], device_uuid)
+        format_thumbnail_uri(version,
+                             application_id,
+                             model['thumbnail_uri'],
+                             device_uuid)
         if model.get('thumbnail_uri', None)
         else None
     )
 
 
-def format_content_data_uri(content_id, application_id, device_uuid):
+def format_content_data_uri(version, content_id, application_id, device_uuid):
     '''Format a /content_data URI.'''
     return format_uri_with_querystring(
-        '/v1/content_data',
+        '/{version}/content_data'.format(version=version),
         deviceUUID=device_uuid,
         applicationId=application_id,
         contentId=content_id
     )
 
 
-def rewrite_ekn_url(content_id, query):
+def rewrite_ekn_url(content_id, version, query):
     '''If the URL is an EKN url, rewrite it to be server-relative.
 
     This causes the applicationId and deviceUUID to be included in
     the URL query-string.
     '''
-    return format_content_data_uri(content_id,
+    return format_content_data_uri(version,
+                                   content_id,
                                    query['applicationId'],
                                    query['deviceUUID'])
 
 
-def rewrite_resource_url(uri, query):
+def rewrite_resource_url(uri, version, query):
     '''If the URL is an internal resource url, rewrite it to be server-relative.
 
     This causes the deviceUUID to be included in
     the URL query-string and the resource path to be URI encoded.
     '''
     formatted = format_uri_with_querystring(
-        '/v1/resource',
+        '/{version}/resource'.format(version=version),
         deviceUUID=query['deviceUUID'],
         uri=uri
     )
     return formatted
 
 
-def rewrite_license_url(license_name, query):
+def rewrite_license_url(license_name, version, query):
     '''If the URL is an internal license url, rewrite it to be server-relative.
 
     This causes the deviceUUID to be included in
     the URL query-string and the resource path to be URI encoded.
     '''
     formatted = format_uri_with_querystring(
-        '/v1/license',
+        '/{version}/license'.format(version=version),
         deviceUUID=query['deviceUUID'],
         name=license_name
     )
