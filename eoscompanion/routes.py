@@ -20,10 +20,12 @@
 
 from .core_routes import create_core_routes
 from .v1_routes import create_companion_app_routes_v1
+from .v2_routes import create_companion_app_routes_v2
 
 
 def create_companion_app_routes(content_db_conn):
     '''Create routes and apply content_db_conn to them.'''
     routes = create_core_routes()
     routes.update(create_companion_app_routes_v1(content_db_conn))
+    routes.update(create_companion_app_routes_v2(content_db_conn))
     return routes

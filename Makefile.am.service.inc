@@ -47,6 +47,7 @@ app_PYTHON += \
 	eoscompanion/server.py \
 	eoscompanion/service.py \
 	eoscompanion/v1_routes.py \
+	eoscompanion/v2_routes.py \
 	$(NULL)
 
 # Wrapper script
