@@ -23,7 +23,7 @@ from gi.repository import (
     GObject
 )
 
-from .routes import create_companion_app_webserver
+from .server import create_companion_app_webserver
 
 
 class CompanionAppService(GObject.Object):
