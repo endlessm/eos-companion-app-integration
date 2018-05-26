@@ -75,6 +75,20 @@ def custom_response(msg, content_type, content_bytes):
                                                            content_bytes)
 
 
+def error_response(msg, domain, code, detail=None):
+    '''Respond with an error with status code 200.'''
+    msg.set_status(Soup.Status.OK)
+    error = serialize_error_as_json_object(
+        domain,
+        code,
+        detail=detail
+    )
+    return json_response(msg, {
+        'status': 'error',
+        'error': error
+    })
+
+
 def not_found_response(msg, path):
     '''Respond with an error message and 404.'''
     msg.set_status(Soup.Status.NOT_FOUND)
