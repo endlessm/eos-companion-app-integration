@@ -209,7 +209,9 @@ def _serialize_article_content_feed_model(model, app_id, version, query):
                 version,
                 parse_uri_path_basename(model.get_property('uri')),
                 app_id,
-                query['deviceUUID']
+                query['deviceUUID'],
+                # pylint: disable=no-member
+                EosCompanionAppService.Referrer.FEED.value_nick
             ),
             'contentType': model.get_property('content-type')
         }
@@ -248,7 +250,9 @@ def _serialize_artwork_content_feed_model(model, app_id, version, query):
                 version,
                 parse_uri_path_basename(model.get_property('uri')),
                 app_id,
-                query['deviceUUID']
+                query['deviceUUID'],
+                # pylint: disable=no-member
+                EosCompanionAppService.Referrer.FEED.value_nick
             ),
             'contentType': model.get_property('content-type')
         }
@@ -277,7 +281,9 @@ def _serialize_video_content_feed_model(model, app_id, version, query):
                 version,
                 parse_uri_path_basename(model.get_property('uri')),
                 app_id,
-                query['deviceUUID']
+                query['deviceUUID'],
+                # pylint: disable=no-member
+                EosCompanionAppService.Referrer.FEED.value_nick
             ),
             'duration': model.get_property('duration'),
             'contentType': model.get_property('content-type')
@@ -308,7 +314,9 @@ def _serialize_news_content_feed_model(model, app_id, version, query):
                 version,
                 parse_uri_path_basename(model.get_property('uri')),
                 app_id,
-                query['deviceUUID']
+                query['deviceUUID'],
+                # pylint: disable=no-member
+                EosCompanionAppService.Referrer.FEED.value_nick
             ),
             'contentType': model.get_property('content-type')
         }

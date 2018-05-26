@@ -21,6 +21,8 @@
 import os
 import urllib
 
+from gi.repository import EosCompanionAppService
+
 
 def parse_uri_path_basename(uri):
     '''Just get the basename of the last path component of a URI.'''
@@ -64,13 +66,18 @@ def optional_format_thumbnail_uri(version, application_id, model, device_uuid):
     )
 
 
-def format_content_data_uri(version, content_id, application_id, device_uuid):
+def format_content_data_uri(version,
+                            content_id,
+                            application_id,
+                            device_uuid,
+                            referrer):
     '''Format a /content_data URI.'''
     return format_uri_with_querystring(
         '/{version}/content_data'.format(version=version),
         deviceUUID=device_uuid,
         applicationId=application_id,
-        contentId=content_id
+        contentId=content_id,
+        referrer=referrer
     )
 
 
@@ -83,7 +90,9 @@ def rewrite_ekn_url(content_id, version, query):
     return format_content_data_uri(version,
                                    content_id,
                                    query['applicationId'],
-                                   query['deviceUUID'])
+                                   query['deviceUUID'],
+                                   # pylint: disable=no-member
+                                   EosCompanionAppService.Referrer.CONTENT.value_nick)
 
 
 def rewrite_resource_url(uri, version, query):
