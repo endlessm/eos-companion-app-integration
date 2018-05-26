@@ -101,4 +101,7 @@ def not_found_response(msg, path):
     )
     EosCompanionAppService.set_soup_message_response(msg,
                                                      'application/json',
-                                                     json.dumps(error))
+                                                     json.dumps({
+                                                         'status': 'error',
+                                                         'error': error
+                                                     }))
