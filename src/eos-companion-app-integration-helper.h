@@ -55,6 +55,36 @@ typedef enum {
 
 GQuark eos_companion_app_service_error_quark (void);
 
+
+/**
+ * EosCompanionAppServiceReferrer:
+ * @EOS_COMPANION_APP_SERVICE_REFERRER_FEED: Referred from content feed
+ * @EOS_COMPANION_APP_SERVICE_REFERRER_SEARCH_CONTENT: Referred from content search
+ * @EOS_COMPANION_APP_SERVICE_REFERRER_LIST_CONTENT_FOR_TAGS: Referred from list_application_content_for_tags
+ * @EOS_COMPANION_APP_SERVICE_REFERRER_LIST_APPLICATIONS: Referred from list_applications
+ * @EOS_COMPANION_APP_SERVICE_REFERRER_LIST_APLLICATION_SETS: Referred from list_application_sets
+ * @EOS_COMPANION_APP_SERVICE_REFERRER_DEVICE_AUTHENTICATE: Referred from device_authenticate
+ * @EOS_COMPANION_APP_SERVICE_REFERRER_REFRESH: Referred from refreshing a view
+ * @EOS_COMPANION_APP_SERVICE_REFERRER_RETRY: Referred from retrying a connection
+ * @EOS_COMPANION_APP_SERVICE_REFERRER_BACK: Referred from going back
+ * @EOS_COMPANION_APP_SERVICE_REFERRER_CONTENT: Referred from following link in content
+ *
+ * Referrer types when navigating around the app. The referrer is the type of
+ * view the user was last on when they requested a new view.
+ */
+typedef enum {
+  EOS_COMPANION_APP_SERVICE_REFERRER_FEED,
+  EOS_COMPANION_APP_SERVICE_REFERRER_SEARCH_CONTENT,
+  EOS_COMPANION_APP_SERVICE_REFERRER_LIST_CONTENT_FOR_TAGS,
+  EOS_COMPANION_APP_SERVICE_REFERRER_LIST_APPLICATIONS,
+  EOS_COMPANION_APP_SERVICE_REFERRER_LIST_APLLICATION_SETS,
+  EOS_COMPANION_APP_SERVICE_REFERRER_DEVICE_AUTHENTICATE,
+  EOS_COMPANION_APP_SERVICE_REFERRER_REFRESH,
+  EOS_COMPANION_APP_SERVICE_REFERRER_RETRY,
+  EOS_COMPANION_APP_SERVICE_REFERRER_BACK,
+  EOS_COMPANION_APP_SERVICE_REFERRER_CONTENT
+} EosCompanionAppServiceReferrer;
+
 void eos_companion_app_service_set_soup_message_response (SoupMessage *message,
                                                           const gchar *content_type,
                                                           const gchar *response);
