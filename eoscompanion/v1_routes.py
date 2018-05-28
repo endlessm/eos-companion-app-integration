@@ -431,8 +431,6 @@ def companion_app_server_application_colors_route(server, msg, path, query, *arg
     server.pause_message(msg)
 
 
-
-
 # For now a limit parameter is required for queries
 _SENSIBLE_QUERY_LIMIT = 500
 
