@@ -18,6 +18,7 @@
 # All rights reserved.
 '''Middlewares for eoscompanion.'''
 
+import functools
 import itertools
 
 from gi.repository import EosCompanionAppService, EosMetrics, Gio, GLib, Soup
@@ -31,7 +32,15 @@ from .responses import (
 )
 
 
-def application_hold_middleware(application, handler):
+def compose_middlewares(*middlewares):
+    '''Compose middlewares from right to left.
+
+    For instance, [f, g. x] gets composed as f(g(x)) (g first, then f).
+    '''
+    return functools.reduce(lambda x, f: f(x), reversed(middlewares))
+
+
+def application_hold_middleware(application):
     '''Middleware function to put a hold on the application.
 
     This ensures that the application does not go away whilst we're handling
@@ -44,18 +53,22 @@ def application_hold_middleware(application, handler):
     server will be alive for a further INACTIVITY_TIMEOUT milliseconds
     after the response completes.
     '''
-    def _handler(server, msg, *args, **kwargs):
-        '''Middleware function.'''
-        application.hold()
-        msg.get_property('response-headers').replace('X-Endless-Alive-For-Further',
-                                                     str(INACTIVITY_TIMEOUT))
-        msg.connect('finished', lambda _: application.release())
-        return handler(server, msg, *args, **kwargs)
+    def _apply(handler):
+        '''Apply middleware to the handler.'''
+        def _handler(server, msg, *args, **kwargs):
+            '''Middleware function.'''
+            application.hold()
+            msg.get_property('response-headers').replace('X-Endless-Alive-For-Further',
+                                                         str(INACTIVITY_TIMEOUT))
+            msg.connect('finished', lambda _: application.release())
+            return handler(server, msg, *args, **kwargs)
 
-    return _handler
+        return _handler
+
+    return _apply
 
 
-def handle_404_middleware(expected_path, handler):
+def handle_404_middleware(expected_path):
     '''Middleware function to return 404 if the path is not the expected one.
 
     Soup's documentation says that when a matching route is not
@@ -64,16 +77,20 @@ def handle_404_middleware(expected_path, handler):
     desirable - if the route mismatches we should really just return
     a 404. The best way to detect this is if the invoked route does
     not match the path in the request.'''
-    def _handler(server, msg, path, query, *args):
-        '''Middleware function.'''
-        if path != expected_path:
-            msg.set_status(Soup.Status.OK)
-            not_found_response(msg, path)
-            return None
+    def _apply(handler):
+        '''Apply middleware to the handler.'''
+        def _handler(server, msg, path, query, *args):
+            '''Middleware function.'''
+            if path != expected_path:
+                msg.set_status(Soup.Status.OK)
+                not_found_response(msg, path)
+                return None
 
-        return handler(server, msg, path, query, *args)
+            return handler(server, msg, path, query, *args)
 
-    return _handler
+        return _handler
+
+    return _apply
 
 
 def cancellability_middleware(handler):

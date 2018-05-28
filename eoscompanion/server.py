@@ -24,6 +24,7 @@ from gi.repository import Soup
 
 from .middlewares import (
     application_hold_middleware,
+    compose_middlewares,
     cancellability_middleware,
     handle_404_middleware
 )
@@ -53,13 +54,10 @@ def create_companion_app_webserver(application, content_db_conn):
     for path, handler in create_companion_app_routes(content_db_conn).items():
         server.add_handler(
             path,
-            cancellability_middleware(
-                handle_404_middleware(
-                    path,
-                    application_hold_middleware(application,
-                                                handler)
-                )
-            )
+            compose_middlewares(cancellability_middleware,
+                                handle_404_middleware(path),
+                                application_hold_middleware(application),
+                                handler)
         )
 
     server.connect('request-aborted', _on_request_aborted)
