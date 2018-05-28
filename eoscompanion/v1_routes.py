@@ -478,10 +478,11 @@ def companion_app_server_list_application_sets_route(server,
 
         if respond_if_error_set(msg, error):
             server.unpause_message(msg)
-        else:
-            EosCompanionAppService.load_application_colors(query['applicationId'],
-                                                           cancellable=msg.cancellable,
-                                                           callback=_on_loaded_application_colors)
+            return
+
+        EosCompanionAppService.load_application_colors(query['applicationId'],
+                                                       cancellable=msg.cancellable,
+                                                       callback=_on_loaded_application_colors)
 
     def _on_queried_sets(error, result):
         '''Callback function that gets called when we are done querying.'''
