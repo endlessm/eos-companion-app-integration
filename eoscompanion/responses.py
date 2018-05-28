@@ -105,3 +105,54 @@ def not_found_response(msg, path):
                                                          'status': 'error',
                                                          'error': error
                                                      }))
+
+
+def generate_error_mappings(error_mappings=None):
+    '''Yield a three tuple of src_domain, src_code, target_code.
+
+    Assumes that the input is a dictionary of form {
+        (src_domain, src_code): target_code
+    }.
+
+    The yielded mappings may be augmented by this function
+    '''
+    for (src_domain, src_code), target_code in (error_mappings or {}).items():
+        yield src_domain, src_code, target_code
+
+
+def translate_error(error, error_mappings=None):
+    '''Translate any error type into an EosCompanionAppError error.'''
+    if error.domain == GLib.quark_to_string(EosCompanionAppService.error_quark()):
+        return (EosCompanionAppService.error_quark(),
+                EosCompanionAppService.Error(error.code))
+
+    for src_domain, src_code, target_code in generate_error_mappings(error_mappings):
+        if error.matches(src_domain, src_code):
+            return (EosCompanionAppService.error_quark(),
+                    EosCompanionAppService.Error(target_code))
+
+    return (EosCompanionAppService.error_quark(),
+            EosCompanionAppService.Error.FAILED)
+
+
+def respond_if_error_set(msg, error, detail=None, error_mappings=None):
+    '''Respond with an error if error is set and return True.
+
+    Otherwise return false. If the error is a known error that can
+    be translated into EosCompanionAppServiceError, it will be translated,
+    otherwise, it will be mapped to EosCompanionAppService.Error.FAILED.
+
+    All elements in detail will be added to the detail object for all reported
+    errors. It is the callers responsibility to ensure that the detail object
+    has the detail that the caller needs.
+    '''
+    if error is not None:
+        domain, code = translate_error(error, error_mappings=error_mappings)
+        error_detail = detail.copy() if detail is not None else {}
+        error_detail.update({
+            'message': str(error)
+        })
+        error_response(msg, domain, code, detail=error_detail)
+        return True
+
+    return False
