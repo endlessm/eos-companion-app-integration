@@ -997,6 +997,56 @@ class CompanionAppServiceRoutesV2(object):
                                quit_cb)
 
     @with_main_loop
+    def test_get_content_data_video_app_cancel(self, quit_cb):
+        '''/v2/content_data when cancelled returns error.'''
+        def cancel_route_middleware(cancel_path):
+            '''Middleware to cancel certain routes after initial request.'''
+            def _apply(handler):
+                '''Apply middleware.'''
+                def _handler(server, msg, path, *args):
+                    '''Request interceptor.
+
+                    Handle the request as usual, then cancel it before
+                    we get a chance to load any data.
+                    '''
+                    handler(server, msg, path, *args)
+                    if path == cancel_path:
+                        msg.cancellable.cancel()
+
+                return _handler
+            return _apply
+
+        def on_received_response(response):
+            '''Called when we receive a response from the server.'''
+            self.assertTrue(response['status'] == 'error')
+            self.assertTrue(response['error']['code'] == 'CANCELLED')
+
+        def on_received_ekn_id(ekn_id):
+            '''Make a query using the EKN ID.'''
+            json_http_request_with_uuid(FAKE_UUID,
+                                        local_endpoint(self.port,
+                                                       'content_data',
+                                                       version='v2'),
+                                        {
+                                            'applicationId': 'org.test.ContentApp',
+                                            'contentId': ekn_id
+                                        },
+                                        handle_json(autoquit(on_received_response,
+                                                             quit_cb)))
+
+        self.service = CompanionAppService(Holdable(),
+                                           self.port,
+                                           FakeContentDbConnection(FAKE_SHARD_CONTENT),
+                                           middlewares=[
+                                               cancel_route_middleware('/v2/content_data')
+                                           ])
+        fetch_first_content_id('org.test.ContentApp',
+                               ['First Tag'],
+                               self.port,
+                               on_received_ekn_id,
+                               quit_cb)
+
+    @with_main_loop
     def test_get_content_data_video_app_error_no_device_uuid(self, quit_cb):
         '''/v2/content_data returns an error if deviceUUID is not set.'''
         def on_received_response(response):
