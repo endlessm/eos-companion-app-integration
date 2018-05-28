@@ -76,7 +76,7 @@ def load_record_from_shards_async(shards,
             lambda: callback(
                 GLib.Error(
                     'EKN ID {} not found in shards'.format(content_id),
-                    EosCompanionAppService.error_quark(),
+                    GLib.quark_to_string(EosCompanionAppService.error_quark()),
                     EosCompanionAppService.Error.INVALID_CONTENT_ID
                 ),
                 None
