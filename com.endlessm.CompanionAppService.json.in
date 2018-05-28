@@ -11,8 +11,11 @@
     "command": "eos-companion-app-service",
     "finish-args": [
         "--share=ipc",
+        "--system-talk-name=com.endlessm.CompanionAppServiceAvahiHelper",
         "--system-talk-name=com.endlessm.Metrics",
+        "--system-talk-name=org.bluez",
         "--system-talk-name=org.freedesktop.login1",
+        "--system-talk-name=org.freedesktop.NetworkManager",
         "--filesystem=xdg-run/dconf",
         "--filesystem=~/.config/dconf:ro",
         "--filesystem=/var/lib/eos-companion-app:ro",
@@ -23,6 +26,7 @@
         "--talk-name=com.endlessm.EknServices3.SearchProviderV3",
         "--talk-name=com.endlessm.EknServices2.SearchProviderV2",
         "--talk-name=com.endlessm.EknServices.SearchProviderV1",
+        "--talk-name=org.bluez.obex",
         "--env=DCONF_USER_CONFIG_DIR=.config/dconf",
         "--share=network",
         "--command=eos-companion-app-service"

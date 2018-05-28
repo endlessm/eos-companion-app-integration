@@ -50,15 +50,21 @@ app_PYTHON += \
 	eoscompanion/v2_routes.py \
 	$(NULL)
 
+installer_PYTHON += \
+	eoscompanioninstaller/main.py \
+	$(NULL)
+
 # Wrapper script
 bin_SCRIPTS += \
 	bin/eos-companion-app-service \
+	bin/eos-companion-app-offline-installer \
 	$(NULL)
 
 # GDBus wrapper
 lib_LTLIBRARIES += \
 	libeoscompanion-dbus-1.la \
 	libeoscompanion-1.la \
+	libeoscompanioninstaller-1.la \
 	$(NULL)
 
 # DBus-activation
@@ -75,9 +81,19 @@ enum_sources = \
 	src/enums.c \
 	$(NULL)
 
-resources_sources = \
+eoscompanion_resources_sources = \
 	src/eos-companion-app-service-resources.h \
 	src/eos-companion-app-service-resources.c \
+	$(NULL)
+
+eoscompanioninstaller_resources_sources = \
+	src/eos-companion-app-installer-resources.h \
+	src/eos-companion-app-installer-resources.c \
+	$(NULL)
+
+resources_sources = \
+	$(eoscompanion_resources_sources) \
+	$(eoscompanioninstaller_resources_sources) \
 	$(NULL)
 
 
@@ -114,7 +130,7 @@ introspectable_nodist_eoscompanion_sources = \
 
 nodist_libeoscompanion_1_la_SOURCES = \
 	$(introspectable_nodist_eoscompanion_sources) \
-	$(resources_sources) \
+	$(eoscompanion_resources_sources) \
 	$(NULL)
 
 libeoscompanion_1_la_CPPFLAGS = \
@@ -126,12 +142,43 @@ libeoscompanion_1_la_LIBADD = \
 	$(EOS_COMPANION_APP_SERVICE_LIBS) \
 	$(NULL)
 
+# Companion App Installer Helper Library
+dist_libeoscompanioninstaller_1_la_SOURCES = \
+	src/eos-companion-app-installer-helper.c \
+	src/eos-companion-app-installer-helper.h \
+	$(NULL)
+
+introspectable_nodist_eoscompanioninstaller_sources = \
+	src/config.h \
+	$(eoscompanioninstaller_resources_sources) \
+	$(NULL)
+
+nodist_libeoscompanioninstaller_1_la_SOURCES = \
+	$(introspectable_nodist_eoscompanioninstaller_sources) \
+	$(NULL)
+
+libeoscompanioninstaller_1_la_CPPFLAGS = \
+	$(EOS_COMPANION_APP_OFFLINE_INSTALLER_CFLAGS) \
+	-I$(abs_top_builddir)/src \
+	$(NULL)
+
+libeoscompanioninstaller_1_la_LIBADD = \
+	$(EOS_COMPANION_APP_OFFLINE_INSTALLER_LIBS) \
+	$(NULL)
+
 # Wrapper script
 bin/eos-companion-app-service: bin/eos-companion-app-service.in
 	$(AM_V_GEN) mkdir -p `dirname $@` && sed -e 's|@libdir[@]|${libdir}|g;s|@pkgdatadir[@]|${pkgdatadir}|g;s|@pythonminorversion[@]|${pythonminorversion}|g' $< > $@.tmp && mv $@.tmp $@
 
 CLEANFILES += bin/eos-companion-app-service
 EXTRA_DIST += bin/eos-companion-app-service.in
+
+# Installer wrapper script
+bin/eos-companion-app-offline-installer: bin/eos-companion-app-offline-installer.in
+	$(AM_V_GEN) mkdir -p `dirname $@` && sed -e 's|@libdir[@]|${libdir}|g;s|@pkgdatadir[@]|${pkgdatadir}|g;s|@pythonminorversion[@]|${pythonminorversion}|g' $< > $@.tmp && mv $@.tmp $@
+
+CLEANFILES += bin/eos-companion-app-offline-installer
+EXTRA_DIST += bin/eos-companion-app-offline-installer.in
 
 # # # D-BUS SERVICES # # #
 data/com.endlessm.CompanionAppService.service: data/com.endlessm.CompanionAppService.service.in
@@ -179,15 +226,20 @@ EXTRA_DIST += $(enum_template_h_file) $(enum_template_c_file)
 
 # # # GRESOURCES # # #
 src/eos-companion-app-service-resources.%: com.endlessm.CompanionAppService.gresource.xml
-	$(AM_V_GEN) $(GLIB_COMPILE_RESOURCES) --generate $< --target=$@ --internal
+	$(AM_V_GEN) $(GLIB_COMPILE_RESOURCES) --generate $< --target=$@ --internal --c-name eos_companion_app_service
+src/eos-companion-app-installer-resources.%: com.endlessm.CompanionAppOfflineInstaller.data.gresource.xml
+	$(AM_V_GEN) $(GLIB_COMPILE_RESOURCES) --generate $< --target=$@ --internal --c-name eos_companion_app_offline_installer
 
 BUILT_SOURCES += $(resources_sources)
 CLEANFILES += $(resources_sources)
-EXTRA_DIST += com.endlessm.CompanionAppService.gresource.xml
+EXTRA_DIST += \
+	com.endlessm.CompanionAppService.gresource.xml \
+	com.endlessm.CompanionAppOfflineInstaller.data.gresource.xml \
+	$(NULL)
 
-# # # GOBJECT INTROSPECTION FOR COMPANION APP SERVICE # # #
+# # # GOBJECT INTROSPECTION FOR COMPANION APP SERVICE AND OFFLINE INSTALLER # # #
 if HAVE_INTROSPECTION
-introspection_sources = \
+eoscompanion_introspection_sources = \
 	$(gdbus_generated) \
 	$(dist_libeoscompanion_1_la_SOURCES) \
 	$(introspectable_nodist_eoscompanion_sources) \
@@ -197,9 +249,22 @@ EosCompanionAppService-1.0.gir: libeoscompanion-dbus-1.la libeoscompanion-1.la
 EosCompanionAppService_1_0_gir_INCLUDES = EosShard-0 GObject-2.0 Gio-2.0 GLib-2.0 Soup-2.4
 EosCompanionAppService_1_0_gir_CFLAGS = $(EOS_COMPANION_APP_SERVICE_CFLAGS)
 EosCompanionAppService_1_0_gir_LIBS = libeoscompanion-dbus-1.la libeoscompanion-1.la
-EosCompanionAppService_1_0_gir_FILES = $(introspection_sources)
+EosCompanionAppService_1_0_gir_FILES = $(eoscompanion_introspection_sources)
 
 INTROSPECTION_GIRS += EosCompanionAppService-1.0.gir
+
+eoscompanioninstaller_introspection_sources = \
+	$(dist_libeoscompanioninstaller_1_la_SOURCES) \
+	$(introspectable_nodist_eoscompanioninstaller_sources) \
+	$(NULL)
+
+EosCompanionAppOfflineInstaller-1.0.gir: libeoscompanioninstaller-1.la
+EosCompanionAppOfflineInstaller_1_0_gir_INCLUDES = GObject-2.0 Gio-2.0 GLib-2.0 Gtk-3.0
+EosCompanionAppOfflineInstaller_1_0_gir_CFLAGS = $(EOS_COMPANION_APP_OFFLINE_INSTALLER_CFLAGS)
+EosCompanionAppOfflineInstaller_1_0_gir_LIBS = libeoscompanioninstaller-1.la
+EosCompanionAppOfflineInstaller_1_0_gir_FILES = $(eoscompanioninstaller_introspection_sources)
+
+INTROSPECTION_GIRS += EosCompanionAppOfflineInstaller-1.0.gir
 endif
 
 # # # TESTING # # #
@@ -254,6 +319,7 @@ endif
 
 EOS_PYLINT_FILES = \
 	$(app_PYTHON) \
+	$(installer_PYTHON) \
 	$(python_tests) \
 	$(test_support) \
 	$(NULL)

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gresources>
+  <gresource prefix="/com/endlessm/CompanionAppOfflineInstaller">
+    <file preprocess="xml-stripblanks">data/installer/ui/main.ui</file>
+    <file>data/installer/css/application.css</file>
+  </gresource>
+</gresources>

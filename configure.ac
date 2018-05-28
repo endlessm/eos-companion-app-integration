@@ -78,6 +78,13 @@ AS_IF([test "x$EOS_COMPANION_APP_SERVICE_ENABLED" = "xyes"], [
     gtk+-3.0
     libsoup-2.4
   ])
+  PKG_CHECK_MODULES([EOS_COMPANION_APP_OFFLINE_INSTALLER], [
+    cairo,
+    glib-2.0
+    gio-2.0
+    gtk+-3.0
+    libqrencode
+  ])
   ADDITIONAL_DISTCHECK_CONFIGURE_FLAGS="$ADDITIONAL_DISTCHECK_CONFIGURE_FLAGS --enable-service"
 ], [
   ADDITIONAL_DISTCHECK_CONFIGURE_FLAGS="$ADDITIONAL_DISTCHECK_CONFIGURE_FLAGS --disable-service"
