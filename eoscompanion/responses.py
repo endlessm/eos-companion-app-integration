@@ -22,6 +22,7 @@ import json
 
 from gi.repository import (
     EosCompanionAppService,
+    Gio,
     GLib,
     Soup
 )
@@ -116,6 +117,10 @@ def generate_error_mappings(error_mappings=None):
 
     The yielded mappings may be augmented by this function
     '''
+    yield (Gio.io_error_quark(),
+           Gio.IOErrorEnum.CANCELLED,
+           EosCompanionAppService.Error.CANCELLED)
+
     for (src_domain, src_code), target_code in (error_mappings or {}).items():
         yield src_domain, src_code, target_code
 
