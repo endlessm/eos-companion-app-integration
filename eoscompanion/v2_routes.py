@@ -47,7 +47,7 @@ from .middlewares import (
 )
 from .responses import (
     json_response,
-    serialize_error_as_json_object
+    respond_if_error_set
 )
 from .v1_routes import (
     companion_app_server_application_colors_route,
@@ -449,17 +449,7 @@ def companion_app_server_feed_route(server,
         '''
         def _on_received_sources(error, sources):
             '''Callback for when we work out the info for all the sources.'''
-            if error is not None:
-                json_response(msg, {
-                    'status': 'error',
-                    'error': serialize_error_as_json_object(
-                        EosCompanionAppService.error_quark(),
-                        EosCompanionAppService.Error.FAILED,
-                        detail={
-                            'message': str(error)
-                        }
-                    )
-                })
+            if respond_if_error_set(msg, error):
                 server.unpause_message(msg)
                 return
 
@@ -481,17 +471,7 @@ def companion_app_server_feed_route(server,
             })
             server.unpause_message(msg)
 
-        if error is not None:
-            json_response(msg, {
-                'status': 'error',
-                'error': serialize_error_as_json_object(
-                    EosCompanionAppService.error_quark(),
-                    EosCompanionAppService.Error.FAILED,
-                    detail={
-                        'message': str(error)
-                    }
-                )
-            })
+        if respond_if_error_set(msg, error):
             server.unpause_message(msg)
             return
 
