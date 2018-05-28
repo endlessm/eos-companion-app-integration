@@ -30,7 +30,9 @@ from .middlewares import (
 )
 from .routes import create_companion_app_routes
 
-def create_companion_app_webserver(application, content_db_conn):
+def create_companion_app_webserver(application,
+                                   content_db_conn,
+                                   middlewares=None):
     '''Create a HTTP server with companion app routes.'''
     def _on_request_aborted(server, msg, *args):
         '''Signal handler for when a request is aborted.
@@ -57,6 +59,7 @@ def create_companion_app_webserver(application, content_db_conn):
             compose_middlewares(cancellability_middleware,
                                 handle_404_middleware(path),
                                 application_hold_middleware(application),
+                                *(middlewares or []),
                                 handler)
         )
 

@@ -29,7 +29,13 @@ from .server import create_companion_app_webserver
 class CompanionAppService(GObject.Object):
     '''A container object for the services.'''
 
-    def __init__(self, application, port, content_db_query, *args, **kwargs):
+    def __init__(self,
+                 application,
+                 port,
+                 content_db_query,
+                 *args,
+                 middlewares=None,
+                 **kwargs):
         '''Initialize the service and create webserver on port.
 
         :content_db_query: is a function satisfying the signature
@@ -47,7 +53,8 @@ class CompanionAppService(GObject.Object):
         # We want to listen right away as we'll probably be started by
         # socket activation
         self._server = create_companion_app_webserver(application,
-                                                      content_db_query)
+                                                      content_db_query,
+                                                      middlewares=middlewares)
         EosCompanionAppService.soup_server_listen_on_sd_fd_or_port(self._server,
                                                                    port,
                                                                    0)
