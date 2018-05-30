@@ -73,6 +73,22 @@
                     "type": "git"
                 }
             ]
+        },
+        {
+            "name": "android-companion-app-apk",
+            "sources": [
+                {
+                    "dest-filename": "com.endlessm.eoscompanion.apk",
+                    "sha256": "08692c5050fa3f0e0b6accee992092f0ede9d69fda5daa665d510a7884930933",
+                    "url": "http://dl.apk-cloud.com/dl5/apk/2018/6/3/com.endlessm.eoscompanion_1000115.apk?f=Endless%20Companion_0.1.15_apk-dl.com.apk&id=com.endlessm.eoscompanion",
+                    "type": "file"
+                }
+            ],
+            "buildsystem": "simple",
+            "build-commands": [
+                "mkdir -p $FLATPAK_DEST/share/apk",
+                "cp com.endlessm.eoscompanion.apk \"$FLATPAK_DEST/share/apk/com.endlessm.eoscompanion.apk\""
+            ]
         }
     ],
     "runtime": "com.endlessm.apps.Platform",
