@@ -49,6 +49,8 @@ from test.service_test_helpers import (
 
 # pylint: disable=wrong-import-order
 from test.routes_v1 import CompanionAppServiceRoutesV1
+# pylint: disable=wrong-import-order
+from test.routes_v2 import CompanionAppServiceRoutesV2
 
 
 FLATPAK_INSTALLATION_DIR = None
@@ -109,4 +111,10 @@ class TestCompanionAppServiceV1Routes(SetFlatpakInstallationDirMixin,
                                       TestCompanionAppService,
                                       CompanionAppServiceRoutesV1):
     '''Tests for the /v1 routes.'''
+    pass
+
+class TestCompanionAppServiceV2Routes(SetFlatpakInstallationDirMixin,
+                                      TestCompanionAppService,
+                                      CompanionAppServiceRoutesV2):
+    '''Tests for the /v2 routes.'''
     pass
