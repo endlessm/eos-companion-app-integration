@@ -89,21 +89,34 @@ from gi.repository import (
 from eoscompanion.service import CompanionAppService
 
 
+FLATPAK_INSTALLATION_DIR = None
+
+
+# pylint: disable=invalid-name
+def setUpModule():
+    '''Set up the entire module by setting up fake apps.'''
+    global FLATPAK_INSTALLATION_DIR  # pylint: disable=global-statement
+
+    FLATPAK_INSTALLATION_DIR = generate_flatpak_installation_directory()
+    setup_fake_apps(FAKE_APPS,
+                    TEST_DATA_DIRECTORY,
+                    FLATPAK_INSTALLATION_DIR)
+
+
+# pylint: disable=invalid-name
+def tearDownModule():
+    '''Tear down the entire module by deleting the fake apps.'''
+    force_remove_directory(FLATPAK_INSTALLATION_DIR)
+
+
 class TestCompanionAppServiceRoutesV1(TestCompanionAppService):
     '''Test suite for the CompanionAppService class.'''
 
     @classmethod
     def setUpClass(cls):  # pylint: disable=invalid-name
         '''Set up the entire test case class.'''
-        cls.flatpak_installation_dir = generate_flatpak_installation_directory()
-        setup_fake_apps(FAKE_APPS,
-                        TEST_DATA_DIRECTORY,
-                        cls.flatpak_installation_dir)
-
-    @classmethod
-    def tearDownClass(cls):  # pylint: disable=invalid-name
-        '''Tear down the entire class by deleting build testing flatpaks.'''
-        force_remove_directory(cls.flatpak_installation_dir)
+        cls.flatpak_installation_dir = FLATPAK_INSTALLATION_DIR
+        super(TestCompanionAppServiceRoutesV1, cls).setUpClass()
 
     @with_main_loop
     def test_make_connection_to_authenticate(self, quit_cb):

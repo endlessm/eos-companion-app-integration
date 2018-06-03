@@ -32,8 +32,6 @@ from urllib.parse import (
     urlparse
 )
 
-from test.build_app import (force_remove_directory, setup_fake_apps)
-
 import gi
 
 gi.require_version('ContentFeed', '0')
@@ -769,16 +767,3 @@ class TestCompanionAppService(TestCase):
         self._env_context.restore()
 
         super().tearDown()
-
-    @classmethod
-    def setUpClass(cls):  # pylint: disable=invalid-name
-        '''Set up the entire test case class.'''
-        cls.flatpak_installation_dir = generate_flatpak_installation_directory()
-        setup_fake_apps(FAKE_APPS,
-                        TEST_DATA_DIRECTORY,
-                        cls.flatpak_installation_dir)
-
-    @classmethod
-    def tearDownClass(cls):  # pylint: disable=invalid-name
-        '''Tear down the entire class by deleting build testing flatpaks.'''
-        force_remove_directory(cls.flatpak_installation_dir)
