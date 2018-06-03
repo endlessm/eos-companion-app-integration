@@ -1,6 +1,6 @@
-# /test/__init__.py
+# /test/test_service.py
 #
-# Copyright (C) 2017 Endless Mobile, Inc.
+# Copyright (C) 2018 Endless Mobile, Inc.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -16,7 +16,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 # All rights reserved.
-'''Package entry point for tests.'''
+'''Tests for the /v1 routes.'''
 
 import re
 
