@@ -222,6 +222,7 @@ test_data = \
 test_support = \
 	test/__init__.py \
 	test/build_app.py \
+	test/routes_v1.py \
 	test/service_test_helpers.py \
 	$(NULL)
 
