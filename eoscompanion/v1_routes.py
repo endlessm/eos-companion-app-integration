@@ -41,7 +41,8 @@ from .applications_query import (
 from .content_streaming import (
     conditionally_wrap_blob_stream,
     conditionally_wrap_stream,
-    define_content_range_from_headers_and_size
+    define_content_range_from_headers_and_size,
+    get_file_size_and_stream
 )
 from .ekn_content_adjuster import (
     EknContentAdjuster
@@ -103,40 +104,6 @@ _SUFFIX_CONTENT_TYPES = {
 _CONTENT_ADJUSTERS = {
     'license': LicenseContentAdjuster
 }
-
-
-def _get_file_size_and_stream(file_handle, cancellable, callback):
-    '''Query the file size and get a stream for it.
-
-    This is used by the functions below to work out what the file
-    size is so that it can be streamed properly.
-    '''
-    def _on_read_stream(_, read_result):
-        '''Callback for once we have the read stream.'''
-        def _on_queried_info(src, query_info_result):
-            '''Callback for once we're done querying file info.'''
-            try:
-                file_info = src.query_info_finish(query_info_result)
-            except GLib.Error as error:
-                callback(error, None)
-                return
-
-            callback(None, (input_stream, file_info.get_size()))
-
-        try:
-            input_stream = file_handle.read_finish(read_result)
-        except GLib.Error as error:
-            callback(error, None)
-            return
-
-        input_stream.query_info_async(attributes=Gio.FILE_ATTRIBUTE_STANDARD_SIZE,
-                                      io_priority=GLib.PRIORITY_DEFAULT,
-                                      cancellable=cancellable,
-                                      callback=_on_queried_info)
-
-    file_handle.read_async(io_priority=GLib.PRIORITY_DEFAULT,
-                           cancellable=cancellable,
-                           callback=_on_read_stream)
 
 
 def _stream_to_bytes(stream, cancellable, callback):
@@ -274,9 +241,9 @@ def companion_app_server_resource_route(server, msg, path, query, context, versi
 
         _stream_to_bytes(input_stream, msg.cancellable, _on_got_wrapped_bytes)
 
-    _get_file_size_and_stream(resource_file,
-                              msg.cancellable,
-                              _on_got_stream_and_size)
+    get_file_size_and_stream(resource_file,
+                             msg.cancellable,
+                             _on_got_stream_and_size)
     server.pause_message(msg)
 
 
@@ -353,9 +320,9 @@ def companion_app_server_license_route(server, msg, path, query, context, versio
                                   _wrapped_stream_to_bytes_handler(msg.cancellable,
                                                                    _on_got_wrapped_bytes))
 
-    _get_file_size_and_stream(license_file,
-                              msg.cancellable,
-                              _on_got_stream_and_size)
+    get_file_size_and_stream(license_file,
+                             msg.cancellable,
+                             _on_got_stream_and_size)
     server.pause_message(msg)
 
 

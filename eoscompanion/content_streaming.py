@@ -104,3 +104,37 @@ def conditionally_wrap_blob_stream(blob,
                               adjuster,
                               cancellable,
                               callback)
+
+
+def get_file_size_and_stream(file_handle, cancellable, callback):
+    '''Query the file size and get a stream for it.
+
+    This is used by the functions below to work out what the file
+    size is so that it can be streamed properly.
+    '''
+    def _on_read_stream(_, read_result):
+        '''Callback for once we have the read stream.'''
+        def _on_queried_info(src, query_info_result):
+            '''Callback for once we're done querying file info.'''
+            try:
+                file_info = src.query_info_finish(query_info_result)
+            except GLib.Error as error:
+                callback(error, None)
+                return
+
+            callback(None, (input_stream, file_info.get_size()))
+
+        try:
+            input_stream = file_handle.read_finish(read_result)
+        except GLib.Error as error:
+            callback(error, None)
+            return
+
+        input_stream.query_info_async(attributes=Gio.FILE_ATTRIBUTE_STANDARD_SIZE,
+                                      io_priority=GLib.PRIORITY_DEFAULT,
+                                      cancellable=cancellable,
+                                      callback=_on_queried_info)
+
+    file_handle.read_async(io_priority=GLib.PRIORITY_DEFAULT,
+                           cancellable=cancellable,
+                           callback=_on_read_stream)
