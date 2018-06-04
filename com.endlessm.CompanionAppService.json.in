@@ -60,6 +60,28 @@
             ]
         },
         {
+            "name": "gnome-bluetooth",
+            "buildsystem": "meson",
+            "sources": [
+                {
+                    "type": "git",
+                    "url": "https://github.com/smspillaz/gnome-bluetooth",
+                    "branch": "udev-optional"
+                }
+            ]
+        },
+        {
+            "name": "libqrencode",
+            "buildsystem": "autotools",
+            "sources": [
+                {
+                    "type": "git",
+                    "url": "https://github.com/fukuchi/libqrencode",
+                    "branch": "v4.0.0"
+                }
+            ]
+        },
+        {
             "config-opts": [
                 "--disable-integration",
                 "--enable-service"
