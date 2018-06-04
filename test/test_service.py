@@ -80,7 +80,14 @@ def tearDownModule():
 # for both each route version so that we can keep the tests in separate
 # files. However doing that will cause setUpClass and tearDownClass to be
 # called once per route version, which confuses Gio's caching of things
-# like desktop files.
+# like desktop files. That then causes tests to fail, since we generate
+# a tempdir for XDG_DATA_DIRS in setUpClass, but the first time
+# g_desktop_app_info_new is called, it creates a cache of all the known
+# desktop file directories, meaning that we cannot change XDG_DATA_DIRS in
+# future for the lifetime of the program (eg, in a later invocation of
+# setUpClass): https://gitlab.gnome.org/GNOME/glib/blob/master/gio/gdesktopappinfo.c#L1493
+#
+# There doesn't appear to be any way to clear the cache from the caller.
 #
 # To get around this, we move that setup into the setUpModule and tearDownModule
 # phase as above. However, this means that all the tests need to be in the
