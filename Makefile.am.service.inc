@@ -31,6 +31,7 @@ app_PYTHON += \
 	eoscompanion/applications_query.py \
 	eoscompanion/constants.py \
 	eoscompanion/content_streaming.py \
+	eoscompanion/core_routes.py \
 	eoscompanion/dummy_feed.py \
 	eoscompanion/eknservices_bridge.py \
 	eoscompanion/ekn_content_adjuster.py \
@@ -40,9 +41,13 @@ app_PYTHON += \
 	eoscompanion/functional.py \
 	eoscompanion/license_content_adjuster.py \
 	eoscompanion/main.py \
+	eoscompanion/middlewares.py \
 	eoscompanion/responses.py \
 	eoscompanion/routes.py \
+	eoscompanion/server.py \
 	eoscompanion/service.py \
+	eoscompanion/v1_routes.py \
+	eoscompanion/v2_routes.py \
 	$(NULL)
 
 # Wrapper script
@@ -217,6 +222,9 @@ test_data = \
 test_support = \
 	test/__init__.py \
 	test/build_app.py \
+	test/routes_v1.py \
+	test/routes_v2.py \
+	test/service_test_helpers.py \
 	$(NULL)
 
 TESTS_ENVIRONMENT = \

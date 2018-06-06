@@ -36,6 +36,7 @@ _GLOBAL_SET_INDICATOR_TAG = ['EknHomePageTag']
 
 
 def ascertain_application_sets_from_models(models,
+                                           version,
                                            device_uuid,
                                            application_id,
                                            cancellable,
@@ -56,7 +57,9 @@ def ascertain_application_sets_from_models(models,
                 'tags': _GLOBAL_SET_INDICATOR_TAG,
                 'title': listing.display_name,
                 'contentType': 'application/x-ekncontent-set',
-                'thumbnail': format_app_icon_uri(listing.icon, device_uuid),
+                'thumbnail': format_app_icon_uri(version,
+                                                 listing.icon,
+                                                 device_uuid),
                 'id': '',
                 'global': True
             }
@@ -68,7 +71,8 @@ def ascertain_application_sets_from_models(models,
                 'tags': model['child_tags'],
                 'title': model['title'],
                 'contentType': 'application/x-ekncontent-set',
-                'thumbnail': optional_format_thumbnail_uri(application_id,
+                'thumbnail': optional_format_thumbnail_uri(version,
+                                                           application_id,
                                                            model,
                                                            device_uuid),
                 'id': urllib.parse.urlparse(model['id']).path[1:],

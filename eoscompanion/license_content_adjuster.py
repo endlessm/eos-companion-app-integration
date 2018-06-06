@@ -41,12 +41,12 @@ _RE_RELATIVE_HTML_URL_CAPTURE = re.compile(r'"(?P<relative>\.\.[\.\/A-Za-z0-9-]+
 _RE_CSS_URL_CAPTURE = re.compile("url\([\"']?(?P<path>[\.\/A-Za-z0-9-]+)[\"']?\)")
 
 
-def rewrite_relative_url(relative, query, source_path):
+def rewrite_relative_url(relative, version, query, source_path):
     '''Rewrite the relative URL as a resource URL.'''
     file_uri = Gio.File.new_for_path(os.path.join(os.path.dirname(source_path),
                                                   relative)).get_uri()
     formatted = format_uri_with_querystring(
-        '/v1/resource',
+        '/{version}/resource'.format(version=version),
         deviceUUID=query['deviceUUID'],
         uri=file_uri,
         adjuster='license'
@@ -54,45 +54,47 @@ def rewrite_relative_url(relative, query, source_path):
     return formatted
 
 
-def relative_html_url_rewriter(query, source_path):
+def relative_html_url_rewriter(version, query, source_path):
     '''Higher order function to rewrite an embedded HTML URL based on query.
 
     This finds relative urls in a document and rewrites them as absolute
     paths based on their position relative to source_path.
     '''
     return lambda m: '"{}"'.format(rewrite_relative_url(m.group('relative'),
+                                                        version,
                                                         query,
                                                         source_path))
 
 
-def relative_css_url_rewriter(query, source_path):
+def relative_css_url_rewriter(version, query, source_path):
     '''Higher order function to rewrite an embedded CSS URL based on query.
 
     This finds relative urls in a document and rewrites them as absolute
     paths based on their position relative to source_path.
     '''
     return lambda m: 'url({})'.format(rewrite_relative_url(m.group('path'),
+                                                           version,
                                                            query,
                                                            source_path))
 
 
-def _render_license_html_content(content_bytes, query, source_path):
+def _render_license_html_content(content_bytes, version, query, source_path):
     '''Render the HTML license content by rewriting all the URIs.'''
     unrendered_html_string = EosCompanionAppService.bytes_to_string(content_bytes)
     return EosCompanionAppService.string_to_bytes(
         _RE_RELATIVE_HTML_URL_CAPTURE.sub(
-            relative_html_url_rewriter(query, source_path),
+            relative_html_url_rewriter(version, query, source_path),
             unrendered_html_string
         )
     )
 
 
-def _render_license_css_content(content_bytes, query, source_path):
+def _render_license_css_content(content_bytes, version, query, source_path):
     '''Render the CSS license content by rewriting all the URIs.'''
     unrendered_css_string = EosCompanionAppService.bytes_to_string(content_bytes)
     return EosCompanionAppService.string_to_bytes(
         _RE_CSS_URL_CAPTURE.sub(
-            relative_css_url_rewriter(query, source_path),
+            relative_css_url_rewriter(version, query, source_path),
             unrendered_css_string
         )
     )
@@ -106,6 +108,7 @@ _CONTENT_TYPE_DISPATCH = {
 
 def render_license_content_async(content_type,
                                  content_bytes,
+                                 version,
                                  query,
                                  source_path,
                                  cancellable,
@@ -115,6 +118,7 @@ def render_license_content_async(content_type,
 
     try:
         response_bytes = _CONTENT_TYPE_DISPATCH[content_type](content_bytes,
+                                                              version,
                                                               query,
                                                               source_path)
     except GLib.Error as error:
@@ -145,12 +149,14 @@ class LicenseContentAdjuster(object):
     def render_async(self,
                      content_type,
                      content_bytes,
+                     version,
                      query,
                      cancellable,
                      callback):
         '''Perform any rendering on the content asynchronously.'''
         render_license_content_async(content_type,
                                      content_bytes,
+                                     version,
                                      query,
                                      self._source_path,
                                      cancellable,
