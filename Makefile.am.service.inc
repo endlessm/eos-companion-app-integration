@@ -100,11 +100,18 @@ libeoscompanion_dbus_1_la_LIBADD = \
 	$(NULL)
 
 # Companion App Helper Library
-dist_libeoscompanion_1_la_SOURCES = \
+introspectable_dist_eoscompanion_sources = \
 	src/eos-companion-app-integration-helper.c \
 	src/eos-companion-app-integration-helper.h \
 	src/eos-companion-app-service-app-info.c \
 	src/eos-companion-app-service-app-info.h \
+	src/eos-companion-app-service-managed-cache.c \
+	src/eos-companion-app-service-managed-cache.h \
+	$(NULL)
+
+dist_libeoscompanion_1_la_SOURCES = \
+	$(introspectable_dist_eoscompanion_sources) \
+	src/eos-companion-app-service-managed-cache-private.h \
 	$(NULL)
 
 introspectable_nodist_eoscompanion_sources = \
@@ -189,7 +196,7 @@ EXTRA_DIST += com.endlessm.CompanionAppService.gresource.xml
 if HAVE_INTROSPECTION
 introspection_sources = \
 	$(gdbus_generated) \
-	$(dist_libeoscompanion_1_la_SOURCES) \
+	$(introspectable_dist_eoscompanion_sources) \
 	$(introspectable_nodist_eoscompanion_sources) \
 	$(NULL)
 
