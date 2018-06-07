@@ -178,7 +178,13 @@ def _wrapped_stream_to_bytes_handler(cancellable, callback):
 
 @require_query_string_param('deviceUUID')
 @require_query_string_param('uri')
-def companion_app_server_resource_route(server, msg, path, query, context, version):
+def companion_app_server_resource_route(server,
+                                        msg,
+                                        path,
+                                        query,
+                                        context,
+                                        cache,
+                                        version):
     '''Fetch an internal resource from a rewritten link on the page.
 
     This route is for fetching internal resources not tied to any particular
@@ -246,6 +252,7 @@ def companion_app_server_resource_route(server, msg, path, query, context, versi
                                       version,
                                       query,
                                       adjuster,
+                                      cache,
                                       msg.cancellable,
                                       _wrapped_stream_to_bytes_handler(msg.cancellable,
                                                                        _on_got_wrapped_bytes))
@@ -261,7 +268,13 @@ def companion_app_server_resource_route(server, msg, path, query, context, versi
 
 @require_query_string_param('deviceUUID')
 @require_query_string_param('name')
-def companion_app_server_license_route(server, msg, path, query, context, version):
+def companion_app_server_license_route(server,
+                                       msg,
+                                       path,
+                                       query,
+                                       context,
+                                       cache,
+                                       version):
     '''Fetch an internal license from a rewritten link on the page.
 
     This route is for for fetching license files which are embedded
@@ -308,6 +321,7 @@ def companion_app_server_license_route(server, msg, path, query, context, versio
                                   version,
                                   query,
                                   LicenseContentAdjuster(license_file.get_path()),
+                                  cache,
                                   msg.cancellable,
                                   _wrapped_stream_to_bytes_handler(msg.cancellable,
                                                                    _on_got_wrapped_bytes))
@@ -325,6 +339,7 @@ def companion_app_server_list_applications_route(server,
                                                  path,
                                                  query,
                                                  context,
+                                                 cache,
                                                  version):
     '''List all applications that are available on the system.'''
     del path
@@ -360,7 +375,7 @@ def companion_app_server_list_applications_route(server,
         server.unpause_message(msg)
 
     logging.debug('List applications: clientId=%s', query['deviceUUID'])
-    list_all_applications(msg.cancellable, _callback)
+    list_all_applications(cache, msg.cancellable, _callback)
     server.pause_message(msg)
 
 
@@ -443,6 +458,7 @@ def companion_app_server_list_application_sets_route(server,
                                                      path,
                                                      query,
                                                      context,
+                                                     cache,
                                                      version,
                                                      content_db_conn):
     '''Return json listing of all sets in an application.'''
@@ -499,6 +515,7 @@ def companion_app_server_list_application_sets_route(server,
                                                version,
                                                query['deviceUUID'],
                                                query['applicationId'],
+                                               cache,
                                                msg.cancellable,
                                                _on_ascertained_sets)
 
@@ -529,6 +546,7 @@ def companion_app_server_list_application_sets_route(server,
 
     app_id = query['applicationId']
     EosCompanionAppService.load_application_info(app_id,
+                                                 cache,
                                                  cancellable=msg.cancellable,
                                                  callback=_on_got_application_info)
     server.pause_message(msg)
@@ -543,6 +561,7 @@ def companion_app_server_list_application_content_for_tags_route(server,
                                                                  path,
                                                                  query,
                                                                  context,
+                                                                 cache,
                                                                  version,
                                                                  content_db_conn):
     '''Return json listing of all application content in a set.'''
@@ -610,6 +629,7 @@ def companion_app_server_list_application_content_for_tags_route(server,
     tags = query['tags'].split(';')
 
     EosCompanionAppService.load_application_info(app_id,
+                                                 cache,
                                                  cancellable=msg.cancellable,
                                                  callback=_on_got_application_info)
     server.pause_message(msg)
@@ -647,6 +667,7 @@ def companion_app_server_content_data_route(server,
                                             path,
                                             query,
                                             context,
+                                            cache,
                                             version,
                                             content_db_conn):
     '''Stream content, given contentId.
@@ -866,6 +887,7 @@ def companion_app_server_content_data_route(server,
                                            EknContentAdjuster(content_metadata,
                                                               content_db_conn,
                                                               shards),
+                                           cache,
                                            msg.cancellable,
                                            _on_got_wrapped_stream)
 
@@ -908,24 +930,10 @@ def companion_app_server_content_data_route(server,
         query['contentId']
     )
     EosCompanionAppService.load_application_info(query['applicationId'],
+                                                 cache,
                                                  cancellable=msg.cancellable,
                                                  callback=_on_got_application_info)
     server.pause_message(msg)
-
-
-_RUNTIME_SPECS_FOR_APP_IDS = {}
-
-
-def runtime_spec_for_app_id_cached(app_id):
-    '''Get the runtime spec for the given Flatpak app_id.
-
-    This does caching so as to avoid too may blocking key file reads.
-    '''
-    if app_id in _RUNTIME_SPECS_FOR_APP_IDS:
-        return _RUNTIME_SPECS_FOR_APP_IDS[app_id]
-
-    _RUNTIME_SPECS_FOR_APP_IDS[app_id] = EosCompanionAppService.get_runtime_spec_for_app_id(app_id)
-    return _RUNTIME_SPECS_FOR_APP_IDS[app_id]
 
 
 def app_id_to_runtime_version(app_id):
@@ -942,6 +950,7 @@ def companion_app_server_content_metadata_route(server,
                                                 path,
                                                 query,
                                                 context,
+                                                cache,
                                                 version,
                                                 content_db_conn):
     '''Return application/json of content metadata.'''
@@ -967,7 +976,10 @@ def companion_app_server_content_metadata_route(server,
 
             metadata_json = json.loads(EosCompanionAppService.bytes_to_string(metadata_bytes))
             metadata_json['version'] = app_id_to_runtime_version(
-                runtime_spec_for_app_id_cached(query['applicationId'])
+                EosCompanionAppService.get_runtime_spec_for_app_id(
+                    query['applicationId'],
+                    cache
+                )
             )
             msg.set_status(Soup.Status.OK)
             json_response(msg, {
@@ -1015,6 +1027,7 @@ def companion_app_server_content_metadata_route(server,
         query['contentId']
     )
     EosCompanionAppService.load_application_info(query['applicationId'],
+                                                 cache,
                                                  cancellable=msg.cancellable,
                                                  callback=_on_got_application_info)
     server.pause_message(msg)
@@ -1115,6 +1128,7 @@ def companion_app_server_search_content_route(server,
                                               path,
                                               query,
                                               context,
+                                              cache,
                                               version,
                                               content_db_conn):
     '''Return application/json of search results.
@@ -1459,10 +1473,11 @@ def companion_app_server_search_content_route(server,
     # _on_received_results_list can use
     if application_id:
         EosCompanionAppService.load_application_info(application_id,
+                                                     cache,
                                                      msg.cancellable,
                                                      _on_got_application_info)
     else:
-        list_all_applications(msg.cancellable, _on_got_all_applications)
+        list_all_applications(cache, msg.cancellable, _on_got_all_applications)
     server.pause_message(msg)
 
 

@@ -111,9 +111,11 @@ def render_license_content_async(content_type,
                                  version,
                                  query,
                                  source_path,
+                                 cache,
                                  cancellable,
                                  callback):
     '''Render the license content by rewriting all the URIs.'''
+    del cache
     del cancellable
 
     try:
@@ -151,6 +153,7 @@ class LicenseContentAdjuster(object):
                      content_bytes,
                      version,
                      query,
+                     cache,
                      cancellable,
                      callback):
         '''Perform any rendering on the content asynchronously.'''
@@ -159,5 +162,6 @@ class LicenseContentAdjuster(object):
                                      version,
                                      query,
                                      self._source_path,
+                                     cache,
                                      cancellable,
                                      callback)

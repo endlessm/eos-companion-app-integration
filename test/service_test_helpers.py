@@ -59,6 +59,10 @@ from testtools.matchers import (
     MatchesAll
 )
 
+from .build_app import (
+    format_runtime
+)
+
 
 TOPLEVEL_DIRECTORY = os.path.abspath(os.path.join(os.path.dirname(__file__),
                                                   '..'))
@@ -721,6 +725,54 @@ class FakeContentDbConnection(object):
         del cancellable
 
         return GLib.idle_add(callback, None, self.data.feed_models)
+
+
+def modify_app_runtime(flatpak_installation_dir,
+                       app_id,
+                       runtime_name,
+                       runtime_version,
+                       sdk_name,
+                       sdk_version,
+                       changed_file_modified_cb):
+    '''Modify an installed app's runtime name and version.
+
+    This method will also change the contents of the .changed file
+    in flatpak_installation_dir as a side effect, simulating a change
+    in the flatpak installation state.
+
+    Once the .changed file is written, changed_file_modified_cb will
+    be called with (changed_file, result).
+    '''
+    metadata_path = os.path.join(flatpak_installation_dir,
+                                 'app',
+                                 app_id,
+                                 'current',
+                                 'active',
+                                 'metadata')
+    changed_path = os.path.join(flatpak_installation_dir,
+                                '.changed')
+    changed_file = Gio.File.new_for_path(changed_path)
+
+    metadata = GLib.KeyFile()
+    metadata.load_from_file(
+        metadata_path,
+        GLib.KeyFileFlags.NONE
+    )
+    metadata.set_string('Application',
+                        'runtime',
+                        format_runtime(runtime_name,
+                                       runtime_version))
+    metadata.set_string('Application',
+                        'sdk',
+                        format_runtime(sdk_name, sdk_version))
+    metadata.save_to_file(metadata_path)
+
+    changed_file.replace_contents_async([1],
+                                        None,
+                                        False,
+                                        Gio.FileCreateFlags.NONE,
+                                        None,
+                                        changed_file_modified_cb)
 
 
 class TestCompanionAppService(TestCase):

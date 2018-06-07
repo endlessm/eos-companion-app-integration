@@ -179,6 +179,15 @@ def apply_route_version(handler, route_version):
     return apply_extra_args(handler, route_version)
 
 
+def cache_middleware(cache):
+    '''Partially apply cache to the end of handler.'''
+    def _apply(handler):
+        '''Apply the middleware.'''
+        return apply_extra_args(handler, cache)
+
+    return _apply
+
+
 def apply_version_to_all_routes(routes_dict, version):
     '''Apply version prefix to all routes and pass version to callbacks.
 

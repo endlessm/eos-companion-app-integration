@@ -25,6 +25,7 @@
 #include <libsoup/soup.h>
 
 #include "eos-companion-app-service-app-info.h"
+#include "eos-companion-app-service-managed-cache.h"
 
 G_BEGIN_DECLS
 
@@ -105,6 +106,8 @@ gboolean eos_companion_app_service_soup_server_listen_on_sd_fd_or_port (SoupServ
 
 /**
  * eos_companion_app_service_list_application_infos:
+ * @cache: A #EosCompanionAppServiceManagedCache which should e cleared when
+ *         the installation state changes.
  * @cancellable: (nullable): A #GCancellable
  * @callback: A #GAsyncReadyCallback
  *
@@ -112,9 +115,10 @@ gboolean eos_companion_app_service_soup_server_listen_on_sd_fd_or_port (SoupServ
  * on the system, by examining all search providers and pulling information
  * out of desktop files.
  */
-void eos_companion_app_service_list_application_infos (GCancellable        *cancellable,
-                                                       GAsyncReadyCallback  callback,
-                                                       gpointer             user_data);
+void eos_companion_app_service_list_application_infos (EosCompanionAppServiceManagedCache *cache,
+                                                       GCancellable                       *cancellable,
+                                                       GAsyncReadyCallback                 callback,
+                                                       gpointer                            user_data);
 
 /**
  * eos_companion_app_service_finish_list_application_infos:
@@ -169,6 +173,7 @@ GBytes * eos_companion_app_service_finish_load_application_icon_data_async (GAsy
 /**
  * eos_companion_app_service_load_application_info:
  * @name: The name of the application to load info for
+ * @cache: A #EosCompanionAppServiceManagedCache used to cache flatpak info
  * @cancellable: (nullable): A #GCancellable
  * @callback: A #GAsyncReadyCallback
  * @user_data: Closure for @callback
@@ -176,10 +181,11 @@ GBytes * eos_companion_app_service_finish_load_application_icon_data_async (GAsy
  * Asynchronously load application info for the given application name, passing
  * it as a #EosCompanionAppServiceAppInfo to the provided @callback
  */
-void eos_companion_app_service_load_application_info (const gchar         *name,
-                                                      GCancellable        *cancellable,
-                                                      GAsyncReadyCallback  callback,
-                                                      gpointer             user_data);
+void eos_companion_app_service_load_application_info (const gchar                        *name,
+                                                      EosCompanionAppServiceManagedCache *cache,
+                                                      GCancellable                       *cancellable,
+                                                      GAsyncReadyCallback                 callback,
+                                                      gpointer                            user_data);
 
 
 /**
@@ -291,13 +297,15 @@ GBytes * eos_companion_app_service_string_to_bytes (const gchar *string);
 /**
  * eos_companion_app_service_get_runtime_spec_for_app_id:
  * @app_id: (transfer none): A utf-8 string.
+ * @cache: An #EosCompanionAppServiceManagedCache.
  *
- * Blocking fetch of the runtime spec for app id
+ * Blocking or cached fetch of the runtime spec for app id
  *
  * Returns: (transfer full): A string.
  */
-gchar * eos_companion_app_service_get_runtime_spec_for_app_id (const gchar  *app_id,
-                                                               GError      **error);
+gchar * eos_companion_app_service_get_runtime_spec_for_app_id (const gchar                         *app_id,
+                                                               EosCompanionAppServiceManagedCache  *cache,
+                                                               GError                             **error);
 
 /**
  * eos_companion_app_service_fast_skip_stream_async

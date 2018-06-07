@@ -44,6 +44,8 @@ from test.service_test_helpers import (
     json_http_request_with_uuid,
     local_endpoint,
     matches_uri_query,
+    modify_app_runtime,
+    quit_on_fail,
     VIDEO_APP_THUMBNAIL_EKN_ID,
     VIDEO_APP_FAKE_CONTENT,
     with_main_loop
@@ -457,6 +459,100 @@ class CompanionAppServiceRoutesV1(object):
                                     },
                                     handle_json(autoquit(on_received_response,
                                                          quit_cb)))
+
+    @with_main_loop
+    def test_list_application_sets_drop_caches(self, quit_cb):
+        '''/v1/list_application_sets handles Flatpak installation state changes.'''
+        def cleanup_then_quit(exception=None):
+            '''Cleanup the modified application metadata, then quit.'''
+            modify_app_runtime(self.__class__.flatpak_installation_dir,
+                               'org.test.VideoApp',
+                               'com.endlessm.apps.Platform',
+                               '3',
+                               'com.endlessm.apps.Sdk',
+                               '3',
+                               lambda _, __: quit_cb(exception=exception))
+
+        def query_side_effect(application_listing, query, cancellable, callback):
+            '''Pass an empty array to the callback.'''
+            del application_listing
+            del query
+            del cancellable
+
+            GLib.idle_add(callback, None, [[], []])
+
+        def on_second_query_done(*args):
+            '''Called when the second query has completed.
+
+            Assert that we used EknServices3 instead now because the
+            detected runtime version changed (i.e, that the installation
+            caches were cleared).
+            '''
+            del args
+
+            # pylint: disable=unsubscriptable-object
+            application_listing = connection.query.call_args[0][0]
+            self.assertThat(application_listing.eknservices_name,
+                            Equals('EknServices3'))
+
+        def on_contents_replaced(*args):
+            '''Called when the contents of the .changed file are been replaced.
+
+            Trigger another query after a timeout (to account for a slight race
+            between when the .changed file is updated and when the file monitor
+            signal is triggered).
+            '''
+            del args
+
+            GLib.timeout_add(
+                100,
+                lambda: json_http_request_with_uuid(
+                    FAKE_UUID,
+                    local_endpoint(self.port,
+                                   'list_application_sets'),
+                    {
+                        'applicationId': 'org.test.VideoApp'
+                    },
+                    handle_json(autoquit(on_second_query_done,
+                                         cleanup_then_quit))
+                )
+            )
+
+        def on_first_query_done(*args):
+            '''Called when the first query is completed.
+
+            Clear the flatpak installation state and change the metadata
+            of the video app, with a sanity check that we used EknServices2.
+            '''
+            del args
+
+            # pylint: disable=unsubscriptable-object
+            application_listing = connection.query.call_args[0][0]
+            self.assertThat(application_listing.eknservices_name,
+                            Equals('EknServices2'))
+
+            modify_app_runtime(self.__class__.flatpak_installation_dir,
+                               'org.test.VideoApp',
+                               'com.endlessm.apps.Platform',
+                               '4',
+                               'com.endlessm.apps.Sdk',
+                               '4',
+                               quit_on_fail(on_contents_replaced,
+                                            cleanup_then_quit))
+
+        connection = FakeContentDbConnection(FAKE_SHARD_CONTENT)
+        connection.query = Mock(side_effect=query_side_effect)
+        self.service = CompanionAppService(Holdable(),
+                                           self.port,
+                                           connection)
+        json_http_request_with_uuid(FAKE_UUID,
+                                    local_endpoint(self.port,
+                                                   'list_application_sets'),
+                                    {
+                                        'applicationId': 'org.test.VideoApp'
+                                    },
+                                    handle_json(quit_on_fail(on_first_query_done,
+                                                             cleanup_then_quit)))
 
     @with_main_loop
     def test_get_application_sets_video_app_error_no_device_uuid(self, quit_cb):
