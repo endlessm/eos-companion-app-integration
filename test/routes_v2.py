@@ -1641,7 +1641,8 @@ class CompanionAppServiceRoutesV2(object):
                                 'uri': matches_uri_query('/v2/content_data', {
                                     'applicationId': MatchesSetwise(Equals('org.test.ContentApp')),
                                     'contentId': MatchesSetwise(Equals('sample_article_1')),
-                                    'deviceUUID': MatchesSetwise(Equals(FAKE_UUID))
+                                    'deviceUUID': MatchesSetwise(Equals(FAKE_UUID)),
+                                    'referrer': MatchesSetwise(Equals('feed'))
                                 }),
                                 'contentType': Equals('text/html')
                             })
@@ -1668,7 +1669,8 @@ class CompanionAppServiceRoutesV2(object):
                                 'uri': matches_uri_query('/v2/content_data', {
                                     'applicationId': MatchesSetwise(Equals('org.test.ContentApp')),
                                     'contentId': MatchesSetwise(Equals('sample_article_2')),
-                                    'deviceUUID': MatchesSetwise(Equals(FAKE_UUID))
+                                    'deviceUUID': MatchesSetwise(Equals(FAKE_UUID)),
+                                    'referrer': MatchesSetwise(Equals('feed'))
                                 }),
                                 'contentType': Equals('text/html')
                             })
@@ -1692,7 +1694,8 @@ class CompanionAppServiceRoutesV2(object):
                                 'uri': matches_uri_query('/v2/content_data', {
                                     'applicationId': MatchesSetwise(Equals('org.test.VideoApp')),
                                     'contentId': MatchesSetwise(Equals('sample_video_1')),
-                                    'deviceUUID': MatchesSetwise(Equals(FAKE_UUID))
+                                    'deviceUUID': MatchesSetwise(Equals(FAKE_UUID)),
+                                    'referrer': MatchesSetwise(Equals('feed'))
                                 }),
                                 'contentType': Equals('video/webm')
                             })
