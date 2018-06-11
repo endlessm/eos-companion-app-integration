@@ -18,28 +18,50 @@
 # All rights reserved.
 '''Server constructor func for eoscompanion.'''
 
+import logging
+
 from gi.repository import Soup
 
 from .middlewares import (
     application_hold_middleware,
+    compose_middlewares,
     cancellability_middleware,
     handle_404_middleware
 )
 from .routes import create_companion_app_routes
 
-def create_companion_app_webserver(application, content_db_conn):
+def create_companion_app_webserver(application,
+                                   content_db_conn,
+                                   middlewares=None):
     '''Create a HTTP server with companion app routes.'''
+    def _on_request_aborted(server, msg, *args):
+        '''Signal handler for when a request is aborted.
+
+        We'll look at the msg here and if there is an attached cancellable
+        put there by cancellability_middleware then we can cancel it now.
+        '''
+        del server
+        del args
+
+        cancellable = getattr(msg, 'cancellable', None)
+
+        if cancellable is None:
+            logging.debug('Message aborted without a cancellable')
+            return
+
+        cancellable.cancel()
+
+
     server = Soup.Server()
     for path, handler in create_companion_app_routes(content_db_conn).items():
         server.add_handler(
             path,
-            cancellability_middleware(
-                handle_404_middleware(
-                    path,
-                    application_hold_middleware(application,
-                                                handler)
-                )
-            )
+            compose_middlewares(cancellability_middleware,
+                                handle_404_middleware(path),
+                                application_hold_middleware(application),
+                                *(middlewares or []),
+                                handler)
         )
 
+    server.connect('request-aborted', _on_request_aborted)
     return server

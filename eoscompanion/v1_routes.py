@@ -71,10 +71,11 @@ from .middlewares import (
 )
 from .responses import (
     custom_response,
+    error_response,
     json_response,
     not_found_response,
     png_response,
-    serialize_error_as_json_object
+    respond_if_error_set
 )
 
 
@@ -196,18 +197,16 @@ def companion_app_server_resource_route(server, msg, path, query, context, versi
     return_content_type = _SUFFIX_CONTENT_TYPES.get(resource_suffix, None)
 
     if return_content_type is None:
-        json_response(msg, {
-            'status': 'error',
-            'error': serialize_error_as_json_object(
-                EosCompanionAppService.error_quark(),
-                EosCompanionAppService.Error.FAILED,
-                detail={
-                    'message': (
-                        'Don\'t know content type for suffix, {}'.format(resource_suffix)
-                    )
-                }
-            )
-        })
+        error_response(
+            msg,
+            EosCompanionAppService.error_quark(),
+            EosCompanionAppService.Error.FAILED,
+            detail={
+                'message': (
+                    'Don\'t know content type for suffix, {}'.format(resource_suffix)
+                )
+            }
+        )
         return
 
     if resource_file is None:
@@ -224,17 +223,7 @@ def companion_app_server_resource_route(server, msg, path, query, context, versi
         share logic with the /content_data route to send
         a spliced stream over.
         '''
-        if error is not None:
-            json_response(msg, {
-                'status': 'error',
-                'error': serialize_error_as_json_object(
-                    EosCompanionAppService.error_quark(),
-                    EosCompanionAppService.Error.FAILED,
-                    detail={
-                        'message': str(error)
-                    }
-                )
-            })
+        if respond_if_error_set(msg, error):
             server.unpause_message(msg)
             return
 
@@ -243,17 +232,7 @@ def companion_app_server_resource_route(server, msg, path, query, context, versi
 
     def _on_got_stream_and_size(error, on_got_stream_result):
         '''Callback for when we get the stream and size.'''
-        if error is not None:
-            json_response(msg, {
-                'status': 'error',
-                'error': serialize_error_as_json_object(
-                    EosCompanionAppService.error_quark(),
-                    EosCompanionAppService.Error.FAILED,
-                    detail={
-                        'message': str(error)
-                    }
-                )
-            })
+        if respond_if_error_set(msg, error):
             server.unpause_message(msg)
             return
 
@@ -309,17 +288,7 @@ def companion_app_server_license_route(server, msg, path, query, context, versio
         share logic with the /content_data route to send
         a spliced stream over.
         '''
-        if error is not None:
-            json_response(msg, {
-                'status': 'error',
-                'error': serialize_error_as_json_object(
-                    EosCompanionAppService.error_quark(),
-                    EosCompanionAppService.Error.FAILED,
-                    detail={
-                        'message': str(error)
-                    }
-                )
-            })
+        if respond_if_error_set(msg, error):
             server.unpause_message(msg)
             return
 
@@ -328,17 +297,7 @@ def companion_app_server_license_route(server, msg, path, query, context, versio
 
     def _on_got_stream_and_size(error, on_got_stream_result):
         '''Callback for when we get the stream and size.'''
-        if error is not None:
-            json_response(msg, {
-                'status': 'error',
-                'error': serialize_error_as_json_object(
-                    EosCompanionAppService.error_quark(),
-                    EosCompanionAppService.Error.FAILED,
-                    detail={
-                        'message': str(error)
-                    }
-                )
-            })
+        if respond_if_error_set(msg, error):
             server.unpause_message(msg)
             return
 
@@ -373,17 +332,7 @@ def companion_app_server_list_applications_route(server,
 
     def _callback(error, applications):
         '''Callback function that gets called when we are done.'''
-        if error is not None:
-            json_response(msg, {
-                'status': 'error',
-                'error': serialize_error_as_json_object(
-                    EosCompanionAppService.error_quark(),
-                    EosCompanionAppService.Error.FAILED,
-                    detail={
-                        'message': str(error)
-                    }
-                )
-            })
+        if respond_if_error_set(msg, error):
             server.unpause_message(msg)
             return
 
@@ -467,30 +416,9 @@ def companion_app_server_application_colors_route(server, msg, path, query, *arg
                 }
             })
         except GLib.Error as error:
-            if error.matches(EosCompanionAppService.error_quark(),
-                             EosCompanionAppService.Error.INVALID_APP_ID):
-                json_response(msg, {
-                    'status': 'error',
-                    'error': serialize_error_as_json_object(
-                        EosCompanionAppService.error_quark(),
-                        EosCompanionAppService.Error.INVALID_APP_ID,
-                        detail={
-                            'applicationId': query['applicationId'],
-                            'message': str(error)
-                        }
-                    )
-                })
-            else:
-                json_response(msg, {
-                    'status': 'error',
-                    'error': serialize_error_as_json_object(
-                        EosCompanionAppService.error_quark(),
-                        EosCompanionAppService.Error.FAILED,
-                        detail={
-                            'message': str(error)
-                        }
-                    )
-                })
+            respond_if_error_set(msg, error, detail={
+                'applicationId': query['applicationId']
+            })
 
         server.unpause_message(msg)
 
@@ -501,8 +429,6 @@ def companion_app_server_application_colors_route(server, msg, path, query, *arg
                                                    cancellable=msg.cancellable,
                                                    callback=_callback)
     server.pause_message(msg)
-
-
 
 
 # For now a limit parameter is required for queries
@@ -547,49 +473,24 @@ def companion_app_server_list_application_sets_route(server,
                     }
                 })
             except GLib.Error as load_error:
-                json_response(msg, {
-                    'status': 'error',
-                    'error': serialize_error_as_json_object(
-                        EosCompanionAppService.error_quark(),
-                        EosCompanionAppService.Error.FAILED,
-                        detail={
-                            'message': str(load_error)
-                        }
-                    )
-                })
+                respond_if_error_set(msg, load_error)
             server.unpause_message(msg)
 
-        if error:
-            json_response(msg, {
-                'status': 'error',
-                'error': serialize_error_as_json_object(
-                    EosCompanionAppService.error_quark(),
-                    EosCompanionAppService.Error.FAILED,
-                    detail={
-                        'message': str(error)
-                    }
-                )
-            })
+        if respond_if_error_set(msg, error):
             server.unpause_message(msg)
-        else:
-            EosCompanionAppService.load_application_colors(query['applicationId'],
-                                                           cancellable=msg.cancellable,
-                                                           callback=_on_loaded_application_colors)
+            return
+
+        EosCompanionAppService.load_application_colors(query['applicationId'],
+                                                       cancellable=msg.cancellable,
+                                                       callback=_on_loaded_application_colors)
 
     def _on_queried_sets(error, result):
         '''Callback function that gets called when we are done querying.'''
-        if error is not None:
-            json_response(msg, {
-                'status': 'error',
-                'error': serialize_error_as_json_object(
-                    EosCompanionAppService.error_quark(),
-                    EosCompanionAppService.Error.FAILED,
-                    detail={
-                        'applicationId': query['applicationId'],
-                        'message': str(error)
-                    }
-                )
-            })
+        if respond_if_error_set(msg,
+                                error,
+                                detail={
+                                    'applicationId': query['applicationId']
+                                }):
             server.unpause_message(msg)
             return
 
@@ -606,16 +507,8 @@ def companion_app_server_list_application_sets_route(server,
         try:
             app_info = EosCompanionAppService.finish_load_application_info(result)
         except GLib.Error as error:
-            json_response(msg, {
-                'status': 'error',
-                'error': serialize_error_as_json_object(
-                    EosCompanionAppService.error_quark(),
-                    EosCompanionAppService.Error.INVALID_APP_ID,
-                    detail={
-                        'applicationId': query['applicationId'],
-                        'message': str(error)
-                    }
-                )
+            respond_if_error_set(msg, error, detail={
+                'applicationId': query['applicationId']
             })
             server.unpause_message(msg)
             return
@@ -658,18 +551,11 @@ def companion_app_server_list_application_content_for_tags_route(server,
 
     def _callback(error, result):
         '''Callback function that gets called when we are done.'''
-        if error is not None:
-            json_response(msg, {
-                'status': 'error',
-                'error': serialize_error_as_json_object(
-                    EosCompanionAppService.error_quark(),
-                    EosCompanionAppService.Error.FAILED,
-                    detail={
-                        'applicationId': query['applicationId'],
-                        'message': str(error)
-                    }
-                )
-            })
+        if respond_if_error_set(msg,
+                                error,
+                                detail={
+                                    'applicationId': query['applicationId']
+                                }):
             server.unpause_message(msg)
             return
 
@@ -697,16 +583,8 @@ def companion_app_server_list_application_content_for_tags_route(server,
         try:
             app_info = EosCompanionAppService.finish_load_application_info(result)
         except GLib.Error as error:
-            json_response(msg, {
-                'status': 'error',
-                'error': serialize_error_as_json_object(
-                    EosCompanionAppService.error_quark(),
-                    EosCompanionAppService.Error.INVALID_APP_ID,
-                    detail={
-                        'applicationId': query['applicationId'],
-                        'message': str(error)
-                    }
-                )
+            respond_if_error_set(msg, error, detail={
+                'applicationId': query['applicationId']
             })
             server.unpause_message(msg)
             return
@@ -859,19 +737,12 @@ def companion_app_server_content_data_route(server,
                 server.unpause_message(msg)
 
             # If an error occurred, return it now
-            if load_metadata_error is not None:
-                json_response(msg, {
-                    'status': 'error',
-                    'error': serialize_error_as_json_object(
-                        EosCompanionAppService.error_quark(),
-                        EosCompanionAppService.Error.INVALID_CONTENT_ID,
-                        detail={
-                            'applicationId': query['applicationId'],
-                            'contentId': query['contentId'],
-                            'message': str(load_metadata_error)
-                        }
-                    )
-                })
+            if respond_if_error_set(msg,
+                                    load_metadata_error,
+                                    detail={
+                                        'applicationId': query['applicationId'],
+                                        'contentId': query['contentId'],
+                                    }):
                 server.unpause_message(msg)
                 return
 
@@ -888,17 +759,15 @@ def companion_app_server_content_data_route(server,
             if blob_result == LOAD_FROM_ENGINE_NO_SUCH_CONTENT:
                 # No corresponding record found, EKN ID must have been invalid,
                 # though it was valid for metadata...
-                json_response(msg, {
-                    'status': 'error',
-                    'error': serialize_error_as_json_object(
-                        EosCompanionAppService.error_quark(),
-                        EosCompanionAppService.Error.INVALID_CONTENT_ID,
-                        detail={
-                            'applicationId': query['applicationId'],
-                            'contentId': query['contentId']
-                        }
-                    )
-                })
+                error_response(
+                    msg,
+                    EosCompanionAppService.error_quark(),
+                    EosCompanionAppService.Error.INVALID_CONTENT_ID,
+                    detail={
+                        'applicationId': query['applicationId'],
+                        'contentId': query['contentId']
+                    }
+                )
                 server.unpause_message(msg)
                 return
 
@@ -908,20 +777,10 @@ def companion_app_server_content_data_route(server,
                 Note that this is not a GAsyncReadyCallback, we instead get
                 a tuple of an error or a stream and length.
                 '''
-                if error is not None:
+                if respond_if_error_set(msg, error):
                     logging.warning(
                         'Stream wrapping failed %s', error
                     )
-                    json_response(msg, {
-                        'status': 'error',
-                        'error': serialize_error_as_json_object(
-                            EosCompanionAppService.error_quark(),
-                            EosCompanionAppService.Error.FAILED,
-                            detail={
-                                'message': str(error)
-                            }
-                        )
-                    })
                     server.unpause_message(msg)
                     return
 
@@ -1010,19 +869,12 @@ def companion_app_server_content_data_route(server,
                                            msg.cancellable,
                                            _on_got_wrapped_stream)
 
-        if shards_error is not None:
-            json_response(msg, {
-                'status': 'error',
-                'error': serialize_error_as_json_object(
-                    EosCompanionAppService.error_quark(),
-                    EosCompanionAppService.Error.FAILED,
-                    detail={
-                        'applicationId': query['applicationId'],
-                        'contentId': query['contentId'],
-                        'message': str(shards_error)
-                    }
-                )
-            })
+        if respond_if_error_set(msg,
+                                shards_error,
+                                detail={
+                                    'applicationId': query['applicationId'],
+                                    'contentId': query['contentId'],
+                                }):
             server.unpause_message(msg)
             return
 
@@ -1036,16 +888,9 @@ def companion_app_server_content_data_route(server,
         try:
             app_info = EosCompanionAppService.finish_load_application_info(result)
         except GLib.Error as error:
-            json_response(msg, {
-                'status': 'error',
-                'error': serialize_error_as_json_object(
-                    EosCompanionAppService.error_quark(),
-                    EosCompanionAppService.Error.INVALID_APP_ID,
-                    detail={
-                        'applicationId': query['applicationId'],
-                        'message': str(error)
-                    }
-                )
+            respond_if_error_set(msg, error, detail={
+                'applicationId': query['applicationId'],
+                'message': str(error)
             })
             server.unpause_message(msg)
             return
@@ -1108,31 +953,15 @@ def companion_app_server_content_metadata_route(server,
         '''Callback function that gets called when we get our shards.'''
         def _on_got_metadata_callback(load_metadata_error, metadata_bytes):
             '''Callback function that gets called when we are done.'''
-            if load_metadata_error is not None:
-                if load_metadata_error.matches(Gio.io_error_quark(),
-                                               Gio.IOErrorEnum.NOT_FOUND):
-                    json_response(msg, {
-                        'status': 'error',
-                        'error': serialize_error_as_json_object(
-                            EosCompanionAppService.error_quark(),
-                            EosCompanionAppService.Error.INVALID_APP_ID,
-                            detail={
-                                'applicationId': query['applicationId'],
-                                'message': str(load_metadata_error)
-                            }
-                        )
-                    })
-                else:
-                    json_response(msg, {
-                        'status': 'error',
-                        'error': serialize_error_as_json_object(
-                            load_metadata_error.domain,
-                            load_metadata_error.code,
-                            detail={
-                                'message': str(load_metadata_error)
-                            }
-                        )
-                    })
+            if respond_if_error_set(msg,
+                                    load_metadata_error,
+                                    detail={
+                                        'applicationId': query['applicationId'],
+                                    },
+                                    error_mappings={
+                                        # pylint: disable=line-too-long
+                                        (Gio.io_error_quark(), Gio.IOErrorEnum.NOT_FOUND): EosCompanionAppService.Error.INVALID_APP_ID
+                                    }):
                 server.unpause_message(msg)
                 return
 
@@ -1147,19 +976,12 @@ def companion_app_server_content_metadata_route(server,
             })
             server.unpause_message(msg)
 
-        if shards_error is not None:
-            json_response(msg, {
-                'status': 'error',
-                'error': serialize_error_as_json_object(
-                    EosCompanionAppService.error_quark(),
-                    EosCompanionAppService.Error.FAILED,
-                    detail={
-                        'applicationId': query['applicationId'],
-                        'contentId': query['contentId'],
-                        'message': str(shards_error)
-                    }
-                )
-            })
+        if respond_if_error_set(msg,
+                                shards_error,
+                                detail={
+                                    'applicationId': query['applicationId'],
+                                    'contentId': query['contentId']
+                                }):
             server.unpause_message(msg)
             return
 
@@ -1174,16 +996,8 @@ def companion_app_server_content_metadata_route(server,
         try:
             app_info = EosCompanionAppService.finish_load_application_info(result)
         except GLib.Error as error:
-            json_response(msg, {
-                'status': 'error',
-                'error': serialize_error_as_json_object(
-                    EosCompanionAppService.error_quark(),
-                    EosCompanionAppService.Error.INVALID_APP_ID,
-                    detail={
-                        'applicationId': query['applicationId'],
-                        'message': str(error)
-                    }
-                )
+            respond_if_error_set(msg, error, detail={
+                'applicationId': query['applicationId']
             })
             server.unpause_message(msg)
             return
@@ -1457,16 +1271,7 @@ def companion_app_server_search_content_route(server,
                     # which should be reported back.
                     if not error.matches(EosCompanionAppService.error_quark(),
                                          EosCompanionAppService.Error.FAILED):
-                        json_response(msg, {
-                            'status': 'error',
-                            'error': serialize_error_as_json_object(
-                                EosCompanionAppService.error_quark(),
-                                EosCompanionAppService.Error.FAILED,
-                                detail={
-                                    'message': str(error)
-                                }
-                            )
-                        })
+                        respond_if_error_set(msg, error)
                         server.unpause_message(msg)
                         return
                     else:
@@ -1574,17 +1379,7 @@ def companion_app_server_search_content_route(server,
         global limit and offset correctly, otherwise the slice would
         run off the end of the result set when we could have had more.
         '''
-        if error is not None:
-            json_response(msg, {
-                'status': 'error',
-                'error': serialize_error_as_json_object(
-                    EosCompanionAppService.error_quark(),
-                    EosCompanionAppService.Error.FAILED,
-                    detail={
-                        'message': str(error)
-                    }
-                )
-            })
+        if respond_if_error_set(msg, error):
             server.unpause_message(msg)
             return
 
@@ -1605,16 +1400,8 @@ def companion_app_server_search_content_route(server,
         try:
             info = EosCompanionAppService.finish_load_application_info(result)
         except GLib.Error as error:
-            json_response(msg, {
-                'status': 'error',
-                'error': serialize_error_as_json_object(
-                    EosCompanionAppService.error_quark(),
-                    EosCompanionAppService.Error.INVALID_APP_ID,
-                    detail={
-                        'applicationId': application_id,
-                        'message': str(error)
-                    }
-                )
+            respond_if_error_set(msg, error, detail={
+                'applicationId': query['applicationId']
             })
             server.unpause_message(msg)
             return
@@ -1642,32 +1429,28 @@ def companion_app_server_search_content_route(server,
         tags = tags.split(';') if tags else None
     except ValueError as error:
         # Client made an invalid request, return now
-        json_response(msg, {
-            'status': 'error',
-            'error': serialize_error_as_json_object(
-                EosCompanionAppService.error_quark(),
-                EosCompanionAppService.Error.INVALID_REQUEST,
-                detail={
-                    'message': str(error)
-                }
-            )
-        })
+        error_response(
+            msg,
+            EosCompanionAppService.error_quark(),
+            EosCompanionAppService.Error.INVALID_REQUEST,
+            detail={
+                'message': str(error)
+            }
+        )
         return
 
     application_id = query.get('applicationId', None)
     search_term = query.get('searchTerm', None)
 
     if not any([application_id, search_term, tags]):
-        json_response(msg, {
-            'status': 'error',
-            'error': serialize_error_as_json_object(
-                EosCompanionAppService.error_quark(),
-                EosCompanionAppService.Error.INVALID_REQUEST,
-                detail={
-                    'message': 'One of "applicationId", "searchTerm", or "tags" must be specified'
-                }
-            )
-        })
+        error_response(
+            msg,
+            EosCompanionAppService.error_quark(),
+            EosCompanionAppService.Error.INVALID_REQUEST,
+            detail={
+                'message': 'One of "applicationId", "searchTerm", or "tags" must be specified'
+            }
+        )
         return
 
     # If we got an applicationId, the assumption is that the applicationId
