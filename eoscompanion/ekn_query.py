@@ -66,6 +66,7 @@ def ascertain_application_sets_from_models(models,
         ])
 
     try:
+        any_featured = any([model.get('featured', True) for model in models])
         application_sets_response = [
             {
                 'tags': model['child_tags'],
@@ -79,8 +80,9 @@ def ascertain_application_sets_from_models(models,
                 'global': False
             }
             for model in models
-            # Filter out sets explicitly not marked featured
-            if model.get('featured', True)
+            # Filter out sets explicitly not marked featured, except
+            # if nothing was featured - in that case include everything
+            if model.get('featured', True) or not any_featured
         ]
 
         if application_sets_response:
