@@ -120,6 +120,11 @@ EXTRA_DIST += \
 	.pylintrc \
 	$(NULL)
 
+# Add documentation to EXTRA_DIST
+EXTRA_DIST += \
+	docs/API.md \
+	$(NULL)
+
 # Add GObject Introspection files to the build
 gir_DATA += $(INTROSPECTION_GIRS)
 typelib_DATA += $(INTROSPECTION_GIRS:.gir=.typelib)
