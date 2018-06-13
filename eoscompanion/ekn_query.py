@@ -79,6 +79,8 @@ def ascertain_application_sets_from_models(models,
                 'global': False
             }
             for model in models
+            # Filter out sets explicitly not marked featured
+            if model.get('featured', True)
         ]
 
         if application_sets_response:
