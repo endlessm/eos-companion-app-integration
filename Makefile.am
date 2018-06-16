@@ -125,6 +125,7 @@ EXTRA_DIST += \
 	docs/API.md \
 	docs/Architecture.md \
 	docs/AuthenticationFlow.md \
+	docs/Debugging.md \
 	docs/OSIntegration.md \
 	$(NULL)
 
