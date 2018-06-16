@@ -123,6 +123,7 @@ EXTRA_DIST += \
 # Add documentation to EXTRA_DIST
 EXTRA_DIST += \
 	docs/API.md \
+	docs/AuthenticationFlow.md \
 	docs/OSIntegration.md \
 	$(NULL)
 
