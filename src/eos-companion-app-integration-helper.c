@@ -24,6 +24,7 @@
 
 #include "config.h"
 #include "eos-companion-app-service-app-info.h"
+#include "eos-companion-app-service-managed-cache-private.h"
 #include "eos-companion-app-integration-helper.h"
 
 #include <string.h>
@@ -176,47 +177,42 @@ is_content_app (const gchar *app_id)
   return FALSE;
 }
 
-/* Do not manipulate these directly */
-static GMutex _supported_applications_cache_mutex;
-static GHashTable *_supported_applications_cache = NULL;
+#define APP_SUPPORTED_KEY "application-id-supported"
 
 /* Sets *is_supported to TRUE if the application was supported according
  * to the cache, and FALSE if it was not supported according to the cache.
  *
  * Returns TRUE on cache_hit and FALSE otherwise. */
 static gboolean
-application_is_supported_cache (const gchar *app_id, gboolean *is_supported)
+application_is_supported_cache (const gchar                        *app_id,
+                                EosCompanionAppServiceManagedCache *cache,
+                                gboolean                           *is_supported)
 {
-  gboolean ret = FALSE;
+  GHashTable *supported_cache = NULL;
+  gpointer value = NULL;
+  gboolean ret;
 
   g_return_val_if_fail (is_supported != NULL, FALSE);
-  g_mutex_lock (&_supported_applications_cache_mutex);
 
-  if (_supported_applications_cache == NULL)
-    _supported_applications_cache = g_hash_table_new (g_str_hash, g_str_equal);
+  supported_cache =
+    eos_companion_app_service_managed_cache_lock_subcache (cache, APP_SUPPORTED_KEY, NULL);
 
-  ret = g_hash_table_lookup_extended (_supported_applications_cache,
-                                      app_id,
-                                      NULL,
-                                      (gpointer *) is_supported);
+  *is_supported = GPOINTER_TO_INT (g_hash_table_lookup (supported_cache, app_id));
 
-  g_mutex_unlock (&_supported_applications_cache_mutex);
-  return ret;
+  eos_companion_app_service_managed_cache_unlock_subcache (cache, APP_SUPPORTED_KEY);
 }
 
 static gboolean
-record_application_is_supported_cache (const gchar *app_id, gboolean is_supported)
+record_application_is_supported_cache (const gchar                        *app_id,
+                                       EosCompanionAppServiceManagedCache *cache,
+                                       gboolean                            is_supported)
 {
-  g_mutex_lock (&_supported_applications_cache_mutex);
+  GHashTable *supported_cache =
+    eos_companion_app_service_managed_cache_lock_subcache (cache, APP_SUPPORTED_KEY, NULL);
 
-  if (_supported_applications_cache == NULL)
-    _supported_applications_cache = g_hash_table_new (g_str_hash, g_str_equal);
+  g_hash_table_insert (supported_cache, g_strdup (app_id), GINT_TO_POINTER (is_supported));
 
-  g_hash_table_insert (_supported_applications_cache,
-                       g_strdup (app_id),
-                       GINT_TO_POINTER (is_supported));
-
-  g_mutex_unlock (&_supported_applications_cache_mutex);
+  eos_companion_app_service_managed_cache_unlock_subcache (cache, APP_SUPPORTED_KEY);
   return is_supported;
 }
 
@@ -264,16 +260,17 @@ runtime_version_is_supported (const gchar *runtime_version)
 }
 
 static gboolean
-app_is_compatible (const gchar  *app_id,
-                   const gchar  *runtime_name,
-                   const gchar  *runtime_version,
-                   gboolean     *out_app_is_compatible,
-                   GError      **error)
+app_is_compatible (const gchar                         *app_id,
+                   const gchar                         *runtime_name,
+                   const gchar                         *runtime_version,
+                   EosCompanionAppServiceManagedCache  *cache,
+                   gboolean                            *out_app_is_compatible,
+                   GError                             **error)
 {
   g_autoptr(GFile) data_dir = NULL;
   gboolean supported_cache = FALSE;
 
-  if (application_is_supported_cache (app_id, &supported_cache))
+  if (application_is_supported_cache (app_id, cache, &supported_cache))
     {
       *out_app_is_compatible = supported_cache;
       return TRUE;
@@ -281,24 +278,24 @@ app_is_compatible (const gchar  *app_id,
 
   if (g_strcmp0 (runtime_name, SUPPORTED_RUNTIME_NAME) != 0)
     {
-      *out_app_is_compatible = record_application_is_supported_cache (app_id, FALSE);
+      *out_app_is_compatible = record_application_is_supported_cache (app_id, cache, FALSE);
       return TRUE;
     }
 
   if (!runtime_version_is_supported (runtime_version))
     {
-      *out_app_is_compatible = record_application_is_supported_cache (app_id, FALSE);
+      *out_app_is_compatible = record_application_is_supported_cache (app_id, cache, FALSE);
       return TRUE;
     }
 
   if (!is_content_app (app_id))
     {
-      *out_app_is_compatible = record_application_is_supported_cache (app_id, FALSE);
+      *out_app_is_compatible = record_application_is_supported_cache (app_id, cache, FALSE);
       return TRUE;
     }
 
   data_dir = eknc_get_data_dir (app_id);
-  *out_app_is_compatible = record_application_is_supported_cache (app_id, data_dir != NULL);
+  *out_app_is_compatible = record_application_is_supported_cache (app_id, cache, data_dir != NULL);
   return TRUE;
 }
 
@@ -342,9 +339,9 @@ examine_flatpak_metadata (const gchar  *flatpak_directory,
   return TRUE;
 }
 
-gchar *
-eos_companion_app_service_get_runtime_spec_for_app_id (const gchar  *app_id,
-                                                       GError      **error)
+static gchar *
+blocking_get_runtime_spec_for_app_id (const gchar  *app_id,
+                                      GError      **error)
 {
   GStrv iter = eos_companion_app_service_flatpak_install_dirs ();
 
@@ -381,6 +378,40 @@ eos_companion_app_service_get_runtime_spec_for_app_id (const gchar  *app_id,
                "Application %s is not installed",
                app_id);
   return NULL;
+}
+
+#define RUNTIME_SPEC_KEY_NAME "runtime-spec"
+
+gchar *
+eos_companion_app_service_get_runtime_spec_for_app_id (const gchar                         *app_id,
+                                                       EosCompanionAppServiceManagedCache  *cache,
+                                                       GError                             **error)
+{
+  GHashTable *subcache =
+    eos_companion_app_service_managed_cache_lock_subcache (cache,
+                                                           RUNTIME_SPEC_KEY_NAME,
+                                                           g_free);
+  const gchar *runtime_spec_value = NULL;
+
+  if ((runtime_spec_value = g_hash_table_lookup (subcache, app_id)) == NULL)
+    {
+      gchar *runtime_spec = blocking_get_runtime_spec_for_app_id (app_id, error);
+
+      if (runtime_spec == NULL)
+        {
+          eos_companion_app_service_managed_cache_unlock_subcache (cache,
+                                                                   RUNTIME_SPEC_KEY_NAME);
+          return NULL;
+        }
+
+      /* Transfer the runtime_spec to the registered cache */
+      g_hash_table_insert (subcache, g_strdup (app_id), runtime_spec);
+      runtime_spec_value = runtime_spec;
+    }
+
+  eos_companion_app_service_managed_cache_unlock_subcache (cache,
+                                                           RUNTIME_SPEC_KEY_NAME);
+  return g_strdup (runtime_spec_value);
 }
 
 /* This function is required in order to be able to create a GDesktopAppInfo
@@ -500,8 +531,9 @@ lookup_eknservices_version (const gchar  *runtime_version,
 }
 
 static GPtrArray *
-list_application_infos (GCancellable  *cancellable,
-                        GError       **error)
+list_application_infos (EosCompanionAppServiceManagedCache  *cache,
+                        GCancellable                        *cancellable,
+                        GError                             **error)
 {
   g_autoptr(GPtrArray) app_infos = g_ptr_array_new_with_free_func (g_object_unref);
   GStrv iter = eos_companion_app_service_flatpak_install_dirs ();
@@ -578,6 +610,7 @@ list_application_infos (GCancellable  *cancellable,
           if (!app_is_compatible (app_name,
                                   runtime_name,
                                   runtime_version,
+                                  cache,
                                   &is_compatible_app,
                                   error))
             return NULL;
@@ -637,8 +670,9 @@ list_application_infos_thread (GTask        *task,
                                GCancellable *cancellable)
 {
   g_autoptr(GError) local_error = NULL;
+  EosCompanionAppServiceManagedCache *cache = g_task_get_task_data (task);
   g_autoptr(GPtrArray) application_infos_array =
-    list_application_infos (cancellable, &local_error);
+    list_application_infos (cache, cancellable, &local_error);
 
   if (application_infos_array == NULL)
     {
@@ -652,12 +686,14 @@ list_application_infos_thread (GTask        *task,
 }
 
 void
-eos_companion_app_service_list_application_infos (GCancellable        *cancellable,
-                                                  GAsyncReadyCallback  callback,
-                                                  gpointer             user_data)
+eos_companion_app_service_list_application_infos (EosCompanionAppServiceManagedCache *cache,
+                                                  GCancellable                       *cancellable,
+                                                  GAsyncReadyCallback                 callback,
+                                                  gpointer                            user_data)
 {
   g_autoptr(GTask) task = g_task_new (NULL, cancellable, callback, user_data);
 
+  g_task_set_task_data (task, g_object_ref (cache), g_object_unref);
   g_task_set_return_on_cancel (task, TRUE);
   g_task_run_in_thread (task, list_application_infos_thread);
 }
@@ -672,8 +708,9 @@ eos_companion_app_service_finish_load_application_icon_data_async (GAsyncResult 
 }
 
 static EosCompanionAppServiceAppInfo *
-load_application_info (const gchar  *app_id,
-                       GError      **error)
+load_application_info (const gchar                         *app_id,
+                       EosCompanionAppServiceManagedCache  *cache,
+                       GError                             **error)
 {
   g_autoptr(GDesktopAppInfo) app_info = NULL;
   g_autofree gchar *runtime_version = NULL;
@@ -681,7 +718,9 @@ load_application_info (const gchar  *app_id,
   g_autofree gchar *search_provider_name = NULL;
   g_autofree gchar *runtime_spec = NULL;
 
-  runtime_spec = eos_companion_app_service_get_runtime_spec_for_app_id (app_id, error);
+  runtime_spec = eos_companion_app_service_get_runtime_spec_for_app_id (app_id,
+                                                                        cache,
+                                                                        error);
 
   if (runtime_spec == NULL)
     return FALSE;
@@ -705,6 +744,32 @@ load_application_info (const gchar  *app_id,
                                                  search_provider_name);
 }
 
+typedef struct {
+  gchar                              *name;
+  EosCompanionAppServiceManagedCache *cache;
+} LoadApplicationInfoData;
+
+static LoadApplicationInfoData *
+load_application_info_data_new (const gchar                        *name,
+                                EosCompanionAppServiceManagedCache *cache)
+{
+  LoadApplicationInfoData *load_application_info_data = g_new0 (LoadApplicationInfoData, 1);
+
+  load_application_info_data->name = g_strdup (name);
+  load_application_info_data->cache = g_object_ref (cache);
+
+  return load_application_info_data;
+}
+
+static void
+load_application_info_data_free (LoadApplicationInfoData *load_application_info_data)
+{
+  g_clear_pointer (&load_application_info_data->name, g_free);
+  g_clear_object (&load_application_info_data->cache);
+
+  g_free (load_application_info_data);
+}
+
 static void
 load_application_info_thread (GTask        *task,
                               gpointer      source,
@@ -712,7 +777,9 @@ load_application_info_thread (GTask        *task,
                               GCancellable *cancellable)
 {
   g_autoptr(GError) local_error = NULL;
-  g_autoptr(EosCompanionAppServiceAppInfo) info = load_application_info ((const gchar *) task_data,
+  LoadApplicationInfoData *load_application_info_data = task_data;
+  g_autoptr(EosCompanionAppServiceAppInfo) info = load_application_info (load_application_info_data->name,
+                                                                         load_application_info_data->cache,
                                                                          &local_error);
 
   if (info == NULL)
@@ -725,15 +792,18 @@ load_application_info_thread (GTask        *task,
 }
 
 void
-eos_companion_app_service_load_application_info (const gchar         *name,
-                                                 GCancellable        *cancellable,
-                                                 GAsyncReadyCallback  callback,
-                                                 gpointer             user_data)
+eos_companion_app_service_load_application_info (const gchar                        *name,
+                                                 EosCompanionAppServiceManagedCache *cache,
+                                                 GCancellable                       *cancellable,
+                                                 GAsyncReadyCallback                 callback,
+                                                 gpointer                            user_data)
 {
   g_autoptr(GTask) task = g_task_new (NULL, cancellable, callback, user_data);
 
   g_task_set_return_on_cancel (task, TRUE);
-  g_task_set_task_data (task, g_strdup (name), g_free);
+  g_task_set_task_data (task,
+                        load_application_info_data_new (name, cache),
+                        (GDestroyNotify) load_application_info_data_free);
   g_task_run_in_thread (task, load_application_info_thread);
 }
 

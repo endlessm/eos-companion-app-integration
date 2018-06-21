@@ -48,6 +48,7 @@ def conditionally_wrap_stream(stream,
                               version,
                               query,
                               adjuster,
+                              cache,
                               cancellable,
                               callback):
     '''Inspect content_type to adjust stream content.'''
@@ -72,6 +73,7 @@ def conditionally_wrap_stream(stream,
                               content_bytes,
                               version,
                               query,
+                              cache,
                               cancellable,
                               _content_adjusted_callback)
 
@@ -93,6 +95,7 @@ def conditionally_wrap_blob_stream(blob,
                                    version,
                                    query,
                                    adjuster,
+                                   cache,
                                    cancellable,
                                    callback):
     '''Inspect content_type and adjust blob stream content.'''
@@ -102,5 +105,6 @@ def conditionally_wrap_blob_stream(blob,
                               version,
                               query,
                               adjuster,
+                              cache,
                               cancellable,
                               callback)

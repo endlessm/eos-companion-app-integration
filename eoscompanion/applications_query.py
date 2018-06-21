@@ -70,7 +70,7 @@ def application_listing_from_app_info(app_info):
                               search_provider_name)
 
 
-def list_all_applications(cancellable, callback):
+def list_all_applications(cache, cancellable, callback):
     '''Convenience function to pass list of ApplicationListing to callback.'''
     def _callback(_, result):
         '''Callback function that gets called when we are done.'''
@@ -85,4 +85,4 @@ def list_all_applications(cancellable, callback):
             for app_info in infos
         ])
 
-    EosCompanionAppService.list_application_infos(cancellable, _callback)
+    EosCompanionAppService.list_application_infos(cache, cancellable, _callback)

@@ -138,6 +138,7 @@ def render_mobile_wrapper(renderer,
                           shards,
                           version,
                           query,
+                          cache,
                           cancellable,
                           callback):
     '''Render the page wrapper and initialize crosslinks.
@@ -236,6 +237,7 @@ def render_mobile_wrapper(renderer,
     ]
 
     EosCompanionAppService.load_application_info(app_id,
+                                                 cache=cache,
                                                  cancellable=cancellable,
                                                  callback=_on_got_application_info)
 
@@ -250,6 +252,7 @@ def _html_content_adjuster_closure():
                                metadata,
                                content_db_conn,
                                shards,
+                               cache,
                                cancellable,
                                callback):
         '''Adjust HTML content by rewriting all the embedded URLs.
@@ -320,6 +323,7 @@ def _html_content_adjuster_closure():
                                   shards,
                                   version,
                                   query,
+                                  cache,
                                   cancellable,
                                   _on_rendered_wrapper)
         else:
@@ -360,6 +364,7 @@ class EknContentAdjuster(object):
                      content_bytes,
                      version,
                      query,
+                     cache,
                      cancellable,
                      callback):
         '''Perform any rendering on the content asynchronously.'''
@@ -369,5 +374,6 @@ class EknContentAdjuster(object):
                                              self._metadata,
                                              self._content_db_conn,
                                              self._shards,
+                                             cache,
                                              cancellable,
                                              callback)

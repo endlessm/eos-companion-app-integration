@@ -78,7 +78,7 @@ def yield_desktop_ids_from_feed_models(models):
             continue
 
 
-def app_infos_for_feed_models(models, cancellable, callback):
+def app_infos_for_feed_models(models, cache, cancellable, callback):
     '''Get a GDesktopAppInfo for each model source in models.
 
     A source might have more than once model, so we deduplicate here.
@@ -119,6 +119,7 @@ def app_infos_for_feed_models(models, cancellable, callback):
 
             application_id = desktop_id_to_app_id(desktop_id)
             EosCompanionAppService.load_application_info(application_id,
+                                                         cache,
                                                          cancellable,
                                                          _on_got_application_info)
 
@@ -133,6 +134,7 @@ def app_infos_for_feed_models(models, cancellable, callback):
 
 
 def sources_from_content_feed_models(models,
+                                     cache,
                                      version,
                                      query,
                                      cancellable,
@@ -173,7 +175,10 @@ def sources_from_content_feed_models(models,
             for a in app_infos
         ])
 
-    app_infos_for_feed_models(models, cancellable, _on_received_app_infos)
+    app_infos_for_feed_models(models,
+                              cache,
+                              cancellable,
+                              _on_received_app_infos)
 
 
 _SOURCE_IDENTIFIER_KEYS_BY_TYPE = {
@@ -436,6 +441,7 @@ def companion_app_server_feed_route(server,
                                     path,
                                     query,
                                     context,
+                                    cache,
                                     version,
                                     content_db_conn):
     '''Request the Content Feed from ContentFeed.
@@ -484,6 +490,7 @@ def companion_app_server_feed_route(server,
             return
 
         sources_from_content_feed_models(models,
+                                         cache,
                                          version,
                                          query,
                                          msg.cancellable,

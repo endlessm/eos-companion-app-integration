@@ -24,6 +24,7 @@ from gi.repository import Soup
 
 from .middlewares import (
     application_hold_middleware,
+    cache_middleware,
     compose_middlewares,
     cancellability_middleware,
     handle_404_middleware
@@ -31,6 +32,7 @@ from .middlewares import (
 from .routes import create_companion_app_routes
 
 def create_companion_app_webserver(application,
+                                   cache,
                                    content_db_conn,
                                    middlewares=None):
     '''Create a HTTP server with companion app routes.'''
@@ -56,7 +58,8 @@ def create_companion_app_webserver(application,
     for path, handler in create_companion_app_routes(content_db_conn).items():
         server.add_handler(
             path,
-            compose_middlewares(cancellability_middleware,
+            compose_middlewares(cache_middleware(cache),
+                                cancellability_middleware,
                                 handle_404_middleware(path),
                                 application_hold_middleware(application),
                                 *(middlewares or []),

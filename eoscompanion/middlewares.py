@@ -113,14 +113,19 @@ def cancellability_middleware(handler):
     return _handler
 
 
-def add_content_db_conn(route, content_db_conn):
-    '''Partially apply content_db_conn to the end of route.'''
+def apply_extra_args(handler, *extra_args):
+    '''Partially apply :extra_args: to the end of the handler's arguments.'''
     def wrapper(*args, **kwargs):
-        '''Call route with content_db_conn applied to the end.'''
-        all_args = itertools.chain(args, [content_db_conn])
-        return route(*all_args, **kwargs)
+        '''Call handler with :extra_args: applied to the end.'''
+        all_args = itertools.chain(args, extra_args)
+        return handler(*all_args, **kwargs)
 
     return wrapper
+
+
+def add_content_db_conn(route, content_db_conn):
+    '''Partially apply content_db_conn to the end of route.'''
+    return apply_extra_args(route, content_db_conn)
 
 
 def require_query_string_param(param):
@@ -171,12 +176,16 @@ def record_metric(metric_id):
 
 def apply_route_version(handler, route_version):
     '''Partially apply route_version to the end of handler.'''
-    def wrapper(*args, **kwargs):
-        '''Call route with route_version applied to the end.'''
-        all_args = itertools.chain(args, [route_version])
-        return handler(*all_args, **kwargs)
+    return apply_extra_args(handler, route_version)
 
-    return wrapper
+
+def cache_middleware(cache):
+    '''Partially apply cache to the end of handler.'''
+    def _apply(handler):
+        '''Apply the middleware.'''
+        return apply_extra_args(handler, cache)
+
+    return _apply
 
 
 def apply_version_to_all_routes(routes_dict, version):
