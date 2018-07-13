@@ -69,7 +69,6 @@ AC_ARG_ENABLE([integration], [companion app OS integration], [
 GLIB_GSETTINGS
 AS_IF([test "x$EOS_COMPANION_APP_SERVICE_ENABLED" = "xyes"], [
   PKG_CHECK_MODULES([EOS_COMPANION_APP_SERVICE], [
-    eos-knowledge-content-0
     eos-shard-0
     gdk-pixbuf-2.0
     glib-2.0
