@@ -20,8 +20,6 @@
 #include <gio/gdesktopappinfo.h>
 #include <gtk/gtk.h>
 
-#include <eknc-utils.h>
-
 #include "config.h"
 #include "eos-companion-app-service-app-info.h"
 #include "eos-companion-app-service-managed-cache-private.h"
@@ -266,7 +264,6 @@ app_is_compatible (const gchar                         *app_id,
                    gboolean                            *out_app_is_compatible,
                    GError                             **error)
 {
-  g_autoptr(GFile) data_dir = NULL;
   gboolean supported_cache = FALSE;
 
   if (application_is_supported_cache (app_id, cache, &supported_cache))
@@ -293,8 +290,7 @@ app_is_compatible (const gchar                         *app_id,
       return TRUE;
     }
 
-  data_dir = eknc_get_data_dir (app_id);
-  *out_app_is_compatible = record_application_is_supported_cache (app_id, cache, data_dir != NULL);
+  *out_app_is_compatible = record_application_is_supported_cache (app_id, cache, TRUE);
   return TRUE;
 }
 
