@@ -78,7 +78,8 @@
             "sources": [
                 {
                     "type": "git",
-                    "url": "https://github.com/endlessm/eos-metrics"
+                    "url": "https://github.com/endlessm/eos-metrics",
+                    "commit": "ab66c7319c573999740f636555b14b6f658e82c0"
                 }
             ]
         },
@@ -87,7 +88,8 @@
             "sources": [
                 {
                     "type": "git",
-                    "url": "https://github.com/endlessm/eos-sdk"
+                    "url": "https://github.com/endlessm/eos-sdk",
+                    "commit": "2110eb3bf6a60440bacfcfffde50b1fcaa4e7eef"
                 }
             ]
         },
@@ -125,7 +127,8 @@
             "sources": [
                 {
                     "type": "git",
-                    "url": "https://github.com/endlessm/eos-knowledge-content-renderer"
+                    "url": "https://github.com/endlessm/eos-knowledge-content-renderer",
+                    "commit": "78d61297e3b64a0b37d508d0de5901db1eb67783"
                 }
             ]
         },
@@ -134,7 +137,8 @@
             "sources": [
                 {
                     "type": "git",
-                    "url": "https://github.com/endlessm/eos-shard.git"
+                    "url": "https://github.com/endlessm/eos-shard.git",
+                    "commit": "ed7be3efdc8781d87e24b7335980506518ba6006"
                 }
             ]
         },
@@ -144,7 +148,8 @@
             "sources": [
                 {
                     "type": "git",
-                    "url": "https://github.com/endlessm/libcontentfeed"
+                    "url": "https://github.com/endlessm/libcontentfeed",
+                    "commit": "ae21951dbed6b79f4b45548e3e1a7d9d59976659"
                 }
             ]
         },
