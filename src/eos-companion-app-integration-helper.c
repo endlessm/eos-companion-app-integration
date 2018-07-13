@@ -167,7 +167,6 @@ is_content_app (const gchar *app_id)
                                                  "ekn",
                                                  "data",
                                                  app_id,
-                                                 "EKN_VERSION",
                                                  NULL);
 
       if (g_file_test (path, G_FILE_TEST_EXISTS))
