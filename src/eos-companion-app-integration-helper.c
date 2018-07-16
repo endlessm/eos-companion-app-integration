@@ -253,6 +253,7 @@ runtime_version_is_supported (const gchar *runtime_version)
     "2",
     "3",
     "4",
+    "5",
     NULL
   };
 
@@ -506,7 +507,8 @@ lookup_eknservices_version (const gchar  *runtime_version,
     { "1", "EknServices", "SearchProviderV1" },
     { "2", "EknServices2", "SearchProviderV2" },
     { "3", "EknServices2", "SearchProviderV2" },
-    { "4", "EknServices3", "SearchProviderV3" }
+    { "4", "EknServices3", "SearchProviderV3" },
+    { "5", "EknServices3", "SearchProviderV3" }
   };
   static const gsize n_runtime_to_eknservices_version = G_N_ELEMENTS (runtime_to_eknservices_versions);
   gsize i = 0;
