@@ -40,12 +40,105 @@
             ]
         },
         {
+            "name": "python-dbus",
+            "cleanup": ["*"],
+            "buildsystem": "simple",
+            "build-commands": [
+                "pip3 install --no-index --find-links \"file://${PWD}\" --prefix=${FLATPAK_DEST} dbus-python"
+            ],
+            "sources": [
+                {
+                    "type": "file",
+                    "url": "https://pypi.python.org/packages/ad/1b/76adc363212c642cabbf9329457a918308c0b9b5d38ce04d541a67255174/dbus-python-1.2.4.tar.gz",
+                    "sha256": "e2f1d6871f74fba23652e51d10873e54f71adab0525833c19bad9e99b1b2f9cc"
+                }
+            ]
+        },
+        {
+            "name": "python-dbusmock",
+            "cleanup": ["*"],
+            "buildsystem": "simple",
+            "build-commands": [
+                "pip3 install --no-index --find-links \"file://${PWD}\" --prefix=${FLATPAK_DEST} python-dbusmock"
+            ],
+            "sources": [
+                {
+                    "type": "file",
+                    "url": "https://pypi.python.org/packages/4d/cd/a5f571ef37addb45a86eca2e66a6b4789d915dbb9170a997dba02b7a0a89/python-dbusmock-0.17.tar.gz",
+                    "sha256": "58f802ef4c659a1adbca31eb6c26688f1c09599b5832354eb258340b66673346"
+                }
+            ]
+        },
+        {
+            "name": "eos-metrics",
+            "config-opts": [
+                "--disable-gtk-doc",
+                "--disable-gir-doc"
+            ],
+            "sources": [
+                {
+                    "type": "git",
+                    "url": "https://github.com/endlessm/eos-metrics",
+                    "commit": "ab66c7319c573999740f636555b14b6f658e82c0"
+                }
+            ]
+        },
+        {
+            "name": "eos-sdk",
+            "sources": [
+                {
+                    "type": "git",
+                    "url": "https://github.com/endlessm/eos-sdk",
+                    "commit": "2110eb3bf6a60440bacfcfffde50b1fcaa4e7eef"
+                }
+            ]
+        },
+        {
+            "name": "libsass",
+            "sources": [
+                {
+                    "type": "archive",
+                    "url": "https://github.com/sass/libsass/archive/3.4.4.tar.gz",
+                    "sha256": "1dc4d49a9a53b891b7e98935709e625f1d68782d87aef4304a41e6d590abb480"
+                },
+                {
+                    "type": "shell",
+                    "commands": [ "autoreconf --verbose --force --install" ]
+                }
+            ]
+        },
+        {
+            "name": "sassc",
+            "sources": [
+                {
+                    "type": "archive",
+                    "url": "https://github.com/sass/sassc/archive/3.4.2.tar.gz",
+                    "sha256": "ad805f2d404d17cf2980c8079a7413cd58d2f2085120167997b85420a722e079"
+                },
+                {
+                    "type": "shell",
+                    "commands": [ "autoreconf --verbose --force --install" ]
+                }
+            ]
+        },
+        {
             "name": "eos-knowledge-content-renderer",
             "buildsystem": "meson",
             "sources": [
                 {
                     "type": "git",
-                    "url": "https://github.com/endlessm/eos-knowledge-content-renderer"
+                    "url": "https://github.com/endlessm/eos-knowledge-content-renderer",
+                    "commit": "78d61297e3b64a0b37d508d0de5901db1eb67783"
+                }
+            ]
+        },
+        {
+            "name": "eos-shard",
+            "sources": [
+                {
+                    "type": "git",
+                    "url": "https://github.com/endlessm/eos-shard.git",
+                    "commit": "ed7be3efdc8781d87e24b7335980506518ba6006"
                 }
             ]
         },
@@ -55,7 +148,8 @@
             "sources": [
                 {
                     "type": "git",
-                    "url": "https://github.com/endlessm/libcontentfeed"
+                    "url": "https://github.com/endlessm/libcontentfeed",
+                    "commit": "ae21951dbed6b79f4b45548e3e1a7d9d59976659"
                 }
             ]
         },
@@ -75,7 +169,7 @@
             ]
         }
     ],
-    "runtime": "com.endlessm.apps.Platform",
-    "runtime-version": "3",
-    "sdk": "com.endlessm.apps.Sdk"
+    "runtime": "org.gnome.Platform",
+    "runtime-version": "3.28",
+    "sdk": "org.gnome.Sdk"
 }
