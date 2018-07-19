@@ -6,6 +6,7 @@ rm -rf files var metadata export build
 BRANCH=${BRANCH:-master}
 GIT_CLONE_BRANCH=${GIT_CLONE_BRANCH:-HEAD}
 RUN_TESTS=${RUN_TESTS:-false}
+REPO=${REPO:-repo}
 
 sed \
   -e "s|@BRANCH@|${BRANCH}|g" \
@@ -15,5 +16,5 @@ sed \
   > com.endlessm.CompanionAppService.json
 
 flatpak-builder build com.endlessm.CompanionAppService.json
-flatpak build-export repo build ${BRANCH}
-flatpak build-bundle repo com.endlessm.CompanionAppService.flatpak com.endlessm.CompanionAppService
+flatpak build-export ${REPO} build ${BRANCH}
+flatpak build-bundle ${REPO} com.endlessm.CompanionAppService.flatpak com.endlessm.CompanionAppService
