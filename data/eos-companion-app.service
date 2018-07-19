@@ -6,30 +6,7 @@ ConditionPathExists=/etc/avahi/services/companion-app.service
 [Service]
 ExecStart=/usr/bin/dbus-run-session /usr/bin/flatpak run --no-desktop --no-a11y-bus --no-documents-portal com.endlessm.CompanionAppService
 User=companion-app-helper
-# This does not appear to cause any problems when writing
-# to /var/lib/eos-companion-app, remove if it does. We need
-# CAP_SETUID and CAP_SETGID as bwrap is setuid. CAP_SYS_ADMIN,
-# CAP_NET_ADMIN and CAP_SYS_CHROOT are also used by bwrap.
-CapabilityBoundingSet=CAP_NET_ADMIN CAP_SYS_ADMIN CAP_SYS_CHROOT CAP_SETUID CAP_SETGID
-MemoryDenyWriteExecute=yes
-NoNewPrivileges=yes
-PrivateDevices=yes
-# xapian-bridge needs local networking
-PrivateNetwork=no
 PrivateTmp=yes
-PrivateUsers=yes
-ProtectControlGroups=yes
-ProtectHome=yes
-ProtectKernelModules=yes
-# bwrap mounts /proc
-ProtectKernelTunables=no
-ProtectSystem=yes
-# xapian-bridge needs AF_INET, we should probably
-# allow AF_INET6 too. bwrap needs AF_NETLINK.
-RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
-RestrictRealtime=yes
-SystemCallArchitectures=native
-SystemCallErrorNumber=EPERM
 SystemCallArchitectures=native
 Environment="XDG_RUNTIME_DIR=/tmp/run"
 Environment="XDG_DATA_DIRS=/var/lib/flatpak/exports/share:/var/endless-extra/flatpak/exports/share"
