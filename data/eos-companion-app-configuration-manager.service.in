@@ -1,7 +1,7 @@
 [Unit]
 Description=Endless OS Companion App Enabler
 Wants=dbus.service
-After=dbus.service
+After=dbus.service eos-extra-settled.target
 DefaultDependencies=no
 Conflicts=shutdown.target
 
