@@ -1,7 +1,7 @@
 [Unit]
 Description=Endless OS Companion App Enabler
 Wants=dbus.service
-After=dbus.service
+After=dbus.service eos-extra-settled.target
 DefaultDependencies=no
 Conflicts=shutdown.target
 
@@ -22,7 +22,7 @@ NoNewPrivileges=yes
 PrivateDevices=yes
 PrivateNetwork=yes
 PrivateTmp=yes
-#PrivateUsers=yes
+PrivateUsers=no
 ProtectControlGroups=yes
 ProtectHome=no
 ProtectKernelModules=yes
