@@ -80,7 +80,6 @@ systemdsystemunit_DATA += \
 	$(NULL)
 
 EXTRA_DIST += \
-	data/eos-companion-app.service \
 	data/eos-companion-app.socket \
 	$(NULL)
 
@@ -100,6 +99,20 @@ tmpfiles_DATA += \
 
 EXTRA_DIST += \
 	data/eos-companion-app-helper.conf \
+	$(NULL)
+
+# Socket Activation Wrapper
+libexec_PROGRAMS += eos-companion-app-socket-activation-helper
+
+eos_companion_app_socket_activation_helper_SOURCES = \
+	socket-activation-wrapper/main.c \
+	$(NULL)
+
+eos_companion_app_socket_activation_helper_CFLAGS = \
+	$(EOS_COMPANION_APP_INTEGRATION_CFLAGS) \
+	$(NULL)
+eos_companion_app_socket_activation_helper_LDADD = \
+	$(EOS_COMPANION_APP_INTEGRATION_LIBS) \
 	$(NULL)
 
 # Companion App Avahi Helper D-Bus Library
@@ -158,6 +171,9 @@ CLEANFILES += \
 	$(NULL)
 
 # # # SYSTEMD SERVICES # # #
+data/eos-companion-app.service: data/eos-companion-app.service.in
+	$(AM_V_GEN) mkdir -p `dirname $@` && sed -e 's|@libexecdir[@]|${libexecdir}|g' $< > $@.tmp && mv $@.tmp $@
+
 data/eos-companion-app-avahi-helper.service: data/eos-companion-app-avahi-helper.service.in
 	$(AM_V_GEN) mkdir -p `dirname $@` && sed -e 's|@libexecdir[@]|${libexecdir}|g' $< > $@.tmp && mv $@.tmp $@
 
@@ -165,10 +181,12 @@ data/eos-companion-app-configuration-manager.service: data/eos-companion-app-con
 	$(AM_V_GEN) mkdir -p `dirname $@` && sed -e 's|@libexecdir[@]|${libexecdir}|g' $< > $@.tmp && mv $@.tmp $@
 
 CLEANFILES += \
+	data/eos-companion-app.service \
 	data/eos-companion-app-avahi-helper.service \
 	data/eos-companion-app-configuration-manager.service \
 	$(NULL)
 EXTRA_DIST += \
+	data/eos-companion-app.service.in \
 	data/eos-companion-app-avahi-helper.service.in \
 	data/eos-companion-app-configuration-manager.service.in \
 	$(NULL)

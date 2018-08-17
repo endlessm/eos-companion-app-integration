@@ -88,6 +88,7 @@ AS_IF([test "x$EOS_COMPANION_APP_INTEGRATION_ENABLED" = "xyes"], [
     glib-2.0
     gio-2.0
     gio-unix-2.0
+    libsystemd
   ])
   ADDITIONAL_DISTCHECK_CONFIGURE_FLAGS="$ADDITIONAL_DISTCHECK_CONFIGURE_FLAGS --enable-integration"
 ], [
