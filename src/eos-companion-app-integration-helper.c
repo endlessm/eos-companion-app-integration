@@ -127,25 +127,14 @@ eos_companion_app_service_soup_server_listen_on_sd_fd_or_port (SoupServer       
                                                                SoupServerListenOptions   options,
                                                                GError                  **error)
 {
-  g_autoptr(GError) local_error = NULL;
+  const char *started_by_systemd = g_getenv ("EOS_COMPANION_APP_SERVICE_STARTED_BY_SYSTEMD");
 
-  if (!soup_server_listen_fd (server,
-                              SYSTEMD_SOCKET_ACTIVATION_LISTEN_FDS_START,
-                              options,
-                              &local_error))
-    {
-      /* We just get a generic failure if we try and listen on a bad socket,
-       * so try to listen on the port instead if this happens */
-      if (!g_error_matches (local_error, G_IO_ERROR, G_IO_ERROR_FAILED))
-        {
-          g_propagate_error (error, g_steal_pointer (&local_error));
-          return FALSE;
-        }
+  if (started_by_systemd != NULL)
+    return soup_server_listen_fd (server, SYSTEMD_SOCKET_ACTIVATION_LISTEN_FDS_START,
+                                  options, error);
 
-      return soup_server_listen_all (server, port, options, error);
-    }
-
-  return TRUE;
+  /* Not started by systemd, listen on port */
+  return soup_server_listen_all (server, port, options, error);
 }
 
 static gboolean
