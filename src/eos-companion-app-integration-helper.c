@@ -27,11 +27,6 @@
 
 #include <string.h>
 
-/* To avoid having to include systemd in the runtime, we can just
- * listen for socket activation file descriptors starting from
- * what systemed wants to pass to us, which is fd 3 */
-#define SYSTEMD_SOCKET_ACTIVATION_LISTEN_FDS_START 3
-
 #define SUPPORTED_RUNTIME_NAME "com.endlessm.apps.Platform"
 
 /* Needed to get autocleanups of GResource files */
@@ -127,25 +122,25 @@ eos_companion_app_service_soup_server_listen_on_sd_fd_or_port (SoupServer       
                                                                SoupServerListenOptions   options,
                                                                GError                  **error)
 {
-  g_autoptr(GError) local_error = NULL;
+  const char *sd_fd_value = g_getenv ("EOS_COMPANION_APP_SERVICE_LISTEN_FD");
 
-  if (!soup_server_listen_fd (server,
-                              SYSTEMD_SOCKET_ACTIVATION_LISTEN_FDS_START,
-                              options,
-                              &local_error))
+  if (sd_fd_value != NULL)
     {
-      /* We just get a generic failure if we try and listen on a bad socket,
-       * so try to listen on the port instead if this happens */
-      if (!g_error_matches (local_error, G_IO_ERROR, G_IO_ERROR_FAILED))
-        {
-          g_propagate_error (error, g_steal_pointer (&local_error));
-          return FALSE;
-        }
+      gint64 fd64 = -1;
 
-      return soup_server_listen_all (server, port, options, error);
+      if (!g_ascii_string_to_signed (sd_fd_value,
+                                     10,
+                                     0,
+                                     G_MAXINT,
+                                     &fd64,
+                                     error))
+        return FALSE;
+
+      return soup_server_listen_fd (server, (gint) fd64, options, error);
     }
 
-  return TRUE;
+  /* No file descriptor passed, listen on port */
+  return soup_server_listen_all (server, port, options, error);
 }
 
 static gboolean
