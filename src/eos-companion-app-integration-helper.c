@@ -470,19 +470,27 @@ load_desktop_info_key_file_for_app_id (const gchar      *app_id,
       return key_file_to_desktop_app_info_in_sandbox (key_file);
     }
 
-  system_desktop_app_info = g_desktop_app_info_new (desktop_id);
-
-  if (system_desktop_app_info == NULL)
-    {
-      g_set_error (error,
-                   EOS_COMPANION_APP_SERVICE_ERROR,
-                   EOS_COMPANION_APP_SERVICE_ERROR_INVALID_APP_ID,
-                   "Application %s is not installed",
-                   app_id);
-      return NULL;
-    }
-
-  return g_steal_pointer (&system_desktop_app_info);
+  /* We used to call g_desktop_app_info_new here as a fallback
+   * to try and find the .desktop file in the system directories,
+   * however that is a mostly pointless exercise considering that
+   * all content apps are going to be installed as flatpaks and
+   * there's no chance that the .desktop file is going to
+   * be in the system data dirs on the flatpak runtime. Additionally,
+   * since this code is called in a separate thread and
+   * g_desktop_app_info_new does some internal locking to
+   * build up its cache of .desktop files, we're just exposing ourselves
+   * to the possibility of a deadlock in another library
+   * unnecessarly, so its better to just return an error
+   * here and have the caller deal with it.
+   *
+   * https://phabricator.endlessm.com/T23650
+   */
+  g_set_error (error,
+               EOS_COMPANION_APP_SERVICE_ERROR,
+               EOS_COMPANION_APP_SERVICE_ERROR_INVALID_APP_ID,
+               "Application %s is not installed",
+               app_id);
+  return NULL;
 }
 
 static gboolean
