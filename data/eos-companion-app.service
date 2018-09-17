@@ -33,3 +33,4 @@ SystemCallErrorNumber=EPERM
 SystemCallArchitectures=native
 Environment="XDG_RUNTIME_DIR=/tmp/run"
 Environment="XDG_DATA_DIRS=/var/lib/flatpak/exports/share:/var/endless-extra/flatpak/exports/share"
+Environment="EOS_COMPANION_APP_SERVICE_STARTED_BY_SYSTEMD=1"
