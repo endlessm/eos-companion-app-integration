@@ -1,9 +1,0 @@
-debian/eos-companion-app-os-integration/lib/systemd/system/*
-debian/eos-companion-app-os-integration/usr/lib/*/eos-companion-app-avahi-helper
-debian/eos-companion-app-os-integration/usr/lib/*/eos-companion-app-configuration-manager
-debian/eos-companion-app-os-integration/usr/share/dbus-1/system.d/com.endlessm.CompanionAppServiceAvahiHelper.conf
-debian/eos-companion-app-os-integration/usr/share/dbus-1/system-services/com.endlessm.CompanionAppServiceAvahiHelper.service
-debian/eos-companion-app-os-integration/usr/share/eos-companion-app/config.ini
-debian/eos-companion-app-os-integration/usr/share/polkit-1/rules.d/com.endlessm.CompanionAppService.rules
-debian/eos-companion-app-os-integration/usr/share/polkit-1/rules.d/com.endlessm.CompanionAppServiceAvahiHelper.rules
-debian/eos-companion-app-os-integration/usr/lib/tmpfiles.d/*
