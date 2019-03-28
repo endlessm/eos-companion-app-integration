@@ -27,6 +27,10 @@
         "--share=network",
         "--command=eos-companion-app-service"
     ],
+    "cleanup": [
+        "*.a",
+        "*.la"
+    ],
     "modules": [
         "com.endlessm.CompanionAppService.PipDependencies.json",
         {
